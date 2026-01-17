@@ -8,32 +8,42 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const dataUrl = searchParams.get('dataUrl');
+    // Support both 'dataUrl' (old format) and 'data' (new format)
+    const dataParam = searchParams.get('data') || searchParams.get('dataUrl');
     
-    if (!dataUrl) {
+    if (!dataParam) {
       return NextResponse.json(
-        { error: 'No data URL provided' },
+        { error: 'No image data provided' },
         { status: 400 }
       );
     }
 
-    // Convert data URL to buffer
-    const base64Data = dataUrl.split(',')[1];
+    // Handle both full data URL and base64 string
+    let base64Data: string;
+    if (dataParam.startsWith('data:')) {
+      base64Data = dataParam.split(',')[1];
+    } else {
+      // Already base64 encoded
+      base64Data = decodeURIComponent(dataParam);
+    }
+    
     if (!base64Data) {
       return NextResponse.json(
-        { error: 'Invalid data URL format' },
+        { error: 'Invalid image data format' },
         { status: 400 }
       );
     }
 
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
-    // Return the image with proper headers
+    // Return the image with proper headers for Farcaster
     return new NextResponse(imageBuffer, {
       headers: {
         'Content-Type': 'image/png',
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600', // Cache for 1 hour
         'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
       },
     });
   } catch (error) {
@@ -47,7 +57,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST endpoint to generate a shareable image URL
- * Stores the image data and returns a URL to retrieve it
+ * Returns a URL that can be used to retrieve the image via GET
  */
 export async function POST(request: NextRequest) {
   try {
@@ -69,21 +79,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create a hash from the data to use as a cache key
-    // In production, you'd upload to S3/Cloudinary and return that URL
-    // For now, we'll use a simple approach with the seed as identifier
+    // Create a URL that can serve the image via GET
+    // We'll use the seed as identifier and encode the base64 data
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
     
-    // Create a URL that can serve the image
-    // We'll encode the base64 data in the URL (not ideal for large images, but works)
-    // Better approach: Store in memory cache or use a proper storage service
-    const imageUrl = `${baseUrl}/api/logo-image?seed=${seed || Date.now()}&data=${encodeURIComponent(base64Data.substring(0, 1000))}`;
+    // Create HTTP URL that will serve the image
+    // The GET endpoint will decode and serve it
+    const imageUrl = `${baseUrl}/api/logo-image?seed=${seed || Date.now()}&data=${encodeURIComponent(base64Data)}`;
     
-    // Actually, let's use a simpler approach - return the data URL directly
-    // Farcaster should accept data URLs in embeds
     return NextResponse.json({
       success: true,
-      imageUrl: dataUrl, // Return data URL directly - Farcaster should handle it
+      imageUrl: imageUrl, // HTTP URL that serves the image
       shareUrl: `${baseUrl}?text=${encodeURIComponent(text || '')}&seed=${seed || ''}`,
     });
   } catch (error) {

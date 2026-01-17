@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { generateLogo, LogoResult, Rarity } from '@/lib/logoGenerator';
 import { sdk } from '@farcaster/miniapp-sdk';
 import Toast from './Toast';
+import CastPreviewModal from './CastPreviewModal';
 
 interface ToastState {
   message: string;
@@ -21,6 +22,9 @@ export default function LogoGenerator() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [seedError, setSeedError] = useState<string>('');
   const [userInfo, setUserInfo] = useState<{ fid?: number; username?: string } | null>(null);
+  const [showCastPreview, setShowCastPreview] = useState(false);
+  const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
+  const [castPreviewText, setCastPreviewText] = useState<string>('');
 
   useEffect(() => {
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
@@ -173,9 +177,44 @@ export default function LogoGenerator() {
     }
   };
 
+  const handleCastClick = async () => {
+    if (!logoResult) return;
+    
+    // Generate preview first
+    try {
+      const previewImage = await generateCastImage(logoResult);
+      const shareUrl = `${window.location.origin}?text=${encodeURIComponent(logoResult.config.text)}&seed=${logoResult.seed}`;
+      
+      const rarityEmoji = {
+        'COMMON': '⚪',
+        'RARE': '🔵',
+        'EPIC': '🟣',
+        'LEGENDARY': '🟠',
+      }[logoResult.rarity] || '🎮';
+      
+      const previewText = `${rarityEmoji} Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"
+
+✨ Rarity: ${logoResult.rarity}
+🎲 Seed: ${logoResult.seed}
+🔗 Recreate: ${shareUrl}
+
+#PixelLogoForge #${logoResult.rarity}Logo`;
+      
+      setCastPreviewImage(previewImage);
+      setCastPreviewText(previewText);
+      setShowCastPreview(true);
+    } catch (error) {
+      console.error('Failed to generate preview:', error);
+      setToast({ message: 'Failed to generate preview. Casting directly...', type: 'error' });
+      // Fall through to direct cast
+      handleCast();
+    }
+  };
+
   const handleCast = async () => {
     if (!logoResult) return;
     
+    setShowCastPreview(false);
     setIsCasting(true);
     try {
       // Create share URL with logo parameters
@@ -226,10 +265,21 @@ export default function LogoGenerator() {
       // Use Farcaster SDK composeCast
       if (sdkReady) {
         try {
-          console.log('Calling SDK composeCast with:', {
-            text: `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}\n\nSeed: ${logoResult.seed}`,
-            embeds: [castImageUrl],
-          });
+          // Create more engaging cast text
+          const rarityEmoji = {
+            'COMMON': '⚪',
+            'RARE': '🔵',
+            'EPIC': '🟣',
+            'LEGENDARY': '🟠',
+          }[logoResult.rarity] || '🎮';
+          
+          const castText = `${rarityEmoji} Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"
+
+✨ Rarity: ${logoResult.rarity}
+🎲 Seed: ${logoResult.seed}
+🔗 Recreate: ${shareUrl}
+
+#PixelLogoForge #${logoResult.rarity}Logo`;
           
           // Farcaster embeds - build as tuple type
           let embeds: [string] | [string, string] | undefined = undefined;
@@ -245,10 +295,13 @@ export default function LogoGenerator() {
             embeds = [shareUrl] as [string];
           }
           
-          console.log('Calling composeCast with embeds:', embeds);
-          
+          console.log('Calling SDK composeCast with:', {
+            text: castText,
+            embeds: embeds,
+          });
+
           const result = await sdk.actions.composeCast({
-            text: `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}\n\nSeed: ${logoResult.seed}`,
+            text: castText,
             embeds: embeds,
           });
           
@@ -271,9 +324,22 @@ export default function LogoGenerator() {
       } else {
         console.log('SDK not ready, using Warpcast fallback');
         // Fallback: open Warpcast compose URL
-        const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(
-          `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}`
-        )}&embeds[]=${encodeURIComponent(castImageUrl)}`;
+        const rarityEmoji = {
+          'COMMON': '⚪',
+          'RARE': '🔵',
+          'EPIC': '🟣',
+          'LEGENDARY': '🟠',
+        }[logoResult.rarity] || '🎮';
+        
+        const castText = `${rarityEmoji} Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"
+
+✨ Rarity: ${logoResult.rarity}
+🎲 Seed: ${logoResult.seed}
+🔗 Recreate: ${shareUrl}
+
+#PixelLogoForge #${logoResult.rarity}Logo`;
+        
+        const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(castImageUrl)}`;
         window.open(warpcastUrl, '_blank');
         setToast({ message: 'Opening Warpcast to compose cast...', type: 'info' });
       }
@@ -426,6 +492,15 @@ export default function LogoGenerator() {
           onClose={() => setToast(null)}
         />
       )}
+      {showCastPreview && castPreviewImage && (
+        <CastPreviewModal
+          previewImage={castPreviewImage}
+          castText={castPreviewText}
+          onConfirm={handleCast}
+          onCancel={() => setShowCastPreview(false)}
+          isCasting={isCasting}
+        />
+      )}
       <div className="input-section">
         <input
           type="text"
@@ -540,11 +615,11 @@ export default function LogoGenerator() {
                 {isSharing ? 'SHARING...' : 'SHARE'}
               </button>
               <button 
-                onClick={handleCast} 
+                onClick={handleCastClick} 
                 className="action-button cast-button"
                 disabled={isCasting || isGenerating}
                 aria-label="Cast logo to Farcaster"
-                aria-busy={isCasting}
+                aria-busy={isCasting ? 'true' : 'false'}
               >
                 {isCasting ? 'CASTING...' : 'CAST THIS LOGO'}
               </button>
