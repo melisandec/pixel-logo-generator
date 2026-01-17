@@ -20,6 +20,7 @@ export default function LogoGenerator() {
   const [sdkReady, setSdkReady] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [seedError, setSeedError] = useState<string>('');
+  const [userInfo, setUserInfo] = useState<{ fid?: number; username?: string } | null>(null);
 
   useEffect(() => {
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
@@ -30,6 +31,19 @@ export default function LogoGenerator() {
       try {
         await sdk.actions.ready();
         setSdkReady(true);
+        
+        // Get user info if available
+        try {
+          const context = await sdk.context;
+          if (context?.user) {
+            setUserInfo({
+              fid: context.user.fid,
+              username: context.user.username,
+            });
+          }
+        } catch (userError) {
+          console.log('Could not get user info:', userError);
+        }
       } catch (error) {
         console.log('SDK not available (running outside Farcaster client)');
         setSdkReady(false);
@@ -167,18 +181,20 @@ export default function LogoGenerator() {
       // Create share URL with logo parameters
       const shareUrl = `${window.location.origin}?text=${encodeURIComponent(logoResult.config.text)}&seed=${logoResult.seed}`;
       
-      // Convert data URL to blob URL for better compatibility with Farcaster
-      let imageUrl = logoResult.dataUrl;
+      // Generate the composite cast image with logo, rarity, and owner
+      let castImageUrl = logoResult.dataUrl; // Fallback to original logo
       
-      // Try to get a shareable image URL (better for Farcaster)
       try {
+        const castImageDataUrl = await generateCastImage(logoResult);
+        
+        // Upload the composite image to get a shareable URL
         const uploadResponse = await fetch('/api/logo-image', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            dataUrl: logoResult.dataUrl,
+            dataUrl: castImageDataUrl,
             text: logoResult.config.text,
             seed: logoResult.seed,
           }),
@@ -186,24 +202,21 @@ export default function LogoGenerator() {
         
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
-          // Use the shareable URL if we got one
           if (uploadData.imageUrl) {
-            imageUrl = uploadData.imageUrl;
+            castImageUrl = uploadData.imageUrl;
           }
         }
-      } catch (uploadError) {
-        console.log('Failed to get shareable URL, using data URL:', uploadError);
-        // Continue with data URL as fallback
+      } catch (imageError) {
+        console.log('Failed to generate cast image, using original:', imageError);
+        // Continue with original logo
       }
       
       // Use Farcaster SDK composeCast
       if (sdkReady) {
         try {
-          // For Farcaster, we need to include the image URL in embeds
-          // The image should be the first embed, followed by the share URL
           const result = await sdk.actions.composeCast({
             text: `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}\n\nSeed: ${logoResult.seed}`,
-            embeds: [imageUrl, shareUrl], // Image first, then share URL
+            embeds: [castImageUrl], // Include the composite image with rarity and owner
           });
           
           if (result && result.cast) {
@@ -217,10 +230,10 @@ export default function LogoGenerator() {
           throw sdkError;
         }
       } else {
-        // Fallback: open Warpcast compose URL with image
+        // Fallback: open Warpcast compose URL
         const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(
           `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}`
-        )}&embeds[]=${encodeURIComponent(imageUrl)}`;
+        )}&embeds[]=${encodeURIComponent(castImageUrl)}`;
         window.open(warpcastUrl, '_blank');
         setToast({ message: 'Opening Warpcast to compose cast...', type: 'info' });
       }
@@ -240,6 +253,114 @@ export default function LogoGenerator() {
       case 'LEGENDARY': return '#FFAA00';
       default: return '#FFFFFF';
     }
+  };
+
+  const generateCastImage = async (logoResult: LogoResult): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      try {
+        // Create a larger canvas for the card
+        const cardCanvas = document.createElement('canvas');
+        const cardCtx = cardCanvas.getContext('2d');
+        if (!cardCtx) {
+          reject(new Error('Could not create canvas context'));
+          return;
+        }
+
+        // Load the logo image
+        const logoImg = new Image();
+        logoImg.onload = () => {
+          // Card dimensions - wider format for social sharing
+          const cardWidth = 1200;
+          const cardHeight = 630;
+          cardCanvas.width = cardWidth;
+          cardCanvas.height = cardHeight;
+
+          // Disable smoothing for pixel art
+          cardCtx.imageSmoothingEnabled = false;
+
+          // Draw dark background
+          cardCtx.fillStyle = '#000000';
+          cardCtx.fillRect(0, 0, cardWidth, cardHeight);
+
+          // Draw border
+          const borderWidth = 8;
+          const rarityColor = getRarityColor(logoResult.rarity);
+          cardCtx.strokeStyle = rarityColor;
+          cardCtx.lineWidth = borderWidth;
+          cardCtx.strokeRect(borderWidth / 2, borderWidth / 2, cardWidth - borderWidth, cardHeight - borderWidth);
+
+          // Calculate logo size and position (centered)
+          const logoPadding = 40;
+          const maxLogoWidth = cardWidth - logoPadding * 2 - 200; // Leave space for metadata
+          const maxLogoHeight = cardHeight - logoPadding * 2 - 120;
+          
+          let logoWidth = logoImg.width;
+          let logoHeight = logoImg.height;
+          const logoAspect = logoWidth / logoHeight;
+          
+          if (logoWidth > maxLogoWidth) {
+            logoWidth = maxLogoWidth;
+            logoHeight = logoWidth / logoAspect;
+          }
+          if (logoHeight > maxLogoHeight) {
+            logoHeight = maxLogoHeight;
+            logoWidth = logoHeight * logoAspect;
+          }
+
+          const logoX = (cardWidth - logoWidth) / 2;
+          const logoY = 80;
+
+          // Draw logo
+          cardCtx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
+
+          // Draw rarity badge at top
+          const rarityY = 20;
+          const rarityX = cardWidth - 200;
+          cardCtx.fillStyle = '#000000';
+          cardCtx.fillRect(rarityX - 10, rarityY - 10, 180, 50);
+          cardCtx.strokeStyle = rarityColor;
+          cardCtx.lineWidth = 4;
+          cardCtx.strokeRect(rarityX - 10, rarityY - 10, 180, 50);
+          
+          cardCtx.fillStyle = rarityColor;
+          cardCtx.font = 'bold 20px "Press Start 2P", monospace';
+          cardCtx.textAlign = 'center';
+          cardCtx.textBaseline = 'middle';
+          cardCtx.fillText('RARITY:', rarityX + 80, rarityY + 8);
+          cardCtx.fillText(logoResult.rarity, rarityX + 80, rarityY + 32);
+
+          // Draw owner info at bottom
+          const ownerY = cardHeight - 60;
+          const ownerText = userInfo?.username 
+            ? `Generated by @${userInfo.username}`
+            : userInfo?.fid 
+            ? `Generated by FID ${userInfo.fid}`
+            : 'Generated by Pixel Logo Forge';
+          
+          cardCtx.fillStyle = '#888888';
+          cardCtx.font = '14px "Courier New", monospace';
+          cardCtx.textAlign = 'center';
+          cardCtx.textBaseline = 'middle';
+          cardCtx.fillText(ownerText, cardWidth / 2, ownerY);
+
+          // Draw seed info
+          cardCtx.fillStyle = '#666666';
+          cardCtx.font = '12px "Courier New", monospace';
+          cardCtx.fillText(`Seed: ${logoResult.seed}`, cardWidth / 2, ownerY + 25);
+
+          // Convert to data URL
+          resolve(cardCanvas.toDataURL('image/png'));
+        };
+
+        logoImg.onerror = () => {
+          reject(new Error('Failed to load logo image'));
+        };
+
+        logoImg.src = logoResult.dataUrl;
+      } catch (error) {
+        reject(error);
+      }
+    });
   };
 
   const copySeed = async () => {
@@ -318,7 +439,7 @@ export default function LogoGenerator() {
             disabled={isGenerating || !inputText.trim() || !!seedError}
             className="arcade-button"
             aria-label="Generate pixel logo"
-            aria-busy={isGenerating}
+            aria-busy={isGenerating ? 'true' : 'false'}
           >
             {isGenerating ? 'GENERATING...' : 'GENERATE'}
           </button>
