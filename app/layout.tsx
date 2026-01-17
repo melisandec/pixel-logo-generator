@@ -15,6 +15,23 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <meta
+          name="fc:miniapp"
+          content={JSON.stringify({
+            version: "1",
+            imageUrl: "https://pixel-logo-generator.vercel.app/og-image.png",
+            button: {
+              title: "Generate Logo",
+              action: {
+                type: "launch_miniapp",
+                url: "https://pixel-logo-generator.vercel.app",
+                name: "Pixel Logo Forge",
+                splashImageUrl: "https://pixel-logo-generator.vercel.app/splash.png",
+                splashBackgroundColor: "#000000"
+              }
+            }
+          })}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
