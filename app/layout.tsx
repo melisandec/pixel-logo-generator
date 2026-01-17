@@ -25,6 +25,30 @@ export const metadata: Metadata = {
     description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
     images: ['https://pixel-logo-generator.vercel.app/display.png'],
   },
+  whatsapp: {
+    card: 'summary_large_image',
+    title: 'Pixel Logo Forge',
+    description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
+    image: 'https://pixel-logo-generator.vercel.app/display.png',
+  },
+  instagram: {
+    card: 'summary_large_image',
+    title: 'Pixel Logo Forge',
+    description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
+    image: 'https://pixel-logo-generator.vercel.app/display.png',
+  },
+  pinterest: {
+    card: 'summary_large_image',
+    title: 'Pixel Logo Forge',
+    description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
+    image: 'https://pixel-logo-generator.vercel.app/display.png',
+  },
+  linkedin: {
+    card: 'summary_large_image',
+    title: 'Pixel Logo Forge',
+    description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
+    image: 'https://pixel-logo-generator.vercel.app/display.png',
+  },
 };
 
 export const viewport = {
