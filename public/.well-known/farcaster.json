@@ -1,13 +1,14 @@
 {
- "accountAssociation": {
-        "header": "eyJmaWQiOjQyOTQ1MCwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDk1OTk3MzZGQTU0NzI3MDQwOGFGZjhGNTNCMTZCMDYyODNEM2NDMDUifQ",
-        "payload": "eyJkb21haW4iOiJwaXhlbC1sb2dvLWdlbmVyYXRvci52ZXJjZWwuYXBwIn0",
-        "signature": "MtC/iiM0k6LMcPzIx8P+b7U7D+w/pbTW2/Xgfeqh6ycodFI97+sn+GLJMtz2QToM0DbgfEZyq+4K8x+obG8EKRs="
+  "accountAssociation": {
+    "header": "eyJmaWQiOjQyOTQ1MCwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDk1OTk3MzZGQTU0NzI3MDQwOGFGZjhGNTNCMTZCMDYyODNEM2NDMDUifQ",
+    "payload": "eyJkb21haW4iOiJwaXhlbC1sb2dvLWdlbmVyYXRvci52ZXJjZWwuYXBwIn0",
+    "signature": "MtC/iiM0k6LMcPzIx8P+b7U7D+w/pbTW2/Xgfeqh6ycodFI97+sn+GLJMtz2QToM0DbgfEZyq+4K8x+obG8EKRs="
   },
   "miniapp": {
     "version": "1",
     "name": "Pixel Logo Forge",
     "description": "Generate retro arcade-style pixelated logos with collectible rarity system. Transform any word into a 3D pixel sculpture with depth, lighting, and vintage aesthetics.",
+    "tagline": "Retro arcade logo generator",
     "iconUrl": "https://pixel-logo-generator.vercel.app/icon.png",
     "homeUrl": "https://pixel-logo-generator.vercel.app",
     "splashImageUrl": "https://pixel-logo-generator.vercel.app/splash.png",
@@ -15,6 +16,10 @@
     "heroImageUrl": "https://pixel-logo-generator.vercel.app/hero.png",
     "imageUrl": "https://pixel-logo-generator.vercel.app/og-image.png",
     "buttonTitle": "Generate Logo",
+    "ogTitle": "Pixel Logo Forge",
+    "ogDescription": "Generate retro arcade-style logos",
+    "ogImageUrl": "https://pixel-logo-generator.vercel.app/og-image.png",
+    "castShareUrl": "https://pixel-logo-generator.vercel.app",
     "webhookUrl": "https://pixel-logo-generator.vercel.app/api/webhook",
     "canonicalDomain": "pixel-logo-generator.vercel.app",
     "tags": [
