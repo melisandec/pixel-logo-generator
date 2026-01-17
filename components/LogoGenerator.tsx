@@ -123,9 +123,10 @@ export default function LogoGenerator() {
       // Try Farcaster SDK first if available
       if (sdkReady) {
         try {
+          // Use the logo image in the share
           const result = await sdk.actions.composeCast({
             text: `Just generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}" 🎮\n\nRecreate it: ${shareUrl}`,
-            embeds: [logoResult.dataUrl], // Data URL can work as embed
+            embeds: [logoResult.dataUrl, shareUrl], // Include image and share URL
           });
           
           if (result && result.cast) {
@@ -166,12 +167,43 @@ export default function LogoGenerator() {
       // Create share URL with logo parameters
       const shareUrl = `${window.location.origin}?text=${encodeURIComponent(logoResult.config.text)}&seed=${logoResult.seed}`;
       
+      // Convert data URL to blob URL for better compatibility with Farcaster
+      let imageUrl = logoResult.dataUrl;
+      
+      // Try to get a shareable image URL (better for Farcaster)
+      try {
+        const uploadResponse = await fetch('/api/logo-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            dataUrl: logoResult.dataUrl,
+            text: logoResult.config.text,
+            seed: logoResult.seed,
+          }),
+        });
+        
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          // Use the shareable URL if we got one
+          if (uploadData.imageUrl) {
+            imageUrl = uploadData.imageUrl;
+          }
+        }
+      } catch (uploadError) {
+        console.log('Failed to get shareable URL, using data URL:', uploadError);
+        // Continue with data URL as fallback
+      }
+      
       // Use Farcaster SDK composeCast
       if (sdkReady) {
         try {
+          // For Farcaster, we need to include the image URL in embeds
+          // The image should be the first embed, followed by the share URL
           const result = await sdk.actions.composeCast({
             text: `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}\n\nSeed: ${logoResult.seed}`,
-            embeds: [logoResult.dataUrl, shareUrl], // Include both image and link
+            embeds: [imageUrl, shareUrl], // Image first, then share URL
           });
           
           if (result && result.cast) {
@@ -185,10 +217,10 @@ export default function LogoGenerator() {
           throw sdkError;
         }
       } else {
-        // Fallback: open Warpcast compose URL
+        // Fallback: open Warpcast compose URL with image
         const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(
           `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}`
-        )}`;
+        )}&embeds[]=${encodeURIComponent(imageUrl)}`;
         window.open(warpcastUrl, '_blank');
         setToast({ message: 'Opening Warpcast to compose cast...', type: 'info' });
       }
