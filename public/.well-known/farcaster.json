@@ -8,7 +8,7 @@
     "version": "1",
     "name": "Pixel Logo Forge",
     "description": "Generate retro arcade-style pixelated logos with collectible rarity system. Transform any word into a 3D pixel sculpture with depth, lighting, and vintage aesthetics.",
-    "iconUrl": "https://pixel-logo-generator.vercel.app/icon-128.png",
+    "iconUrl": "https://pixel-logo-generator.vercel.app/icon.png",
     "homeUrl": "https://pixel-logo-generator.vercel.app",
     "splashImageUrl": "https://pixel-logo-generator.vercel.app/splash.png",
     "splashBackgroundColor": "#000000",
