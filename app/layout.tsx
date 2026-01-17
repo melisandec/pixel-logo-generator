@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Pixel Logo Forge',
     description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
-    images: ['https://pixel-logo-generator.vercel.app/og-image.png'],
+    images: ['https://pixel-logo-generator.vercel.app/display.png'],
   },
 };
 

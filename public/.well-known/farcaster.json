@@ -15,7 +15,7 @@
     "splashImageUrl": "https://pixel-logo-generator.vercel.app/splash.png",
     "splashBackgroundColor": "#000000",
     "heroImageUrl": "https://pixel-logo-generator.vercel.app/display.png",
-    "imageUrl": "https://pixel-logo-generator.vercel.app/og-image.png",
+    "imageUrl": "https://pixel-logo-generator.vercel.app/display.png",
     "buttonTitle": "Generate Logo",
     "ogTitle": "Pixel Logo Forge",
     "ogDescription": "Generate retro arcade-style logos",
