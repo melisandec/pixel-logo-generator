@@ -1,22 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Try to import Vercel Blob (optional - will use fallback if not available)
-async function uploadToBlob(filename: string, buffer: Buffer): Promise<string | null> {
-  try {
-    const { put } = await import('@vercel/blob');
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const blob = await put(filename, buffer, {
-        access: 'public',
-        contentType: 'image/png',
-      });
-      return blob.url;
-    }
-  } catch (error) {
-    // Package not available or upload failed
-    console.log('Vercel Blob not available, using fallback:', error);
-  }
-  return null;
-}
+import { put } from '@vercel/blob';
 
 type StoredImage = { base64: string; createdAt: number };
 
@@ -138,17 +121,24 @@ export async function POST(request: NextRequest) {
     const imageBuffer = Buffer.from(base64Data, 'base64');
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
-    // Try to upload to Vercel Blob (production)
-    let imageUrl: string;
-    
     // Try to upload to Vercel Blob first, fallback to in-memory store
+    let imageUrl: string;
     const filename = `logo-${seed || Date.now()}-${Math.random().toString(36).slice(2)}.png`;
-    const blobUrl = await uploadToBlob(filename, imageBuffer);
     
-    if (blobUrl) {
-      imageUrl = blobUrl;
-    } else {
+    try {
+      // Try Vercel Blob if token is available
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        const blob = await put(filename, imageBuffer, {
+          access: 'public',
+          contentType: 'image/png',
+        });
+        imageUrl = blob.url;
+      } else {
+        throw new Error('BLOB_READ_WRITE_TOKEN not set');
+      }
+    } catch (error) {
       // Fallback to in-memory store (development or Blob not available)
+      console.log('Using fallback storage:', error instanceof Error ? error.message : 'Unknown error');
       const store = getStore();
       cleanupStore(store);
       const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
