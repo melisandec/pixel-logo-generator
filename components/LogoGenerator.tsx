@@ -265,7 +265,7 @@ export default function LogoGenerator() {
       // Use Farcaster SDK composeCast
       if (sdkReady) {
         try {
-          // Create more engaging cast text
+          // Keep the full cast metadata, but do not embed the share link
           const rarityEmoji = {
             'COMMON': '⚪',
             'RARE': '🔵',
@@ -282,17 +282,16 @@ export default function LogoGenerator() {
 #PixelLogoForge #${logoResult.rarity}Logo`;
           
           // Farcaster embeds - build as tuple type
-          let embeds: [string] | [string, string] | undefined = undefined;
+          let embeds: [string] | undefined = undefined;
           
           // Only add image embed if it's an HTTP URL (Farcaster prefers HTTP URLs over data URLs)
           if (castImageUrl && (castImageUrl.startsWith('http://') || castImageUrl.startsWith('https://'))) {
-            embeds = [castImageUrl, shareUrl] as [string, string];
+            embeds = [castImageUrl] as [string];
           } else if (castImageUrl && castImageUrl.startsWith('data:')) {
             // Try data URL (may not work in all clients)
             embeds = [castImageUrl] as [string];
           } else {
-            // Fallback: just use share URL
-            embeds = [shareUrl] as [string];
+            embeds = undefined;
           }
           
           console.log('Calling SDK composeCast with:', {
@@ -339,7 +338,9 @@ export default function LogoGenerator() {
 
 #PixelLogoForge #${logoResult.rarity}Logo`;
         
-        const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(castImageUrl)}`;
+        const warpcastUrl = castImageUrl
+          ? `https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(castImageUrl)}`
+          : `https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}`;
         window.open(warpcastUrl, '_blank');
         setToast({ message: 'Opening Warpcast to compose cast...', type: 'info' });
       }
