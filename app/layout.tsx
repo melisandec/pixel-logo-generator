@@ -4,7 +4,6 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Pixel Logo Forge - Retro Arcade Logo Generator',
   description: 'Generate retro pixelated logos with arcade aesthetics',
-  viewport: 'width=device-width, initial-scale=1',
   openGraph: {
     title: 'Pixel Logo Forge',
     description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
@@ -26,6 +25,11 @@ export const metadata: Metadata = {
     description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
     images: ['https://pixel-logo-generator.vercel.app/og-image.png'],
   },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({
