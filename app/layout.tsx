@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
     images: [
       {
-        url: 'https://pixel-logo-generator.vercel.app/og-image.png',
+        url: 'https://pixel-logo-generator.vercel.app/display.png',
         width: 1200,
         height: 630,
         alt: 'Pixel Logo Forge - Retro Arcade Logo Generator',
@@ -44,7 +44,7 @@ export default function RootLayout({
           name="fc:miniapp"
           content={JSON.stringify({
             version: "1",
-            imageUrl: "https://pixel-logo-generator.vercel.app/og-image.png",
+            imageUrl: "https://pixel-logo-generator.vercel.app/display.png",
             button: {
               title: "Generate Logo",
               action: {

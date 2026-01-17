@@ -19,7 +19,7 @@
     "buttonTitle": "Generate Logo",
     "ogTitle": "Pixel Logo Forge",
     "ogDescription": "Generate retro arcade-style logos",
-    "ogImageUrl": "https://pixel-logo-generator.vercel.app/og-image.png",
+    "ogImageUrl": "https://pixel-logo-generator.vercel.app/display.png",
     "castShareUrl": "https://pixel-logo-generator.vercel.app",
     "primaryCategory": "art-creativity",
     "webhookUrl": "https://pixel-logo-generator.vercel.app/api/webhook",
