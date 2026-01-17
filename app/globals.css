@@ -121,6 +121,16 @@ body {
   text-transform: uppercase;
 }
 
+.main-footer {
+  margin-top: 32px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
 .logo-generator {
   display: flex;
   flex-direction: column;
@@ -137,6 +147,23 @@ body {
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.seed-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.seed-icon {
+  fill: currentColor;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
 }
 
 .seed-input {
@@ -247,6 +274,9 @@ body {
 .output-section {
   display: flex;
   justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .logo-card {
@@ -332,6 +362,15 @@ body {
   width: 100%;
 }
 
+.how-it-works {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+  text-decoration: underline;
+  cursor: help;
+  letter-spacing: 1px;
+}
+
 .seed-display {
   display: flex;
   align-items: center;
@@ -369,6 +408,51 @@ body {
   font-family: 'Courier New', monospace;
   letter-spacing: 1px;
   text-transform: uppercase;
+}
+
+.history-strip {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-title {
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.history-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.history-item {
+  background: var(--bg-darker);
+  border: 1px solid var(--border-color);
+  padding: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.history-item:hover {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.history-image {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  display: block;
 }
 
 .cast-button {

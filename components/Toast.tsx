@@ -20,17 +20,17 @@ export default function Toast({ message, type = 'info', duration = 3000, onClose
 
   const typeStyles = {
     success: {
-      bg: 'rgba(0, 255, 0, 0.2)',
+      bg: 'rgba(0, 0, 0, 0.85)',
       border: '#00ff00',
       text: '#00ff00',
     },
     error: {
-      bg: 'rgba(255, 0, 0, 0.2)',
+      bg: 'rgba(0, 0, 0, 0.85)',
       border: '#ff0000',
       text: '#ff0000',
     },
     info: {
-      bg: 'rgba(0, 255, 255, 0.2)',
+      bg: 'rgba(0, 0, 0, 0.85)',
       border: '#00ffff',
       text: '#00ffff',
     },

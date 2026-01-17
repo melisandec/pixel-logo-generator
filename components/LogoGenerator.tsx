@@ -11,22 +11,79 @@ interface ToastState {
   type: 'success' | 'error' | 'info';
 }
 
+interface DailyLimitState {
+  date: string;
+  words: string[];
+  seedUsed: boolean;
+}
+
 export default function LogoGenerator() {
   const [inputText, setInputText] = useState('');
   const [customSeed, setCustomSeed] = useState<string>('');
+  const [seedError, setSeedError] = useState<string>('');
   const [logoResult, setLogoResult] = useState<LogoResult | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [isCasting, setIsCasting] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [seedError, setSeedError] = useState<string>('');
   const [userInfo, setUserInfo] = useState<{ fid?: number; username?: string } | null>(null);
   const [showCastPreview, setShowCastPreview] = useState(false);
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
   const [castPreviewText, setCastPreviewText] = useState<string>('');
+  const [logoHistory, setLogoHistory] = useState<LogoResult[]>([]);
+  const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
+    date: '',
+    words: [],
+    seedUsed: false,
+  });
+
+  const getTodayKey = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const normalizeWord = (value: string) => value.trim().toLowerCase();
+
+  const saveDailyLimit = (state: DailyLimitState) => {
+    try {
+      localStorage.setItem('plf:dailyLimit', JSON.stringify(state));
+    } catch (error) {
+      console.error('Failed to store daily limit:', error);
+    }
+  };
+
+  const ensureDailyLimit = () => {
+    const today = getTodayKey();
+    try {
+      const stored = localStorage.getItem('plf:dailyLimit');
+      if (stored) {
+        const parsed = JSON.parse(stored) as Partial<DailyLimitState>;
+        if (parsed.date === today) {
+          const hydrated = {
+            date: parsed.date ?? today,
+            words: parsed.words ?? [],
+            seedUsed: parsed.seedUsed ?? false,
+          };
+          setDailyLimit(hydrated);
+          return hydrated;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to read daily limit:', error);
+    }
+
+    const reset = { date: today, words: [], seedUsed: false };
+    setDailyLimit(reset);
+    saveDailyLimit(reset);
+    return reset;
+  };
 
   useEffect(() => {
+    const dailyState = ensureDailyLimit();
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
     const initSdk = async () => {
       // Wait 3 seconds before calling ready (splash screen duration)
@@ -62,9 +119,19 @@ export default function LogoGenerator() {
     
     if (textParam) {
       setInputText(textParam);
+      const normalizedText = normalizeWord(textParam);
+      if (dailyState.words.includes(normalizedText)) {
+        setToast({ message: 'You already tried this word today. Please wait until tomorrow.', type: 'info' });
+        return;
+      }
+      if (dailyState.words.length >= 3) {
+        setToast({ message: 'Daily limit reached. Please wait until tomorrow.', type: 'info' });
+        return;
+      }
       const seed = seedParam ? parseInt(seedParam, 10) : undefined;
-      if (seed) {
-        setCustomSeed(seed.toString());
+      if (seedParam && dailyState.seedUsed) {
+        setToast({ message: 'Seed already used today. Please wait until tomorrow.', type: 'info' });
+        return;
       }
       
       // Auto-generate if we have text
@@ -75,6 +142,14 @@ export default function LogoGenerator() {
             seed: seed,
           });
           setLogoResult(result);
+          addToHistory(result);
+          const nextLimit = {
+            ...dailyState,
+            words: [...dailyState.words, normalizedText],
+            seedUsed: dailyState.seedUsed || !!seedParam,
+          };
+          setDailyLimit(nextLimit);
+          saveDailyLimit(nextLimit);
         } catch (error) {
           console.error('Error loading logo from URL:', error);
           setToast({ 
@@ -86,28 +161,71 @@ export default function LogoGenerator() {
     }
   }, []);
 
+  const addToHistory = (result: LogoResult) => {
+    setLogoHistory((prev) => {
+      const next = [
+        result,
+        ...prev.filter(
+          (item) => item.seed !== result.seed || item.config.text !== result.config.text
+        ),
+      ];
+      return next.slice(0, 5);
+    });
+  };
+
   const handleGenerate = () => {
     if (!inputText.trim()) {
       setToast({ message: 'Please enter some text to generate a logo', type: 'error' });
       return;
     }
-    
-    if (seedError) {
-      setToast({ message: 'Please fix the seed error before generating', type: 'error' });
+
+    const normalizedText = normalizeWord(inputText);
+    const todayState = ensureDailyLimit();
+    if (todayState.words.includes(normalizedText)) {
+      setToast({ message: 'You already tried this word today. Please wait until tomorrow.', type: 'info' });
       return;
     }
-    
+    if (todayState.words.length >= 3) {
+      setToast({ message: 'Daily limit reached. Please wait until tomorrow.', type: 'info' });
+      return;
+    }
+
+    const seedValue = customSeed.trim();
+    let seed: number | undefined = undefined;
+    if (seedValue) {
+      if (todayState.seedUsed) {
+        setToast({ message: 'Seed already used today. Please wait until tomorrow.', type: 'info' });
+        return;
+      }
+      const parsedSeed = parseInt(seedValue, 10);
+      if (isNaN(parsedSeed)) {
+        setSeedError('Seed must be a number');
+        return;
+      }
+      if (parsedSeed < 0 || parsedSeed > 2147483647) {
+        setSeedError('Seed must be between 0 and 2147483647');
+        return;
+      }
+      seed = parsedSeed;
+      setSeedError('');
+    }
+
     setIsGenerating(true);
     setTimeout(() => {
       try {
-        const seed = customSeed.trim() 
-          ? parseInt(customSeed.trim(), 10) || undefined 
-          : undefined;
         const result = generateLogo({ 
           text: inputText.trim(),
-          seed: seed
+          seed: seed,
         });
         setLogoResult(result);
+        addToHistory(result);
+        const nextLimit = {
+          ...todayState,
+          words: [...todayState.words, normalizedText],
+          seedUsed: todayState.seedUsed || !!seed,
+        };
+        setDailyLimit(nextLimit);
+        saveDailyLimit(nextLimit);
         setToast({ message: 'Logo generated successfully!', type: 'success' });
       } catch (error) {
         console.error('Error generating logo:', error);
@@ -125,6 +243,7 @@ export default function LogoGenerator() {
     if (!logoResult) return;
     
     const filename = `pixel-logo-${logoResult.config.text.replace(/\s+/g, '-')}-${logoResult.rarity.toLowerCase()}.png`;
+    const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     try {
       const response = await fetch(logoResult.dataUrl);
@@ -145,11 +264,20 @@ export default function LogoGenerator() {
       const link = document.createElement('a');
       link.download = filename;
       link.href = objectUrl;
+      link.rel = 'noopener';
+      link.style.display = 'none';
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (error) {
       console.error('Download error:', error);
-      setToast({ message: 'Failed to download image. Please try again.', type: 'error' });
+      setToast({
+        message: isMobileDevice
+          ? 'Failed to save image. Please try again.'
+          : 'Download failed. Check your browser download settings or allow automatic downloads, then try again.',
+        type: 'error',
+      });
     }
   };
 
@@ -563,31 +691,49 @@ export default function LogoGenerator() {
           aria-required="true"
         />
         <div className="seed-input-group">
+          <div className="seed-label">
+            <svg
+              className="seed-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <rect x="6" y="2" width="4" height="2" />
+              <rect x="5" y="4" width="6" height="2" />
+              <rect x="4" y="6" width="8" height="2" />
+              <rect x="4" y="8" width="8" height="2" />
+              <rect x="5" y="10" width="6" height="2" />
+              <rect x="6" y="12" width="4" height="2" />
+            </svg>
+            <span>Seed</span>
+          </div>
           <input
             type="text"
             value={customSeed}
             onChange={(e) => {
               const value = e.target.value.trim();
               setCustomSeed(value);
-              
-              // Validate seed input
+
               if (value === '') {
                 setSeedError('');
+                return;
+              }
+
+              const parsedSeed = parseInt(value, 10);
+              if (isNaN(parsedSeed)) {
+                setSeedError('Seed must be a number');
+              } else if (parsedSeed < 0 || parsedSeed > 2147483647) {
+                setSeedError('Seed must be between 0 and 2147483647');
               } else {
-                const numValue = parseInt(value, 10);
-                if (isNaN(numValue)) {
-                  setSeedError('Seed must be a number');
-                } else if (numValue < 0 || numValue > 2147483647) {
-                  setSeedError('Seed must be between 0 and 2147483647');
-                } else {
-                  setSeedError('');
-                }
+                setSeedError('');
               }
             }}
-            placeholder="Optional: Custom seed (0-2147483647)"
+            placeholder="Optional: Use a seed once per day"
             className="seed-input"
-            disabled={isGenerating}
-            aria-label="Custom seed input for deterministic logo generation"
+            disabled={isGenerating || dailyLimit.seedUsed}
+            aria-label="Optional seed input for deterministic logo generation"
             aria-invalid={seedError !== ''}
             aria-describedby={seedError ? 'seed-error' : 'seed-hint'}
           />
@@ -596,13 +742,15 @@ export default function LogoGenerator() {
               {seedError}
             </span>
           ) : (
-            <span id="seed-hint" className="seed-hint">Leave empty for random</span>
+            <span id="seed-hint" className="seed-hint">
+              {dailyLimit.seedUsed ? 'Seed used today — try again tomorrow' : 'One seed entry per day'}
+            </span>
           )}
         </div>
         <div className="button-group">
           <button
             onClick={handleGenerate}
-            disabled={isGenerating || !inputText.trim() || !!seedError}
+            disabled={isGenerating || !inputText.trim()}
             className="arcade-button"
             aria-label="Generate pixel logo"
             aria-busy={isGenerating ? 'true' : 'false'}
@@ -622,13 +770,21 @@ export default function LogoGenerator() {
               </span>
             </div>
             <img
+              key={`${logoResult.seed}-${logoResult.config.text}`}
               src={logoResult.dataUrl}
               alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
-              className="logo-image"
+              className="logo-image logo-image-reveal"
               role="img"
               aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity`}
             />
             <div className="logo-info">
+              <div
+                className="how-it-works"
+                title="How it works: the seed recreates the exact logo, and rarity is assigned by a random roll that unlocks extra effects."
+                aria-label="How it works: the seed recreates the exact logo, and rarity is assigned by a random roll that unlocks extra effects."
+              >
+                How it works
+              </div>
               <div className="seed-display">
                 <span>Seed: </span>
                 <button 
@@ -673,6 +829,30 @@ export default function LogoGenerator() {
               </button>
             </div>
           </div>
+          {logoHistory.length > 0 && (
+            <div className="history-strip" aria-label="Recent logos">
+              <div className="history-title">Recent logos</div>
+              <div className="history-list">
+                {logoHistory.map((item) => (
+                  <button
+                    key={`${item.seed}-${item.config.text}`}
+                    className="history-item"
+                    onClick={() => {
+                      setLogoResult(item);
+                      setInputText(item.config.text);
+                    }}
+                    aria-label={`Load logo "${item.config.text}" with seed ${item.seed}`}
+                  >
+                    <img
+                      src={item.dataUrl}
+                      alt={`Recent logo: ${item.config.text}`}
+                      className="history-image"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

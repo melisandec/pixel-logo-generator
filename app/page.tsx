@@ -12,6 +12,9 @@ export default function Home() {
             <h1 className="pixel-title">PIXEL LOGO FORGE</h1>
             <p className="subtitle">RETRO ARCADE LOGO GENERATOR</p>
             <LogoGenerator />
+            <footer className="main-footer">
+              Built for the Farcaster community • Generate, save, and cast your pixel logo
+            </footer>
           </div>
         </div>
       </main>
