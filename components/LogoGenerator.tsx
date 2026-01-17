@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react';
 import { generateLogo, LogoResult, Rarity } from '@/lib/logoGenerator';
 import { sdk } from '@farcaster/miniapp-sdk';
+import Toast from './Toast';
+
+interface ToastState {
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
 
 export default function LogoGenerator() {
   const [inputText, setInputText] = useState('');
@@ -12,10 +18,15 @@ export default function LogoGenerator() {
   const [isSharing, setIsSharing] = useState(false);
   const [isCasting, setIsCasting] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const [seedError, setSeedError] = useState<string>('');
 
   useEffect(() => {
-    // Initialize SDK and signal ready
+    // Initialize SDK and signal ready after 3 seconds (splash screen delay)
     const initSdk = async () => {
+      // Wait 3 seconds before calling ready (splash screen duration)
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       try {
         await sdk.actions.ready();
         setSdkReady(true);
@@ -48,13 +59,25 @@ export default function LogoGenerator() {
           setLogoResult(result);
         } catch (error) {
           console.error('Error loading logo from URL:', error);
+          setToast({ 
+            message: 'Failed to load logo from URL. Please try generating manually.', 
+            type: 'error' 
+          });
         }
       }, 100);
     }
   }, []);
 
   const handleGenerate = () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim()) {
+      setToast({ message: 'Please enter some text to generate a logo', type: 'error' });
+      return;
+    }
+    
+    if (seedError) {
+      setToast({ message: 'Please fix the seed error before generating', type: 'error' });
+      return;
+    }
     
     setIsGenerating(true);
     setTimeout(() => {
@@ -67,8 +90,13 @@ export default function LogoGenerator() {
           seed: seed
         });
         setLogoResult(result);
+        setToast({ message: 'Logo generated successfully!', type: 'success' });
       } catch (error) {
         console.error('Error generating logo:', error);
+        setToast({ 
+          message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.', 
+          type: 'error' 
+        });
       } finally {
         setIsGenerating(false);
       }
@@ -100,8 +128,8 @@ export default function LogoGenerator() {
             embeds: [logoResult.dataUrl], // Data URL can work as embed
           });
           
-          if (result && result.castHash) {
-            alert('Logo shared to Farcaster! 🎉');
+          if (result && result.cast) {
+            setToast({ message: 'Logo shared to Farcaster! 🎉', type: 'success' });
           }
           return;
         } catch (sdkError) {
@@ -116,14 +144,15 @@ export default function LogoGenerator() {
           text: `Check out my retro pixel logo: ${logoResult.config.text}`,
           url: shareUrl,
         });
+        setToast({ message: 'Shared successfully!', type: 'success' });
       } else {
         // Fallback to clipboard
         await navigator.clipboard.writeText(shareUrl);
-        alert('Share URL copied to clipboard!');
+        setToast({ message: 'Share URL copied to clipboard!', type: 'success' });
       }
     } catch (error) {
       console.error('Share error:', error);
-      alert('Failed to share. Please try again.');
+      setToast({ message: 'Failed to share. Please try again.', type: 'error' });
     } finally {
       setIsSharing(false);
     }
@@ -145,10 +174,10 @@ export default function LogoGenerator() {
             embeds: [logoResult.dataUrl, shareUrl], // Include both image and link
           });
           
-          if (result && result.castHash) {
-            alert(`Logo casted! 🎉\nCast hash: ${result.castHash}`);
+          if (result && result.cast) {
+            setToast({ message: 'Logo casted! 🎉', type: 'success' });
           } else {
-            alert('Cast cancelled');
+            setToast({ message: 'Cast cancelled', type: 'info' });
           }
           return;
         } catch (sdkError) {
@@ -161,11 +190,11 @@ export default function LogoGenerator() {
           `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}`
         )}`;
         window.open(warpcastUrl, '_blank');
-        alert('Opening Warpcast to compose cast...');
+        setToast({ message: 'Opening Warpcast to compose cast...', type: 'info' });
       }
     } catch (error) {
       console.error('Cast error:', error);
-      alert('Failed to cast. Please try again or share manually.');
+      setToast({ message: 'Failed to cast. Please try again or share manually.', type: 'error' });
     } finally {
       setIsCasting(false);
     }
@@ -181,16 +210,26 @@ export default function LogoGenerator() {
     }
   };
 
-  const copySeed = () => {
+  const copySeed = async () => {
     if (logoResult) {
-      navigator.clipboard.writeText(logoResult.seed.toString()).then(() => {
-        alert(`Seed ${logoResult.seed} copied! Share it to recreate this logo.`);
-      });
+      try {
+        await navigator.clipboard.writeText(logoResult.seed.toString());
+        setToast({ message: `Seed ${logoResult.seed} copied! Share it to recreate this logo.`, type: 'success' });
+      } catch (error) {
+        setToast({ message: 'Failed to copy seed to clipboard', type: 'error' });
+      }
     }
   };
 
   return (
     <div className="logo-generator">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       <div className="input-section">
         <input
           type="text"
@@ -201,23 +240,53 @@ export default function LogoGenerator() {
           maxLength={30}
           className="terminal-input"
           disabled={isGenerating}
+          aria-label="Text input for logo generation"
+          aria-required="true"
         />
         <div className="seed-input-group">
           <input
             type="text"
             value={customSeed}
-            onChange={(e) => setCustomSeed(e.target.value)}
-            placeholder="Optional: Custom seed"
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setCustomSeed(value);
+              
+              // Validate seed input
+              if (value === '') {
+                setSeedError('');
+              } else {
+                const numValue = parseInt(value, 10);
+                if (isNaN(numValue)) {
+                  setSeedError('Seed must be a number');
+                } else if (numValue < 0 || numValue > 2147483647) {
+                  setSeedError('Seed must be between 0 and 2147483647');
+                } else {
+                  setSeedError('');
+                }
+              }
+            }}
+            placeholder="Optional: Custom seed (0-2147483647)"
             className="seed-input"
             disabled={isGenerating}
+            aria-label="Custom seed input for deterministic logo generation"
+            aria-invalid={seedError !== ''}
+            aria-describedby={seedError ? 'seed-error' : 'seed-hint'}
           />
-          <span className="seed-hint">Leave empty for random</span>
+          {seedError ? (
+            <span id="seed-error" className="seed-error" role="alert">
+              {seedError}
+            </span>
+          ) : (
+            <span id="seed-hint" className="seed-hint">Leave empty for random</span>
+          )}
         </div>
         <div className="button-group">
           <button
             onClick={handleGenerate}
-            disabled={isGenerating || !inputText.trim()}
+            disabled={isGenerating || !inputText.trim() || !!seedError}
             className="arcade-button"
+            aria-label="Generate pixel logo"
+            aria-busy={isGenerating}
           >
             {isGenerating ? 'GENERATING...' : 'GENERATE'}
           </button>
@@ -235,13 +304,19 @@ export default function LogoGenerator() {
             </div>
             <img
               src={logoResult.dataUrl}
-              alt={`Pixel logo: ${logoResult.config.text}`}
+              alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
               className="logo-image"
+              role="img"
+              aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity`}
             />
             <div className="logo-info">
               <div className="seed-display">
                 <span>Seed: </span>
-                <button onClick={copySeed} className="seed-button">
+                <button 
+                  onClick={copySeed} 
+                  className="seed-button"
+                  aria-label={`Copy seed ${logoResult.seed} to clipboard`}
+                >
                   {logoResult.seed}
                 </button>
                 <span className="seed-help">(Click to copy)</span>
@@ -251,13 +326,20 @@ export default function LogoGenerator() {
               </div>
             </div>
             <div className="logo-actions">
-              <button onClick={handleDownload} className="action-button" disabled={isGenerating}>
+              <button 
+                onClick={handleDownload} 
+                className="action-button" 
+                disabled={isGenerating}
+                aria-label="Download logo as PNG"
+              >
                 DOWNLOAD PNG
               </button>
               <button 
                 onClick={handleShare} 
                 className="action-button"
                 disabled={isSharing || isGenerating}
+                aria-label="Share logo"
+                aria-busy={isSharing}
               >
                 {isSharing ? 'SHARING...' : 'SHARE'}
               </button>
@@ -265,6 +347,8 @@ export default function LogoGenerator() {
                 onClick={handleCast} 
                 className="action-button cast-button"
                 disabled={isCasting || isGenerating}
+                aria-label="Cast logo to Farcaster"
+                aria-busy={isCasting}
               >
                 {isCasting ? 'CASTING...' : 'CAST THIS LOGO'}
               </button>
