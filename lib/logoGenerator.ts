@@ -136,7 +136,7 @@ interface LogoConfig {
   backgroundStyle?: BackgroundStyle;
   frameStyle?: FrameStyle;
   compositionMode?: CompositionMode;
-  textEffects?: TextEffects;
+  textEffects?: Partial<TextEffects>;
   depthConfig?: DepthConfig;
   rarity?: Rarity;
   badges?: BadgeType[];
@@ -1463,127 +1463,6 @@ function renderTextWithEffects(
   const scaledPixelSize = pixelSize * scale;
   
   return { data, croppedCanvas, scaledPixelSize };
-  
-  // Draw effects
-  if (effects.doubleShadow) {
-    const shadowColor1 = palette[0];
-    const shadowColor2 = palette[Math.floor(palette.length / 2)];
-    drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
-      Math.floor(x / pixelSize) * pixelSize + pixelSize * 3,
-      Math.floor(y / pixelSize) * pixelSize + pixelSize * 3,
-      pixelSize, scaledPixelSize, shadowColor1);
-    drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
-      Math.floor(x / pixelSize) * pixelSize + pixelSize * 2,
-      Math.floor(y / pixelSize) * pixelSize + pixelSize * 2,
-      pixelSize, scaledPixelSize, shadowColor2);
-  }
-  
-  if (effects.stacked3D) {
-    // 3D stacked effect
-    for (let layer = 3; layer >= 0; layer--) {
-      ctx.globalAlpha = 0.3 + (layer * 0.2);
-      const offset = layer * pixelSize;
-      drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
-        Math.floor(x / pixelSize) * pixelSize + offset,
-        Math.floor(y / pixelSize) * pixelSize + offset,
-        pixelSize, scaledPixelSize, textColor);
-    }
-    ctx.globalAlpha = 1;
-  }
-  
-  if (effects.chunkyOutline) {
-    const outlineColor = palette[0] === textColor ? palette[palette.length - 1] : palette[0];
-    const outlineWidth = rng.randomInt(1, 4);
-    for (let ox = -outlineWidth; ox <= outlineWidth; ox++) {
-      for (let oy = -outlineWidth; oy <= outlineWidth; oy++) {
-        if (ox !== 0 || oy !== 0) {
-          drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
-            Math.floor(x / pixelSize) * pixelSize + ox * pixelSize,
-            Math.floor(y / pixelSize) * pixelSize + oy * pixelSize,
-            pixelSize, scaledPixelSize, outlineColor);
-        }
-      }
-    }
-  }
-  
-  // Main text with gradient or solid
-  if (effects.gradient) {
-    const gradient = ctx.createLinearGradient(x, y, x, y + textHeight);
-    gradient.addColorStop(0, palette[palette.length - 1]);
-    gradient.addColorStop(0.5, textColor);
-    gradient.addColorStop(1, palette[0]);
-    ctx.fillStyle = gradient;
-    drawPixelatedTextGradient(ctx, data, croppedCanvas.width, croppedCanvas.height,
-      Math.floor(x / pixelSize) * pixelSize,
-      Math.floor(y / pixelSize) * pixelSize,
-      pixelSize, scaledPixelSize, gradient);
-  } else {
-    ctx.fillStyle = textColor;
-    drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
-      Math.floor(x / pixelSize) * pixelSize,
-      Math.floor(y / pixelSize) * pixelSize,
-      pixelSize, scaledPixelSize, textColor);
-  }
-  
-  if (effects.metallic) {
-    // Metallic bands
-    for (let band = 0; band < 3; band++) {
-      const bandY = y + (textHeight / 4) * band;
-      ctx.fillStyle = band % 2 === 0 ? palette[palette.length - 1] : palette[0];
-      ctx.fillRect(x, bandY, textWidth, pixelSize * 2);
-    }
-  }
-  
-  if (effects.cracked) {
-    // Random missing pixels
-    for (let i = 0; i < 20; i++) {
-      const px = x + rng.randomInt(0, textWidth);
-      const py = y + rng.randomInt(0, textHeight);
-      ctx.fillStyle = palette[0];
-      ctx.fillRect(px, py, pixelSize, pixelSize);
-    }
-  }
-  
-  if (effects.cartridgePrint) {
-    // RGB channel offset
-    const offset = pixelSize;
-    ctx.globalAlpha = 0.5;
-    ctx.fillStyle = '#FF0000';
-    drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
-      Math.floor(x / pixelSize) * pixelSize - offset,
-      Math.floor(y / pixelSize) * pixelSize,
-      pixelSize, scaledPixelSize, '#FF0000');
-    ctx.fillStyle = '#00FF00';
-    drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
-      Math.floor(x / pixelSize) * pixelSize,
-      Math.floor(y / pixelSize) * pixelSize,
-      pixelSize, scaledPixelSize, '#00FF00');
-    ctx.fillStyle = '#0000FF';
-    drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
-      Math.floor(x / pixelSize) * pixelSize + offset,
-      Math.floor(y / pixelSize) * pixelSize,
-      pixelSize, scaledPixelSize, '#0000FF');
-    ctx.globalAlpha = 1;
-  }
-  
-  if (effects.waveDistortion) {
-    // Wave effect on rows
-    const waveCanvas = document.createElement('canvas');
-    waveCanvas.width = croppedCanvas.width;
-    waveCanvas.height = croppedCanvas.height;
-    const waveCtx = waveCanvas.getContext('2d');
-    if (waveCtx) {
-      for (let sy = 0; sy < croppedCanvas.height; sy++) {
-        const waveOffset = Math.sin(sy / 10) * pixelSize * 2;
-        waveCtx.drawImage(croppedCanvas, 0, sy, croppedCanvas.width, 1, waveOffset, sy, croppedCanvas.width, 1);
-      }
-      const waveData = waveCtx.getImageData(0, 0, waveCanvas.width, waveCanvas.height);
-      drawPixelatedText(ctx, waveData.data, waveCanvas.width, waveCanvas.height,
-        Math.floor(x / pixelSize) * pixelSize,
-        Math.floor(y / pixelSize) * pixelSize,
-        pixelSize, scaledPixelSize, textColor);
-    }
-  }
 }
 
 function drawPixelatedText(
