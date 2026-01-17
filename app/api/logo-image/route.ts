@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
 
 type StoredImage = { base64: string; createdAt: number };
 
@@ -125,20 +124,29 @@ export async function POST(request: NextRequest) {
     let imageUrl: string;
     const filename = `logo-${seed || Date.now()}-${Math.random().toString(36).slice(2)}.png`;
     
-    try {
-      // Try Vercel Blob if token is available
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        const blob = await put(filename, imageBuffer, {
-          access: 'public',
-          contentType: 'image/png',
-        });
-        imageUrl = blob.url;
-      } else {
-        throw new Error('BLOB_READ_WRITE_TOKEN not set');
+    // Try Vercel Blob first, fallback to in-memory store
+    let blobUploadSucceeded = false;
+    
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        // Lazy import to avoid build-time issues
+        const blobModule = await import('@vercel/blob').catch(() => null);
+        if (blobModule?.put) {
+          const blob = await blobModule.put(filename, imageBuffer, {
+            access: 'public',
+            contentType: 'image/png',
+          });
+          imageUrl = blob.url;
+          blobUploadSucceeded = true;
+        }
+      } catch (blobError) {
+        // Blob upload failed, will use fallback
+        console.log('Vercel Blob upload failed:', blobError instanceof Error ? blobError.message : 'Unknown error');
       }
-    } catch (error) {
-      // Fallback to in-memory store (development or Blob not available)
-      console.log('Using fallback storage:', error instanceof Error ? error.message : 'Unknown error');
+    }
+    
+    // Use fallback if Blob upload didn't succeed
+    if (!blobUploadSucceeded) {
       const store = getStore();
       cleanupStore(store);
       const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
