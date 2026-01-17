@@ -25,30 +25,6 @@ export const metadata: Metadata = {
     description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
     images: ['https://pixel-logo-generator.vercel.app/display.png'],
   },
-  whatsapp: {
-    card: 'summary_large_image',
-    title: 'Pixel Logo Forge',
-    description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
-    image: 'https://pixel-logo-generator.vercel.app/display.png',
-  },
-  instagram: {
-    card: 'summary_large_image',
-    title: 'Pixel Logo Forge',
-    description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
-    image: 'https://pixel-logo-generator.vercel.app/display.png',
-  },
-  pinterest: {
-    card: 'summary_large_image',
-    title: 'Pixel Logo Forge',
-    description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
-    image: 'https://pixel-logo-generator.vercel.app/display.png',
-  },
-  linkedin: {
-    card: 'summary_large_image',
-    title: 'Pixel Logo Forge',
-    description: 'Generate retro arcade-style pixelated logos with collectible rarity system',
-    image: 'https://pixel-logo-generator.vercel.app/display.png',
-  },
 };
 
 export const viewport = {
@@ -64,6 +40,24 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <meta property="og:title" content="Pixel Logo Forge" />
+        <meta
+          property="og:description"
+          content="Generate retro arcade-style pixelated logos with collectible rarity system"
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://pixel-logo-generator.vercel.app" />
+        <meta
+          property="og:image"
+          content="https://pixel-logo-generator.vercel.app/display.png"
+        />
+        <meta
+          property="og:image:secure_url"
+          content="https://pixel-logo-generator.vercel.app/display.png"
+        />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="Pixel Logo Forge - Retro Arcade Logo Generator" />
         <meta
           name="fc:miniapp"
           content={JSON.stringify({
