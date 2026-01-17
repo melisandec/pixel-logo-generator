@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
     // Try to upload to Vercel Blob first, fallback to in-memory store
-    let imageUrl: string;
+    let imageUrl: string | null = null;
     const filename = `logo-${seed || Date.now()}-${Math.random().toString(36).slice(2)}.png`;
     
     // Try Vercel Blob first, fallback to in-memory store
@@ -132,7 +132,12 @@ export async function POST(request: NextRequest) {
         // Lazy import to avoid build-time issues
         const blobModule = await import('@vercel/blob').catch(() => null);
         if (blobModule?.put) {
-          const blob = await blobModule.put(filename, imageBuffer, {
+          // Convert Buffer to ArrayBuffer (which is explicitly supported by Vercel Blob)
+          const arrayBuffer = imageBuffer.buffer.slice(
+            imageBuffer.byteOffset,
+            imageBuffer.byteOffset + imageBuffer.byteLength
+          );
+          const blob = await blobModule.put(filename, arrayBuffer, {
             access: 'public',
             contentType: 'image/png',
           });
@@ -154,6 +159,13 @@ export async function POST(request: NextRequest) {
       imageUrl = `${baseUrl}/api/logo-image?id=${encodeURIComponent(id)}`;
     }
     
+    if (!imageUrl) {
+      return NextResponse.json(
+        { error: 'Failed to generate image URL' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       imageUrl: imageUrl, // HTTP URL that serves the image
