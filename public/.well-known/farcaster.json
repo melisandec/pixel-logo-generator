@@ -14,7 +14,7 @@
     "homeUrl": "https://pixel-logo-generator.vercel.app",
     "splashImageUrl": "https://pixel-logo-generator.vercel.app/splash.png",
     "splashBackgroundColor": "#000000",
-    "heroImageUrl": "https://pixel-logo-generator.vercel.app/og-image-long.png",
+    "heroImageUrl": "https://pixel-logo-generator.vercel.app/display.png",
     "imageUrl": "https://pixel-logo-generator.vercel.app/og-image.png",
     "buttonTitle": "Generate Logo",
     "ogTitle": "Pixel Logo Forge",
