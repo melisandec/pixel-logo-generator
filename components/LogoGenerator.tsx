@@ -121,13 +121,36 @@ export default function LogoGenerator() {
     }, 100);
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!logoResult) return;
     
-    const link = document.createElement('a');
-    link.download = `pixel-logo-${logoResult.config.text.replace(/\s+/g, '-')}-${logoResult.rarity.toLowerCase()}.png`;
-    link.href = logoResult.dataUrl;
-    link.click();
+    const filename = `pixel-logo-${logoResult.config.text.replace(/\s+/g, '-')}-${logoResult.rarity.toLowerCase()}.png`;
+
+    try {
+      const response = await fetch(logoResult.dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], filename, { type: 'image/png' });
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Pixel Logo: ${logoResult.config.text}`,
+          text: 'Save your pixel logo',
+        });
+        setToast({ message: 'Image ready to save. Tap “Save Image” or “Save to Files”.', type: 'success' });
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = objectUrl;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (error) {
+      console.error('Download error:', error);
+      setToast({ message: 'Failed to download image. Please try again.', type: 'error' });
+    }
   };
 
   const handleShare = async () => {
