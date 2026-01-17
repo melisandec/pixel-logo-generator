@@ -1,4 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
+
+type StoredImage = { base64: string; createdAt: number };
+
+const STORE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function getStore(): Map<string, StoredImage> {
+  const globalStore = globalThis as typeof globalThis & {
+    __logoImageStore?: Map<string, StoredImage>;
+  };
+  if (!globalStore.__logoImageStore) {
+    globalStore.__logoImageStore = new Map<string, StoredImage>();
+  }
+  return globalStore.__logoImageStore;
+}
+
+function cleanupStore(store: Map<string, StoredImage>) {
+  const now = Date.now();
+  for (const [key, value] of store.entries()) {
+    if (now - value.createdAt > STORE_TTL_MS) {
+      store.delete(key);
+    }
+  }
+}
 
 /**
  * API route to serve logo images
@@ -8,23 +32,38 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
+    const id = searchParams.get('id');
     // Support both 'dataUrl' (old format) and 'data' (new format)
     const dataParam = searchParams.get('data') || searchParams.get('dataUrl');
     
-    if (!dataParam) {
+    if (!id && !dataParam) {
       return NextResponse.json(
         { error: 'No image data provided' },
         { status: 400 }
       );
     }
 
-    // Handle both full data URL and base64 string
-    let base64Data: string;
-    if (dataParam.startsWith('data:')) {
-      base64Data = dataParam.split(',')[1];
-    } else {
-      // Already base64 encoded
-      base64Data = decodeURIComponent(dataParam);
+    let base64Data: string | undefined;
+
+    if (id) {
+      const store = getStore();
+      cleanupStore(store);
+      const entry = store.get(id);
+      if (!entry) {
+        return NextResponse.json(
+          { error: 'Image not found or expired' },
+          { status: 404 }
+        );
+      }
+      base64Data = entry.base64;
+    } else if (dataParam) {
+      // Handle both full data URL and base64 string
+      if (dataParam.startsWith('data:')) {
+        base64Data = dataParam.split(',')[1];
+      } else {
+        // Already base64 encoded
+        base64Data = decodeURIComponent(dataParam);
+      }
     }
     
     if (!base64Data) {
@@ -79,13 +118,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create a URL that can serve the image via GET
-    // We'll use the seed as identifier and encode the base64 data
+    const imageBuffer = Buffer.from(base64Data, 'base64');
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+
+    // Try to upload to Vercel Blob (production)
+    let imageUrl: string;
     
-    // Create HTTP URL that will serve the image
-    // The GET endpoint will decode and serve it
-    const imageUrl = `${baseUrl}/api/logo-image?seed=${seed || Date.now()}&data=${encodeURIComponent(base64Data)}`;
+    try {
+      // Check if BLOB_READ_WRITE_TOKEN is available (Vercel Blob)
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        const filename = `logo-${seed || Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+        const blob = await put(filename, imageBuffer, {
+          access: 'public',
+          contentType: 'image/png',
+        });
+        imageUrl = blob.url;
+      } else {
+        // Fallback to in-memory store (development)
+        const store = getStore();
+        cleanupStore(store);
+        const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        store.set(id, { base64: base64Data, createdAt: Date.now() });
+        imageUrl = `${baseUrl}/api/logo-image?id=${encodeURIComponent(id)}`;
+      }
+    } catch (blobError) {
+      console.error('Blob upload failed, using fallback:', blobError);
+      // Fallback to in-memory store
+      const store = getStore();
+      cleanupStore(store);
+      const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      store.set(id, { base64: base64Data, createdAt: Date.now() });
+      imageUrl = `${baseUrl}/api/logo-image?id=${encodeURIComponent(id)}`;
+    }
     
     return NextResponse.json({
       success: true,
