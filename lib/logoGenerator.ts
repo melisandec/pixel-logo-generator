@@ -100,6 +100,30 @@ interface TextEffects {
   cartridgePrint: boolean;
 }
 
+// Depth system
+type LightingDirection = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top' | 'left' | 'right' | 'bottom';
+type TextureType = 'metal' | 'stone' | 'plastic' | 'crt-phosphor' | 'none';
+type DepthPreset = 'arcade-marquee' | 'cartridge-plastic' | 'cyber-neon' | 'stone-temple' | 'gold-trophy' | 'crt-glass' | 'none';
+
+interface DepthConfig {
+  extrusion: boolean;
+  extrusionLayers: number;
+  lighting: boolean;
+  lightingDirection: LightingDirection;
+  atmosphericGlow: boolean;
+  glowIntensity: number;
+  glowColor: string;
+  innerShadow: boolean;
+  pixelReflections: boolean;
+  perspectiveTilt: boolean;
+  floatingShadow: boolean;
+  shadowBlur: number;
+  texture: TextureType;
+  depthPreset: DepthPreset;
+  colorDepth: boolean;
+  colorShades: string[];
+}
+
 // Badge types
 type BadgeType = 'star' | 'bolt' | 'flame' | 'skull' | 'coin' | 'player1' | 'ready' | 'insert-coin' | 'version' | 'year' | 'rating';
 
@@ -113,6 +137,7 @@ interface LogoConfig {
   frameStyle?: FrameStyle;
   compositionMode?: CompositionMode;
   textEffects?: TextEffects;
+  depthConfig?: DepthConfig;
   rarity?: Rarity;
   badges?: BadgeType[];
 }
@@ -133,6 +158,140 @@ function determineRarity(rng: SeededRandom, hasAdvancedEffects: boolean, hasSpec
   return 'LEGENDARY';
 }
 
+// Generate color shades for depth
+function generateColorShades(baseColor: string, count: number): string[] {
+  const rgb = hexToRgb(baseColor);
+  if (!rgb) return [baseColor];
+  
+  const shades: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const factor = i / (count - 1); // 0 to 1
+    const r = Math.max(0, Math.min(255, Math.round(rgb.r * (1 - factor * 0.6))));
+    const g = Math.max(0, Math.min(255, Math.round(rgb.g * (1 - factor * 0.6))));
+    const b = Math.max(0, Math.min(255, Math.round(rgb.b * (1 - factor * 0.6))));
+    shades.push(`#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`);
+  }
+  return shades;
+}
+
+// Select depth preset
+function selectDepthPreset(rarity: Rarity, rng: SeededRandom): DepthPreset {
+  if (rarity === 'COMMON') return 'none';
+  if (rarity === 'RARE') {
+    return rng.pick(['arcade-marquee', 'cartridge-plastic', 'none']);
+  }
+  if (rarity === 'EPIC') {
+    return rng.pick(['arcade-marquee', 'cartridge-plastic', 'cyber-neon', 'stone-temple', 'gold-trophy']);
+  }
+  return rng.pick(['arcade-marquee', 'cartridge-plastic', 'cyber-neon', 'stone-temple', 'gold-trophy', 'crt-glass']);
+}
+
+// Create depth config from preset
+function createDepthConfigFromPreset(preset: DepthPreset, rarity: Rarity, textColor: string, palette: string[], rng: SeededRandom): DepthConfig {
+  const baseConfig: DepthConfig = {
+    extrusion: false,
+    extrusionLayers: 0,
+    lighting: false,
+    lightingDirection: 'top-left',
+    atmosphericGlow: false,
+    glowIntensity: 0,
+    glowColor: textColor,
+    innerShadow: false,
+    pixelReflections: false,
+    perspectiveTilt: false,
+    floatingShadow: false,
+    shadowBlur: 0,
+    texture: 'none',
+    depthPreset: preset,
+    colorDepth: false,
+    colorShades: [],
+  };
+
+  switch (preset) {
+    case 'arcade-marquee':
+      baseConfig.extrusion = true;
+      baseConfig.extrusionLayers = rng.randomInt(3, 6);
+      baseConfig.lighting = true;
+      baseConfig.lightingDirection = rng.pick(['top-left', 'top-right']);
+      baseConfig.atmosphericGlow = true;
+      baseConfig.glowIntensity = rng.random(0.3, 0.6);
+      baseConfig.glowColor = rng.pick(['#00FFFF', '#FF00FF', '#FFFF00']);
+      baseConfig.pixelReflections = true;
+      baseConfig.colorDepth = true;
+      baseConfig.colorShades = generateColorShades(textColor, 4);
+      break;
+    case 'cartridge-plastic':
+      baseConfig.extrusion = true;
+      baseConfig.extrusionLayers = rng.randomInt(4, 8);
+      baseConfig.lighting = true;
+      baseConfig.lightingDirection = 'top-left';
+      baseConfig.texture = 'plastic';
+      baseConfig.pixelReflections = true;
+      baseConfig.floatingShadow = true;
+      baseConfig.shadowBlur = rng.randomInt(2, 4) * 2;
+      baseConfig.colorDepth = true;
+      baseConfig.colorShades = generateColorShades(textColor, 5);
+      break;
+    case 'cyber-neon':
+      baseConfig.extrusion = true;
+      baseConfig.extrusionLayers = rng.randomInt(2, 4);
+      baseConfig.atmosphericGlow = true;
+      baseConfig.glowIntensity = rng.random(0.5, 0.8);
+      baseConfig.glowColor = rng.pick(['#00FFFF', '#FF00FF', '#00FF00']);
+      baseConfig.innerShadow = true;
+      baseConfig.perspectiveTilt = rng.next() > 0.5;
+      baseConfig.colorDepth = true;
+      baseConfig.colorShades = generateColorShades(textColor, 3);
+      break;
+    case 'stone-temple':
+      baseConfig.extrusion = true;
+      baseConfig.extrusionLayers = rng.randomInt(5, 10);
+      baseConfig.lighting = true;
+      baseConfig.lightingDirection = rng.pick(['top-left', 'top-right']);
+      baseConfig.texture = 'stone';
+      baseConfig.innerShadow = true;
+      baseConfig.colorDepth = true;
+      baseConfig.colorShades = generateColorShades(textColor, 5);
+      break;
+    case 'gold-trophy':
+      baseConfig.extrusion = true;
+      baseConfig.extrusionLayers = rng.randomInt(6, 12);
+      baseConfig.lighting = true;
+      baseConfig.lightingDirection = 'top-left';
+      baseConfig.texture = 'metal';
+      baseConfig.pixelReflections = true;
+      baseConfig.floatingShadow = true;
+      baseConfig.shadowBlur = rng.randomInt(3, 6) * 2;
+      baseConfig.colorDepth = true;
+      baseConfig.colorShades = generateColorShades('#FFD700', 5);
+      break;
+    case 'crt-glass':
+      baseConfig.extrusion = true;
+      baseConfig.extrusionLayers = rng.randomInt(2, 4);
+      baseConfig.texture = 'crt-phosphor';
+      baseConfig.atmosphericGlow = true;
+      baseConfig.glowIntensity = rng.random(0.2, 0.4);
+      baseConfig.glowColor = '#00FF00';
+      baseConfig.innerShadow = true;
+      baseConfig.colorDepth = true;
+      baseConfig.colorShades = generateColorShades(textColor, 4);
+      break;
+  }
+
+  // Rarity-based enhancements
+  if (rarity === 'LEGENDARY') {
+    baseConfig.extrusion = true;
+    baseConfig.extrusionLayers = Math.max(baseConfig.extrusionLayers, 5);
+    baseConfig.lighting = true;
+    baseConfig.atmosphericGlow = true;
+    baseConfig.glowIntensity = Math.max(baseConfig.glowIntensity, 0.4);
+    baseConfig.pixelReflections = true;
+    baseConfig.floatingShadow = true;
+  }
+
+  return baseConfig;
+}
+
 // Select features based on rarity
 function selectFeaturesByRarity(rarity: Rarity, rng: SeededRandom) {
   const features: {
@@ -142,6 +301,7 @@ function selectFeaturesByRarity(rarity: Rarity, rng: SeededRandom) {
     colorSystem: ColorSystem;
     compositionMode: CompositionMode;
     badges: BadgeType[];
+    depthConfig: DepthConfig;
   } = {
     textEffects: {},
     backgroundStyle: 'solid',
@@ -149,6 +309,7 @@ function selectFeaturesByRarity(rarity: Rarity, rng: SeededRandom) {
     colorSystem: 'Classic',
     compositionMode: 'centered',
     badges: [],
+    depthConfig: createDepthConfigFromPreset('none', rarity, '#FFFFFF', ['#000000', '#FFFFFF'], rng),
   };
 
   // COMMON: Basic features
@@ -157,6 +318,7 @@ function selectFeaturesByRarity(rarity: Rarity, rng: SeededRandom) {
     features.frameStyle = rng.pick(['none', 'arcade-bezel']);
     features.colorSystem = rng.pick(['Classic', 'CGA']);
     features.compositionMode = 'centered';
+    features.depthConfig = createDepthConfigFromPreset('none', rarity, '#FFFFFF', ['#000000', '#FFFFFF'], rng);
   }
   
   // RARE: Add glow, gradients, special backgrounds
@@ -167,6 +329,8 @@ function selectFeaturesByRarity(rarity: Rarity, rng: SeededRandom) {
     features.frameStyle = rng.pick(['arcade-bezel', 'computer-window', 'terminal-box']);
     features.colorSystem = rng.pick(['NES', 'GameBoy', 'Vaporwave']);
     features.compositionMode = rng.pick(['centered', 'top-heavy', 'wide-cinematic']);
+    const depthPreset = selectDepthPreset(rarity, rng);
+    features.depthConfig = createDepthConfigFromPreset(depthPreset, rarity, '#FFFFFF', ['#000000', '#FFFFFF'], rng);
     if (rng.next() > 0.5) {
       features.badges.push(rng.pick(['version', 'year', 'rating']));
     }
@@ -183,6 +347,8 @@ function selectFeaturesByRarity(rarity: Rarity, rng: SeededRandom) {
     features.frameStyle = rng.pick(['cartridge-label', 'floppy-disk', 'trading-card', 'nes-title']);
     features.colorSystem = rng.pick(['NES', 'Vaporwave', 'Cyberpunk']);
     features.compositionMode = rng.pick(['badge-emblem', 'vertical-stacked', 'curved-baseline']);
+    const depthPreset = selectDepthPreset(rarity, rng);
+    features.depthConfig = createDepthConfigFromPreset(depthPreset, rarity, '#FFFFFF', ['#000000', '#FFFFFF'], rng);
     features.badges.push(rng.pick(['star', 'bolt', 'flame', 'skull', 'coin']));
     if (rng.next() > 0.3) {
       features.badges.push(rng.pick(['player1', 'ready', 'insert-coin']));
@@ -207,6 +373,8 @@ function selectFeaturesByRarity(rarity: Rarity, rng: SeededRandom) {
     features.frameStyle = rng.pick(['sega-plaque', 'trading-card', 'nes-title']);
     features.colorSystem = rng.pick(['NES', 'Vaporwave', 'Cyberpunk']);
     features.compositionMode = rng.pick(['curved-baseline', 'badge-emblem', 'vertical-stacked']);
+    const depthPreset = selectDepthPreset(rarity, rng);
+    features.depthConfig = createDepthConfigFromPreset(depthPreset, rarity, '#FFFFFF', ['#000000', '#FFFFFF'], rng);
     features.badges = [
       rng.pick(['star', 'bolt', 'flame', 'skull', 'coin']),
       rng.pick(['player1', 'ready', 'insert-coin']),
@@ -238,6 +406,7 @@ export function generateLogo(config: LogoConfig): LogoResult {
   const compositionMode = config.compositionMode ?? features.compositionMode;
   const textEffects = config.textEffects ?? features.textEffects;
   const badges = config.badges ?? features.badges;
+  const depthConfig = config.depthConfig ?? features.depthConfig;
 
   // Background color
   const backgroundColor = config.backgroundColor ?? (rng.next() > 0.3 
@@ -251,6 +420,14 @@ export function generateLogo(config: LogoConfig): LogoResult {
     return Math.abs(bgLum - textLum) > 0.3;
   });
   const textColor = textColors.length > 0 ? rng.pick(textColors) : colorPalette[colorPalette.length - 1];
+  
+  // Update depth config with actual text color
+  if (depthConfig.colorDepth && depthConfig.colorShades.length === 0) {
+    depthConfig.colorShades = generateColorShades(textColor, depthConfig.extrusionLayers > 0 ? 5 : 3);
+  }
+  if (!depthConfig.glowColor || depthConfig.glowColor === '#FFFFFF') {
+    depthConfig.glowColor = rng.pick(['#00FFFF', '#FF00FF', '#FFFF00', '#00FF00', textColor]);
+  }
 
   // Canvas setup
   const canvas = document.createElement('canvas');
@@ -282,8 +459,8 @@ export function generateLogo(config: LogoConfig): LogoResult {
   canvas.width = Math.ceil(totalWidth / pixelSize) * pixelSize;
   canvas.height = Math.ceil(totalHeight / pixelSize) * pixelSize;
 
-  // Draw background
-  drawBackground(ctx, canvas.width, canvas.height, backgroundStyle, backgroundColor, colorPalette, rng, pixelSize);
+  // Draw layered backgrounds (far/mid/near layers)
+  drawLayeredBackground(ctx, canvas.width, canvas.height, backgroundStyle, backgroundColor, colorPalette, rng, pixelSize, depthConfig);
 
   // Draw frame
   if (frameStyle !== 'none') {
@@ -306,8 +483,13 @@ export function generateLogo(config: LogoConfig): LogoResult {
   // Draw badges
   drawBadges(ctx, badges, canvas.width, canvas.height, colorPalette, rng, pixelSize);
 
-  // Draw text with effects
-  renderTextWithEffects(
+  // Draw floating shadow first (if enabled)
+  if (depthConfig.floatingShadow) {
+    drawFloatingShadow(ctx, config.text, textX, textY, pixelSize, depthConfig, rng);
+  }
+
+  // Draw text with depth and effects
+  renderTextWithDepth(
     ctx,
     config.text,
     textX,
@@ -315,6 +497,7 @@ export function generateLogo(config: LogoConfig): LogoResult {
     pixelSize,
     textColor,
     textEffects,
+    depthConfig,
     colorPalette,
     rng,
     compositionMode
@@ -333,6 +516,7 @@ export function generateLogo(config: LogoConfig): LogoResult {
     frameStyle,
     compositionMode,
     textEffects,
+    depthConfig,
     rarity,
     badges,
   };
@@ -343,6 +527,84 @@ export function generateLogo(config: LogoConfig): LogoResult {
     rarity,
     config: finalConfig,
   };
+}
+
+// Draw layered backgrounds (far/mid/near layers for depth)
+function drawLayeredBackground(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  style: BackgroundStyle,
+  baseColor: string,
+  palette: string[],
+  rng: SeededRandom,
+  pixelSize: number,
+  depthConfig: DepthConfig
+) {
+  // Far layer: dark gradient or starfield
+  if (depthConfig.depthPreset !== 'none' && rng.next() > 0.5) {
+    const farGradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height));
+    farGradient.addColorStop(0, palette[0]);
+    farGradient.addColorStop(1, palette[Math.floor(palette.length / 3)]);
+    ctx.fillStyle = farGradient;
+    ctx.fillRect(0, 0, width, height);
+    
+    // Add starfield on far layer
+    if (style === 'starfield' || rng.next() > 0.7) {
+      ctx.fillStyle = palette[palette.length - 1];
+      for (let i = 0; i < 30; i++) {
+        const x = rng.randomInt(0, width);
+        const y = rng.randomInt(0, height);
+        ctx.fillRect(x, y, pixelSize, pixelSize);
+      }
+    }
+  } else {
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(0, 0, width, height);
+  }
+  
+  // Mid layer: grid, mountains, or noise
+  if (depthConfig.depthPreset !== 'none' && (style === 'grid-horizon' || style === 'pixel-noise' || rng.next() > 0.6)) {
+    ctx.globalAlpha = 0.4;
+    if (style === 'grid-horizon') {
+      ctx.strokeStyle = rng.pick(palette);
+      ctx.lineWidth = pixelSize;
+      const horizonY = height * 0.7;
+      for (let x = 0; x < width; x += pixelSize * 4) {
+        ctx.beginPath();
+        ctx.moveTo(x, horizonY);
+        ctx.lineTo(x + pixelSize * 2, height);
+        ctx.stroke();
+      }
+    } else if (style === 'pixel-noise') {
+      for (let i = 0; i < width * height / (pixelSize * pixelSize) * 0.05; i++) {
+        const x = rng.randomInt(0, width);
+        const y = rng.randomInt(0, height);
+        ctx.fillStyle = rng.pick(palette);
+        ctx.fillRect(x, y, pixelSize, pixelSize);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  
+  // Draw base background style
+  drawBackground(ctx, width, height, style, baseColor, palette, rng, pixelSize);
+  
+  // Near layer: vignette or glow halo behind text
+  if (depthConfig.atmosphericGlow && depthConfig.depthPreset !== 'none') {
+    const glowGradient = ctx.createRadialGradient(width / 2, height / 2, width * 0.2, width / 2, height / 2, width * 0.6);
+    glowGradient.addColorStop(0, `rgba(0, 0, 0, 0)`);
+    glowGradient.addColorStop(1, `${depthConfig.glowColor}40`);
+    ctx.fillStyle = glowGradient;
+    ctx.fillRect(0, 0, width, height);
+  } else if (rng.next() > 0.5) {
+    // Subtle vignette
+    const vignette = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
+    vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, width, height);
+  }
 }
 
 // Draw background styles
@@ -718,7 +980,425 @@ function drawCoin(ctx: CanvasRenderingContext2D, x: number, y: number, size: num
   ctx.fill();
 }
 
-// Render text with all effects
+// Render text with depth system
+function renderTextWithDepth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  pixelSize: number,
+  textColor: string,
+  effects: Partial<TextEffects>,
+  depthConfig: DepthConfig,
+  palette: string[],
+  rng: SeededRandom,
+  compositionMode: CompositionMode
+) {
+  const textData = prepareTextData(text, pixelSize, effects, compositionMode);
+  if (!textData) return;
+  
+  const { data, croppedCanvas, scaledPixelSize } = textData;
+  const snapX = Math.floor(x / pixelSize) * pixelSize;
+  const snapY = Math.floor(y / pixelSize) * pixelSize;
+  
+  // Apply perspective tilt if enabled
+  if (depthConfig.perspectiveTilt) {
+    ctx.save();
+    ctx.transform(1, 0, -0.1, 1, 0, 0);
+  }
+  
+  // Draw atmospheric glow behind everything
+  if (depthConfig.atmosphericGlow) {
+    drawAtmosphericGlow(ctx, data, croppedCanvas.width, croppedCanvas.height,
+      snapX, snapY, pixelSize, scaledPixelSize, depthConfig);
+  }
+  
+  // Draw 3D extrusion layers (back to front)
+  if (depthConfig.extrusion && depthConfig.extrusionLayers > 0) {
+    draw3DExtrusion(ctx, data, croppedCanvas.width, croppedCanvas.height,
+      snapX, snapY, pixelSize, scaledPixelSize, depthConfig, textColor, palette);
+  }
+  
+  // Draw main text body with texture
+  drawTextWithTexture(ctx, data, croppedCanvas.width, croppedCanvas.height,
+    snapX, snapY, pixelSize, scaledPixelSize, textColor, depthConfig, palette);
+  
+  // Draw lighting highlights
+  if (depthConfig.lighting) {
+    drawLightingHighlights(ctx, data, croppedCanvas.width, croppedCanvas.height,
+      snapX, snapY, pixelSize, scaledPixelSize, depthConfig, textColor, palette);
+  }
+  
+  // Draw inner shadow/bevel
+  if (depthConfig.innerShadow) {
+    drawInnerShadow(ctx, data, croppedCanvas.width, croppedCanvas.height,
+      snapX, snapY, pixelSize, scaledPixelSize, palette);
+  }
+  
+  // Draw pixel reflections
+  if (depthConfig.pixelReflections) {
+    drawPixelReflections(ctx, data, croppedCanvas.width, croppedCanvas.height,
+      snapX, snapY, pixelSize, scaledPixelSize, textColor);
+  }
+  
+  // Apply other text effects
+  if (effects.doubleShadow) {
+    const shadowColor1 = palette[0];
+    const shadowColor2 = palette[Math.floor(palette.length / 2)];
+    drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
+      snapX + pixelSize * 3, snapY + pixelSize * 3, pixelSize, scaledPixelSize, shadowColor1);
+    drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
+      snapX + pixelSize * 2, snapY + pixelSize * 2, pixelSize, scaledPixelSize, shadowColor2);
+  }
+  
+  if (effects.gradient) {
+    const gradient = ctx.createLinearGradient(snapX, snapY, snapX, snapY + croppedCanvas.height);
+    gradient.addColorStop(0, palette[palette.length - 1]);
+    gradient.addColorStop(0.5, textColor);
+    gradient.addColorStop(1, palette[0]);
+    drawPixelatedTextGradient(ctx, data, croppedCanvas.width, croppedCanvas.height,
+      snapX, snapY, pixelSize, scaledPixelSize, gradient);
+  } else if (!depthConfig.extrusion) {
+    // Only draw main text if no extrusion (extrusion already drew it)
+    ctx.fillStyle = textColor;
+    drawPixelatedText(ctx, data, croppedCanvas.width, croppedCanvas.height,
+      snapX, snapY, pixelSize, scaledPixelSize, textColor);
+  }
+  
+  if (depthConfig.perspectiveTilt) {
+    ctx.restore();
+  }
+}
+
+// Prepare text data for rendering
+function prepareTextData(
+  text: string,
+  pixelSize: number,
+  effects: Partial<TextEffects>,
+  compositionMode: CompositionMode
+): { data: Uint8ClampedArray; croppedCanvas: HTMLCanvasElement; scaledPixelSize: number } | null {
+  const scale = 4;
+  const tempCanvas = document.createElement('canvas');
+  const fontSize = pixelSize * 12 * scale;
+  tempCanvas.width = 800 * scale;
+  tempCanvas.height = 200 * scale;
+  const tempCtx = tempCanvas.getContext('2d');
+  if (!tempCtx) return null;
+  
+  tempCtx.imageSmoothingEnabled = false;
+  tempCtx.fillStyle = '#FFFFFF';
+  tempCtx.font = `bold ${fontSize}px 'Press Start 2P', monospace`;
+  tempCtx.textBaseline = 'top';
+  tempCtx.textAlign = 'left';
+  
+  if (effects.slanted) {
+    tempCtx.transform(1, 0, -0.2, 1, 0, 0);
+  }
+  if (compositionMode === 'curved-baseline') {
+    const textWidth = tempCtx.measureText(text.toUpperCase()).width;
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i].toUpperCase();
+      const charWidth = tempCtx.measureText(char).width;
+      const offset = Math.sin((i / text.length) * Math.PI) * fontSize * 0.3;
+      tempCtx.fillText(char, i * charWidth, offset);
+    }
+  } else {
+    tempCtx.fillText(text.toUpperCase(), 0, 0);
+  }
+  
+  const metrics = tempCtx.measureText(text.toUpperCase());
+  const textWidth = metrics.width;
+  const textHeight = fontSize * 1.2;
+  
+  const croppedCanvas = document.createElement('canvas');
+  croppedCanvas.width = Math.ceil(textWidth);
+  croppedCanvas.height = Math.ceil(textHeight);
+  const croppedCtx = croppedCanvas.getContext('2d');
+  if (!croppedCtx) return null;
+  
+  croppedCtx.imageSmoothingEnabled = false;
+  croppedCtx.drawImage(tempCanvas, 0, 0, textWidth, textHeight, 0, 0, croppedCanvas.width, croppedCanvas.height);
+  
+  const imageData = croppedCtx.getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
+  return { data: imageData.data, croppedCanvas, scaledPixelSize: pixelSize * scale };
+}
+
+// Draw 3D extrusion
+function draw3DExtrusion(
+  ctx: CanvasRenderingContext2D,
+  imageData: Uint8ClampedArray,
+  sourceWidth: number,
+  sourceHeight: number,
+  destX: number,
+  destY: number,
+  pixelSize: number,
+  scaledPixelSize: number,
+  depthConfig: DepthConfig,
+  textColor: string,
+  palette: string[]
+) {
+  const layers = depthConfig.extrusionLayers;
+  const offsetX = depthConfig.lightingDirection.includes('right') ? 1 : -1;
+  const offsetY = depthConfig.lightingDirection.includes('bottom') ? 1 : -1;
+  
+  const shades = depthConfig.colorShades.length > 0 
+    ? depthConfig.colorShades 
+    : generateColorShades(textColor, layers + 1);
+  
+  // Draw back layers (darker)
+  for (let layer = layers; layer >= 1; layer--) {
+    const shade = shades[Math.min(layer, shades.length - 1)];
+    const offset = layer * pixelSize;
+    ctx.fillStyle = shade;
+    ctx.globalAlpha = 0.8 - (layer / layers) * 0.3;
+    
+    drawPixelatedText(ctx, imageData, sourceWidth, sourceHeight,
+      destX + offsetX * offset,
+      destY + offsetY * offset,
+      pixelSize, scaledPixelSize, shade);
+  }
+  
+  ctx.globalAlpha = 1;
+  
+  // Draw main text (front layer)
+  const mainColor = depthConfig.colorDepth ? shades[0] : textColor;
+  ctx.fillStyle = mainColor;
+  drawPixelatedText(ctx, imageData, sourceWidth, sourceHeight,
+    destX, destY, pixelSize, scaledPixelSize, mainColor);
+}
+
+// Draw atmospheric glow
+function drawAtmosphericGlow(
+  ctx: CanvasRenderingContext2D,
+  imageData: Uint8ClampedArray,
+  sourceWidth: number,
+  sourceHeight: number,
+  destX: number,
+  destY: number,
+  pixelSize: number,
+  scaledPixelSize: number,
+  depthConfig: DepthConfig
+) {
+  const glowSize = Math.floor(depthConfig.glowIntensity * 8);
+  ctx.fillStyle = depthConfig.glowColor;
+  
+  for (let i = glowSize; i >= 1; i--) {
+    ctx.globalAlpha = (depthConfig.glowIntensity / i) * 0.3;
+    const spread = i * pixelSize;
+    drawPixelatedText(ctx, imageData, sourceWidth, sourceHeight,
+      destX - spread, destY - spread, pixelSize + i, scaledPixelSize, depthConfig.glowColor);
+    drawPixelatedText(ctx, imageData, sourceWidth, sourceHeight,
+      destX + spread, destY + spread, pixelSize + i, scaledPixelSize, depthConfig.glowColor);
+  }
+  
+  ctx.globalAlpha = 1;
+}
+
+// Draw lighting highlights
+function drawLightingHighlights(
+  ctx: CanvasRenderingContext2D,
+  imageData: Uint8ClampedArray,
+  sourceWidth: number,
+  sourceHeight: number,
+  destX: number,
+  destY: number,
+  pixelSize: number,
+  scaledPixelSize: number,
+  depthConfig: DepthConfig,
+  textColor: string,
+  palette: string[]
+) {
+  const lightDir = depthConfig.lightingDirection;
+  const highlightColor = palette[palette.length - 1];
+  const darkColor = palette[0];
+  
+  // Determine highlight and shadow positions based on lighting direction
+  let highlightOffsetX = 0;
+  let highlightOffsetY = 0;
+  let shadowOffsetX = 0;
+  let shadowOffsetY = 0;
+  
+  if (lightDir.includes('left')) highlightOffsetX = -pixelSize;
+  if (lightDir.includes('right')) shadowOffsetX = pixelSize;
+  if (lightDir.includes('top')) highlightOffsetY = -pixelSize;
+  if (lightDir.includes('bottom')) shadowOffsetY = pixelSize;
+  
+  // Draw highlights on light-facing edges
+  ctx.fillStyle = highlightColor;
+  ctx.globalAlpha = 0.6;
+  drawPixelatedText(ctx, imageData, sourceWidth, sourceHeight,
+    destX + highlightOffsetX, destY + highlightOffsetY,
+    pixelSize, scaledPixelSize, highlightColor);
+  
+  // Draw shadows on dark-facing edges
+  ctx.fillStyle = darkColor;
+  ctx.globalAlpha = 0.4;
+  drawPixelatedText(ctx, imageData, sourceWidth, sourceHeight,
+    destX + shadowOffsetX, destY + shadowOffsetY,
+    pixelSize, scaledPixelSize, darkColor);
+  
+  ctx.globalAlpha = 1;
+}
+
+// Draw inner shadow/bevel
+function drawInnerShadow(
+  ctx: CanvasRenderingContext2D,
+  imageData: Uint8ClampedArray,
+  sourceWidth: number,
+  sourceHeight: number,
+  destX: number,
+  destY: number,
+  pixelSize: number,
+  scaledPixelSize: number,
+  palette: string[]
+) {
+  const darkColor = palette[0];
+  ctx.fillStyle = darkColor;
+  ctx.globalAlpha = 0.3;
+  
+  // Draw inner shadow by drawing slightly offset and smaller
+  drawPixelatedText(ctx, imageData, sourceWidth, sourceHeight,
+    destX + pixelSize, destY + pixelSize,
+    pixelSize, scaledPixelSize, darkColor);
+  
+  ctx.globalAlpha = 1;
+}
+
+// Draw pixel reflections
+function drawPixelReflections(
+  ctx: CanvasRenderingContext2D,
+  imageData: Uint8ClampedArray,
+  sourceWidth: number,
+  sourceHeight: number,
+  destX: number,
+  destY: number,
+  pixelSize: number,
+  scaledPixelSize: number,
+  textColor: string
+) {
+  // Add highlight pixels on top-left corners
+  ctx.fillStyle = '#FFFFFF';
+  ctx.globalAlpha = 0.7;
+  
+  for (let sy = 0; sy < sourceHeight; sy += scaledPixelSize * 4) {
+    for (let sx = 0; sx < sourceWidth; sx += scaledPixelSize * 4) {
+      const sampleX = Math.min(sx, sourceWidth - 1);
+      const sampleY = Math.min(sy, sourceHeight - 1);
+      const idx = (sampleY * sourceWidth + sampleX) * 4;
+      
+      if (imageData[idx + 3] > 100) {
+        const px = Math.floor(destX + (sx / scaledPixelSize) * pixelSize);
+        const py = Math.floor(destY + (sy / scaledPixelSize) * pixelSize);
+        // Add small highlight on corner
+        ctx.fillRect(px, py, pixelSize, pixelSize);
+      }
+    }
+  }
+  
+  ctx.globalAlpha = 1;
+}
+
+// Draw text with texture
+function drawTextWithTexture(
+  ctx: CanvasRenderingContext2D,
+  imageData: Uint8ClampedArray,
+  sourceWidth: number,
+  sourceHeight: number,
+  destX: number,
+  destY: number,
+  pixelSize: number,
+  scaledPixelSize: number,
+  textColor: string,
+  depthConfig: DepthConfig,
+  palette: string[]
+) {
+  if (depthConfig.texture === 'none' || depthConfig.extrusion) {
+    // Extrusion already drew the text, or no texture needed
+    return;
+  }
+  
+  // Apply texture pattern
+  const baseColor = depthConfig.colorDepth && depthConfig.colorShades.length > 0
+    ? depthConfig.colorShades[0]
+    : textColor;
+  
+  if (depthConfig.texture === 'metal') {
+    // Metallic bands
+    for (let band = 0; band < 5; band++) {
+      const bandY = destY + (sourceHeight / 5) * band;
+      ctx.fillStyle = band % 2 === 0 ? palette[palette.length - 1] : palette[0];
+      ctx.fillRect(destX, bandY, sourceWidth, pixelSize * 2);
+    }
+  } else if (depthConfig.texture === 'stone') {
+    // Stone texture - random darker pixels
+    ctx.fillStyle = baseColor;
+    drawPixelatedText(ctx, imageData, sourceWidth, sourceHeight,
+      destX, destY, pixelSize, scaledPixelSize, baseColor);
+    // Add random dark spots
+    ctx.fillStyle = palette[0];
+    for (let i = 0; i < 30; i++) {
+      const px = destX + Math.floor(Math.random() * sourceWidth);
+      const py = destY + Math.floor(Math.random() * sourceHeight);
+      ctx.fillRect(px, py, pixelSize, pixelSize);
+    }
+  } else if (depthConfig.texture === 'crt-phosphor') {
+    // CRT phosphor pattern
+    ctx.fillStyle = baseColor;
+    drawPixelatedText(ctx, imageData, sourceWidth, sourceHeight,
+      destX, destY, pixelSize, scaledPixelSize, baseColor);
+    // Add scanline-like pattern
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+    for (let y = destY; y < destY + sourceHeight; y += pixelSize * 2) {
+      ctx.fillRect(destX, y, sourceWidth, pixelSize);
+    }
+  } else {
+    // Default: just draw the text
+    ctx.fillStyle = baseColor;
+    drawPixelatedText(ctx, imageData, sourceWidth, sourceHeight,
+      destX, destY, pixelSize, scaledPixelSize, baseColor);
+  }
+}
+
+// Draw floating shadow
+function drawFloatingShadow(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  pixelSize: number,
+  depthConfig: DepthConfig,
+  rng: SeededRandom
+) {
+  const textData = prepareTextData(text, pixelSize, {}, 'centered');
+  if (!textData) return;
+  
+  const { data, croppedCanvas } = textData;
+  const shadowOffset = depthConfig.shadowBlur || pixelSize * 3;
+  const shadowX = Math.floor(x / pixelSize) * pixelSize + shadowOffset;
+  const shadowY = Math.floor(y / pixelSize) * pixelSize + shadowOffset;
+  
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.globalAlpha = 0.6;
+  
+  // Draw pixelated shadow
+  for (let sy = 0; sy < croppedCanvas.height; sy += pixelSize * 2) {
+    for (let sx = 0; sx < croppedCanvas.width; sx += pixelSize * 2) {
+      const sampleX = Math.min(sx, croppedCanvas.width - 1);
+      const sampleY = Math.min(sy, croppedCanvas.height - 1);
+      const idx = (sampleY * croppedCanvas.width + sampleX) * 4;
+      
+      if (data[idx + 3] > 100) {
+        const px = shadowX + (sx / (pixelSize * 2)) * pixelSize;
+        const py = shadowY + (sy / (pixelSize * 2)) * pixelSize;
+        ctx.fillRect(px, py, pixelSize * 2, pixelSize * 2);
+      }
+    }
+  }
+  
+  ctx.globalAlpha = 1;
+}
+
+// Render text with all effects (legacy function, kept for compatibility)
 function renderTextWithEffects(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -781,6 +1461,8 @@ function renderTextWithEffects(
   const imageData = croppedCtx.getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
   const data = imageData.data;
   const scaledPixelSize = pixelSize * scale;
+  
+  return { data, croppedCanvas, scaledPixelSize };
   
   // Draw effects
   if (effects.doubleShadow) {
