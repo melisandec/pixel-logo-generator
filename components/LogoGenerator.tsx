@@ -37,6 +37,7 @@ export default function LogoGenerator() {
     words: [],
     seedUsed: false,
   });
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   const getTodayKey = () => {
     const now = new Date();
@@ -677,6 +678,23 @@ export default function LogoGenerator() {
           isCasting={isCasting}
         />
       )}
+      {showHowItWorks && (
+        <div className="how-modal-overlay" role="dialog" aria-modal="true" aria-label="How it works">
+          <div className="how-modal">
+            <div className="how-modal-title">How it works</div>
+            <div className="how-modal-body">
+              <p>Each logo is generated from your text and a seed.</p>
+              <p>The same text + seed always recreates the exact logo.</p>
+              <p>Rarity is a random roll that unlocks extra effects.</p>
+              <p>You can generate up to 3 words per day.</p>
+              <p>You can enter a custom seed once per day.</p>
+            </div>
+            <button className="how-modal-close" onClick={() => setShowHowItWorks(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
       <div className="input-section">
         <input
           type="text"
@@ -778,13 +796,14 @@ export default function LogoGenerator() {
               aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity`}
             />
             <div className="logo-info">
-              <div
+              <button
                 className="how-it-works"
-                title="How it works: the seed recreates the exact logo, and rarity is assigned by a random roll that unlocks extra effects."
-                aria-label="How it works: the seed recreates the exact logo, and rarity is assigned by a random roll that unlocks extra effects."
+                type="button"
+                onClick={() => setShowHowItWorks(true)}
+                aria-label="How it works"
               >
                 How it works
-              </div>
+              </button>
               <div className="seed-display">
                 <span>Seed: </span>
                 <button 
