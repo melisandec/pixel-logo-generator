@@ -21,7 +21,7 @@
     "ogDescription": "Generate retro arcade-style logos",
     "ogImageUrl": "https://pixel-logo-generator.vercel.app/og-image.png",
     "castShareUrl": "https://pixel-logo-generator.vercel.app",
-    "primaryCategory": "art",
+    "primaryCategory": "art-creativity",
     "webhookUrl": "https://pixel-logo-generator.vercel.app/api/webhook",
     "canonicalDomain": "pixel-logo-generator.vercel.app",
     "tags": [
