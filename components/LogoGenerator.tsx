@@ -181,13 +181,19 @@ export default function LogoGenerator() {
       // Create share URL with logo parameters
       const shareUrl = `${window.location.origin}?text=${encodeURIComponent(logoResult.config.text)}&seed=${logoResult.seed}`;
       
+      console.log('Starting cast process...');
+      console.log('SDK ready:', sdkReady);
+      
       // Generate the composite cast image with logo, rarity, and owner
       let castImageUrl = logoResult.dataUrl; // Fallback to original logo
       
       try {
+        console.log('Generating cast image...');
         const castImageDataUrl = await generateCastImage(logoResult);
+        console.log('Cast image generated, length:', castImageDataUrl.length);
         
         // Upload the composite image to get a shareable URL
+        console.log('Uploading image to get shareable URL...');
         const uploadResponse = await fetch('/api/logo-image', {
           method: 'POST',
           headers: {
@@ -202,22 +208,51 @@ export default function LogoGenerator() {
         
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
+          console.log('Upload response:', uploadData);
           if (uploadData.imageUrl) {
             castImageUrl = uploadData.imageUrl;
+            console.log('Using shareable URL:', castImageUrl);
+          } else {
+            console.log('No imageUrl in response, using data URL');
           }
+        } else {
+          console.error('Upload failed:', uploadResponse.status, await uploadResponse.text());
         }
       } catch (imageError) {
-        console.log('Failed to generate cast image, using original:', imageError);
+        console.error('Failed to generate/upload cast image:', imageError);
         // Continue with original logo
       }
       
       // Use Farcaster SDK composeCast
       if (sdkReady) {
         try {
+          console.log('Calling SDK composeCast with:', {
+            text: `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}\n\nSeed: ${logoResult.seed}`,
+            embeds: [castImageUrl],
+          });
+          
+          // Farcaster embeds - build as tuple type
+          let embeds: [string] | [string, string] | undefined = undefined;
+          
+          // Only add image embed if it's an HTTP URL (Farcaster prefers HTTP URLs over data URLs)
+          if (castImageUrl && (castImageUrl.startsWith('http://') || castImageUrl.startsWith('https://'))) {
+            embeds = [castImageUrl, shareUrl] as [string, string];
+          } else if (castImageUrl && castImageUrl.startsWith('data:')) {
+            // Try data URL (may not work in all clients)
+            embeds = [castImageUrl] as [string];
+          } else {
+            // Fallback: just use share URL
+            embeds = [shareUrl] as [string];
+          }
+          
+          console.log('Calling composeCast with embeds:', embeds);
+          
           const result = await sdk.actions.composeCast({
             text: `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}\n\nSeed: ${logoResult.seed}`,
-            embeds: [castImageUrl], // Include the composite image with rarity and owner
+            embeds: embeds,
           });
+          
+          console.log('ComposeCast result:', result);
           
           if (result && result.cast) {
             setToast({ message: 'Logo casted! 🎉', type: 'success' });
@@ -226,10 +261,15 @@ export default function LogoGenerator() {
           }
           return;
         } catch (sdkError) {
-          console.error('SDK cast error:', sdkError);
+          console.error('SDK cast error details:', sdkError);
+          setToast({ 
+            message: `Cast failed: ${sdkError instanceof Error ? sdkError.message : 'Unknown error'}. Check console for details.`, 
+            type: 'error' 
+          });
           throw sdkError;
         }
       } else {
+        console.log('SDK not ready, using Warpcast fallback');
         // Fallback: open Warpcast compose URL
         const warpcastUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(
           `🎮 Generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\nRecreate it: ${shareUrl}`
@@ -239,7 +279,10 @@ export default function LogoGenerator() {
       }
     } catch (error) {
       console.error('Cast error:', error);
-      setToast({ message: 'Failed to cast. Please try again or share manually.', type: 'error' });
+      setToast({ 
+        message: `Failed to cast: ${error instanceof Error ? error.message : 'Unknown error'}. Check console for details.`, 
+        type: 'error' 
+      });
     } finally {
       setIsCasting(false);
     }
