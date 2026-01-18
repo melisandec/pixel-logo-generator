@@ -954,6 +954,15 @@ body {
   margin-top: 10px;
 }
 
+.leaderboard-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
 .leaderboard-title {
   font-size: 10px;
   color: var(--text-secondary);

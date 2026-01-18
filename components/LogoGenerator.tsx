@@ -1240,69 +1240,92 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
     </>
   );
 
+  const leaderboardDate = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const sortedLeaderboard = [...leaderboard].sort((a, b) => {
+    if (b.likes !== a.likes) return b.likes - a.likes;
+    return b.createdAt - a.createdAt;
+  });
+
   const leaderboardContent = (
     <div className="leaderboard">
       <div className="leaderboard-title">Daily Leaderboard</div>
+      <div className="leaderboard-meta">
+        <span>{leaderboardDate}</span>
+        <span>{leaderboard.length} entries</span>
+      </div>
       {leaderboard.length === 0 && (
-        <div className="leaderboard-status">No casts yet today.</div>
+        <div className="leaderboard-status">No casts yet today. Be the first!</div>
       )}
       {leaderboard.length > 0 && (
         <div className="leaderboard-grid">
-          {leaderboard.map((entry) => (
-            <a
-              key={entry.id}
-              className="leaderboard-card"
-              href={entry.id.startsWith('0x') ? `https://warpcast.com/~/cast/${entry.id}` : undefined}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={`Open cast by ${entry.username}`}
-            >
-              <div className="leaderboard-card-header">
-                {entry.pfpUrl ? (
+          {sortedLeaderboard.map((entry) => {
+            const isCastLink = entry.id.startsWith('0x');
+            const CardContent = (
+              <>
+                <div className="leaderboard-card-header">
+                  {entry.pfpUrl ? (
+                    <NextImage
+                      src={entry.pfpUrl}
+                      alt={entry.username}
+                      className="leaderboard-avatar"
+                      width={28}
+                      height={28}
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="leaderboard-avatar placeholder" />
+                  )}
+                  <div className="leaderboard-user">
+                    <div className="leaderboard-name">{entry.displayName}</div>
+                    <div className="leaderboard-username">@{entry.username}</div>
+                  </div>
+                </div>
+                {entry.imageUrl ? (
                   <NextImage
-                    src={entry.pfpUrl}
-                    alt={entry.username}
-                    className="leaderboard-avatar"
-                    width={28}
-                    height={28}
+                    src={entry.imageUrl}
+                    alt="Cast media"
+                    className="leaderboard-image"
+                    width={400}
+                    height={120}
                     unoptimized
                   />
                 ) : (
-                  <div className="leaderboard-avatar placeholder" />
+                  <div className="leaderboard-text">{entry.text || 'View cast'}</div>
                 )}
-                <div className="leaderboard-user">
-                  <div className="leaderboard-name">{entry.displayName}</div>
-                  <div className="leaderboard-username">@{entry.username}</div>
+                <div className="leaderboard-metrics">
+                  <span>❤️ {entry.likes}</span>
+                  <button
+                    type="button"
+                    className="leaderboard-like"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      incrementLeaderboardLike(entry.id);
+                    }}
+                    aria-label={`Like cast by ${entry.username}`}
+                  >
+                    Like
+                  </button>
                 </div>
+              </>
+            );
+
+            return isCastLink ? (
+              <a
+                key={entry.id}
+                className="leaderboard-card"
+                href={`https://warpcast.com/~/cast/${entry.id}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Open cast by ${entry.username}`}
+              >
+                {CardContent}
+              </a>
+            ) : (
+              <div key={entry.id} className="leaderboard-card" aria-label={`Local entry by ${entry.username}`}>
+                {CardContent}
               </div>
-              {entry.imageUrl ? (
-                <NextImage
-                  src={entry.imageUrl}
-                  alt="Cast media"
-                  className="leaderboard-image"
-                  width={400}
-                  height={120}
-                  unoptimized
-                />
-              ) : (
-                <div className="leaderboard-text">{entry.text || 'View cast'}</div>
-              )}
-              <div className="leaderboard-metrics">
-                <span>❤️ {entry.likes}</span>
-                <button
-                  type="button"
-                  className="leaderboard-like"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    incrementLeaderboardLike(entry.id);
-                  }}
-                  aria-label={`Like cast by ${entry.username}`}
-                >
-                  Like
-                </button>
-              </div>
-            </a>
-          ))}
+            );
+          })}
         </div>
       )}
       {leaderboard.length > 0 && (
