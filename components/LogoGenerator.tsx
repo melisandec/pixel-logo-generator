@@ -1681,32 +1681,36 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           className={`bottom-nav-button${activeTab === 'home' ? ' active' : ''}`}
           onClick={() => setActiveTab('home')}
           aria-pressed={activeTab === 'home'}
+          aria-label="Home"
         >
-          Home
+          <span className="bottom-nav-icon" aria-hidden="true">🏠</span>
         </button>
         <button
           type="button"
           className={`bottom-nav-button${activeTab === 'gallery' ? ' active' : ''}`}
           onClick={() => setActiveTab('gallery')}
           aria-pressed={activeTab === 'gallery'}
+          aria-label="Gallery"
         >
-          Gallery
+          <span className="bottom-nav-icon" aria-hidden="true">🖼️</span>
         </button>
         <button
           type="button"
           className={`bottom-nav-button${activeTab === 'leaderboard' ? ' active' : ''}`}
           onClick={() => setActiveTab('leaderboard')}
           aria-pressed={activeTab === 'leaderboard'}
+          aria-label="Leaderboard"
         >
-          Leaderboard
+          <span className="bottom-nav-icon" aria-hidden="true">🏆</span>
         </button>
         <button
           type="button"
           className={`bottom-nav-button${activeTab === 'challenge' ? ' active' : ''}`}
           onClick={() => setActiveTab('challenge')}
           aria-pressed={activeTab === 'challenge'}
+          aria-label="Challenge"
         >
-          Challenge
+          <span className="bottom-nav-icon" aria-hidden="true">🎯</span>
         </button>
       </nav>
     </div>
