@@ -41,8 +41,16 @@ type LeaderboardEntry = {
   displayName: string;
   pfpUrl: string;
   likes: number;
+  recasts?: number;
   createdAt: number | string;
   castUrl?: string;
+  score?: number;
+};
+
+type UserProfile = {
+  username: string;
+  best: LeaderboardEntry | null;
+  entries: LeaderboardEntry[];
 };
 
 const TRIES_PER_DAY = 3;
@@ -109,6 +117,10 @@ export default function LogoGenerator() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [activeTab, setActiveTab] = useState<'home' | 'gallery' | 'leaderboard' | 'challenge'>('home');
   const [miniappAdded, setMiniappAdded] = useState(false);
+  const [profileUser, setProfileUser] = useState<string | null>(null);
+  const [profileData, setProfileData] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
     date: '',
     words: [],
@@ -218,6 +230,7 @@ export default function LogoGenerator() {
       return {
         ...item,
         castUrl,
+        recasts: item.recasts ?? 0,
         createdAt: createdAtValue,
       };
     });
@@ -225,7 +238,7 @@ export default function LogoGenerator() {
 
   const loadLeaderboard = useCallback(async () => {
     try {
-      const response = await fetch(`/api/leaderboard?date=${getTodayKey()}`);
+      const response = await fetch(`/api/leaderboard?scope=global`);
       if (!response.ok) {
         throw new Error('Failed to fetch leaderboard');
       }
@@ -872,6 +885,27 @@ export default function LogoGenerator() {
     }
   };
 
+  const loadUserProfile = async (username: string) => {
+    const key = username.toLowerCase();
+    setProfileUser(key);
+    setProfileLoading(true);
+    setProfileError(null);
+    try {
+      const response = await fetch(`/api/users/${encodeURIComponent(key)}`);
+      if (!response.ok) {
+        throw new Error('Failed to load profile');
+      }
+      const data = (await response.json()) as UserProfile;
+      setProfileData(data);
+    } catch (error) {
+      console.error('Profile load error:', error);
+      setProfileError('Failed to load profile.');
+      setProfileData(null);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   const handleAddMiniapp = async () => {
     if (!sdkReady) {
       setToast({ message: 'Add to collection is available in Farcaster.', type: 'info' });
@@ -1067,6 +1101,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
               displayName: userInfo?.username ?? 'Unknown',
               pfpUrl: '',
               likes: 0,
+              recasts: 0,
               createdAt: Date.now(),
               castUrl,
             });
@@ -1335,9 +1370,11 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
     </>
   );
 
-  const leaderboardDate = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const leaderboardDate = 'Last 7 days';
   const sortedLeaderboard = [...leaderboard].sort((a, b) => {
-    if (b.likes !== a.likes) return b.likes - a.likes;
+    const bScore = b.score ?? b.likes + (b.recasts ?? 0) * 2;
+    const aScore = a.score ?? a.likes + (a.recasts ?? 0) * 2;
+    if (bScore !== aScore) return bScore - aScore;
     const bCreated = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : b.createdAt;
     const aCreated = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : a.createdAt;
     return bCreated - aCreated;
@@ -1345,11 +1382,79 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
 
   const leaderboardContent = (
     <div className="leaderboard">
-      <div className="leaderboard-title">Daily Leaderboard</div>
+      <div className="leaderboard-title">Global Leaderboard</div>
       <div className="leaderboard-meta">
         <span>{leaderboardDate}</span>
         <span>{leaderboard.length} entries</span>
       </div>
+      {profileUser && (
+        <div className="profile-panel">
+          <div className="profile-header">
+            <span>Profile: @{profileUser}</span>
+            <button
+              type="button"
+              className="profile-close"
+              onClick={() => {
+                setProfileUser(null);
+                setProfileData(null);
+                setProfileError(null);
+              }}
+            >
+              Close
+            </button>
+          </div>
+          {profileLoading && <div className="leaderboard-status">Loading profile...</div>}
+          {profileError && <div className="leaderboard-status">{profileError}</div>}
+          {!profileLoading && !profileError && profileData && (
+            <div className="profile-content">
+              {profileData.best && (
+                <div className="profile-best">
+                  <div className="leaderboard-title">Personal best</div>
+                  <div className="profile-best-card">
+                    {profileData.best.imageUrl ? (
+                      <NextImage
+                        src={profileData.best.imageUrl}
+                        alt={`Best logo by ${profileData.best.username}`}
+                        className="profile-best-image"
+                        width={240}
+                        height={160}
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="profile-best-text">{profileData.best.text}</div>
+                    )}
+                    <div className="profile-best-meta">
+                      <span>❤️ {profileData.best.likes}</span>
+                      <span>🔁 {profileData.best.recasts ?? 0}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="profile-gallery">
+                <div className="leaderboard-title">Recent logos</div>
+                <div className="profile-gallery-grid">
+                  {profileData.entries.slice(0, 6).map((entry) => (
+                    <div key={`profile-${entry.id}`} className="profile-gallery-card">
+                      {entry.imageUrl ? (
+                        <NextImage
+                          src={entry.imageUrl}
+                          alt={`Logo by ${entry.username}`}
+                          className="profile-gallery-image"
+                          width={140}
+                          height={100}
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="profile-gallery-text">{entry.text}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {leaderboard.length === 0 && (
         <div className="leaderboard-status">No casts yet today. Be the first!</div>
       )}
@@ -1377,10 +1482,18 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                   ) : (
                     <div className="leaderboard-avatar placeholder" />
                   )}
-                  <div className="leaderboard-user">
+                  <button
+                    type="button"
+                    className="leaderboard-user"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      loadUserProfile(entry.username);
+                    }}
+                    aria-label={`View profile for ${entry.username}`}
+                  >
                     <div className="leaderboard-name">{entry.displayName}</div>
                     <div className="leaderboard-username">@{entry.username}</div>
-                  </div>
+                  </button>
                 </div>
                 {entry.imageUrl ? (
                   <NextImage
@@ -1396,6 +1509,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 )}
                 <div className="leaderboard-metrics">
                   <span>❤️ {entry.likes}</span>
+                  <span>🔁 {entry.recasts ?? 0}</span>
                   <button
                     type="button"
                     className="leaderboard-like"

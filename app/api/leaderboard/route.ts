@@ -11,11 +11,12 @@ type LeaderboardEntry = {
   displayName: string;
   pfpUrl: string;
   likes: number;
-  createdAt: number;
+  recasts: number;
+  createdAt: number | string | Date;
   castUrl?: string;
 };
 
-const logDebug = () => {};
+const logDebug = (..._args: unknown[]) => {};
 
 const ensureLeaderboardTable = async () => {
   // #region agent log
@@ -60,6 +61,19 @@ const getDateRange = (dateKey?: string | null) => {
   return { start, end };
 };
 
+const getRecentRange = (days: number) => {
+  const end = new Date();
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - days);
+  return { start, end };
+};
+
+const computeScore = (entry: LeaderboardEntry) => {
+  const createdAtMs = typeof entry.createdAt === 'number' ? entry.createdAt : new Date(entry.createdAt).getTime();
+  const hoursSince = (Date.now() - createdAtMs) / 36e5;
+  return entry.likes + entry.recasts * 2 - hoursSince * 0.25;
+};
+
 export async function GET(request: Request) {
   try {
     // #region agent log
@@ -70,24 +84,25 @@ export async function GET(request: Request) {
     // #endregion agent log
     const { searchParams } = new URL(request.url);
     const dateKey = searchParams.get('date');
-    const { start, end } = getDateRange(dateKey);
+    const scope = searchParams.get('scope');
+    const range = scope === 'daily' && dateKey ? getDateRange(dateKey) : getRecentRange(7);
     const entries = await prisma.leaderboardEntry.findMany({
       where: {
         createdAt: {
-          gte: start,
-          lt: end,
+          gte: range.start,
+          lt: range.end,
         },
       },
-      orderBy: [
-        { likes: 'desc' },
-        { createdAt: 'desc' },
-      ],
-      take: 25,
+      take: 200,
     });
+    const sorted = entries
+      .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 25);
     // #region agent log
-    logDebug('H2', 'GET success', { count: entries.length });
+    logDebug('H2', 'GET success', { count: sorted.length });
     // #endregion agent log
-    return NextResponse.json({ entries });
+    return NextResponse.json({ entries: sorted });
   } catch (error) {
     // #region agent log
     logDebug('H2', 'GET error', {
@@ -102,24 +117,25 @@ export async function GET(request: Request) {
       await ensureLeaderboardTable();
       const { searchParams } = new URL(request.url);
       const dateKey = searchParams.get('date');
-      const { start, end } = getDateRange(dateKey);
+      const scope = searchParams.get('scope');
+      const range = scope === 'daily' && dateKey ? getDateRange(dateKey) : getRecentRange(7);
       const entries = await prisma.leaderboardEntry.findMany({
         where: {
           createdAt: {
-            gte: start,
-            lt: end,
+            gte: range.start,
+            lt: range.end,
           },
         },
-        orderBy: [
-          { likes: 'desc' },
-          { createdAt: 'desc' },
-        ],
-        take: 25,
+        take: 200,
       });
+      const sorted = entries
+        .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 25);
       // #region agent log
-      logDebug('H5', 'GET retry success', { count: entries.length });
+      logDebug('H5', 'GET retry success', { count: sorted.length });
       // #endregion agent log
-      return NextResponse.json({ entries });
+      return NextResponse.json({ entries: sorted });
     }
     console.error('Leaderboard GET error:', error);
     return NextResponse.json({ entries: [] }, { status: 200 });
@@ -158,6 +174,7 @@ export async function POST(request: Request) {
       displayName: body.displayName ?? body.username,
       pfpUrl: body.pfpUrl ?? '',
       likes: body.likes ?? 0,
+      recasts: body.recasts ?? 0,
       createdAt: body.createdAt ?? Date.now(),
       castUrl: body.castUrl,
     };
@@ -172,6 +189,7 @@ export async function POST(request: Request) {
         displayName: entry.displayName,
         pfpUrl: entry.pfpUrl,
         likes: entry.likes,
+        recasts: entry.recasts,
         createdAt: new Date(entry.createdAt),
         castUrl: entry.castUrl,
       },
@@ -184,6 +202,7 @@ export async function POST(request: Request) {
         displayName: entry.displayName,
         pfpUrl: entry.pfpUrl,
         likes: entry.likes,
+        recasts: entry.recasts,
         createdAt: new Date(entry.createdAt),
         castUrl: entry.castUrl,
       },
@@ -192,24 +211,24 @@ export async function POST(request: Request) {
     logDebug('H3', 'POST upsert success', { id: entry.id });
     // #endregion agent log
 
-    const { start, end } = getDateRange(null);
+    const range = getRecentRange(7);
     const entries = await prisma.leaderboardEntry.findMany({
       where: {
         createdAt: {
-          gte: start,
-          lt: end,
+          gte: range.start,
+          lt: range.end,
         },
       },
-      orderBy: [
-        { likes: 'desc' },
-        { createdAt: 'desc' },
-      ],
-      take: 25,
+      take: 200,
     });
+    const sorted = entries
+      .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 25);
     // #region agent log
-    logDebug('H2', 'POST fetch success', { count: entries.length });
+    logDebug('H2', 'POST fetch success', { count: sorted.length });
     // #endregion agent log
-    return NextResponse.json({ entries });
+    return NextResponse.json({ entries: sorted });
   } catch (error) {
     // #region agent log
     logDebug('H2', 'POST error', {
@@ -233,6 +252,7 @@ export async function POST(request: Request) {
             displayName: entry.displayName,
             pfpUrl: entry.pfpUrl,
             likes: entry.likes,
+            recasts: entry.recasts,
             createdAt: new Date(entry.createdAt),
             castUrl: entry.castUrl,
           },
@@ -245,28 +265,29 @@ export async function POST(request: Request) {
             displayName: entry.displayName,
             pfpUrl: entry.pfpUrl,
             likes: entry.likes,
+            recasts: entry.recasts,
             createdAt: new Date(entry.createdAt),
             castUrl: entry.castUrl,
           },
         });
-        const { start, end } = getDateRange(null);
+        const range = getRecentRange(7);
         const entries = await prisma.leaderboardEntry.findMany({
           where: {
             createdAt: {
-              gte: start,
-              lt: end,
+              gte: range.start,
+              lt: range.end,
             },
           },
-          orderBy: [
-            { likes: 'desc' },
-            { createdAt: 'desc' },
-          ],
-          take: 25,
+          take: 200,
         });
+        const sorted = entries
+          .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 25);
         // #region agent log
-        logDebug('H5', 'POST retry success', { count: entries.length });
+        logDebug('H5', 'POST retry success', { count: sorted.length });
         // #endregion agent log
-        return NextResponse.json({ entries });
+        return NextResponse.json({ entries: sorted });
       } catch (retryError) {
         // #region agent log
         logDebug('H5', 'POST retry error', {
@@ -309,24 +330,24 @@ export async function PATCH(request: Request) {
     logDebug('H3', 'PATCH update success', { id: updatedEntry.id, likes: updatedEntry.likes });
     // #endregion agent log
 
-    const { start, end } = getDateRange(null);
+    const range = getRecentRange(7);
     const entries = await prisma.leaderboardEntry.findMany({
       where: {
         createdAt: {
-          gte: start,
-          lt: end,
+          gte: range.start,
+          lt: range.end,
         },
       },
-      orderBy: [
-        { likes: 'desc' },
-        { createdAt: 'desc' },
-      ],
-      take: 25,
+      take: 200,
     });
+    const sorted = entries
+      .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 25);
     // #region agent log
-    logDebug('H2', 'PATCH fetch success', { count: entries.length });
+    logDebug('H2', 'PATCH fetch success', { count: sorted.length });
     // #endregion agent log
-    return NextResponse.json({ entry: updatedEntry, entries });
+    return NextResponse.json({ entry: updatedEntry, entries: sorted });
   } catch (error) {
     // #region agent log
     logDebug('H2', 'PATCH error', {
@@ -346,24 +367,24 @@ export async function PATCH(request: Request) {
             likes: { increment: 1 },
           },
         });
-        const { start, end } = getDateRange(null);
+        const range = getRecentRange(7);
         const entries = await prisma.leaderboardEntry.findMany({
           where: {
             createdAt: {
-              gte: start,
-              lt: end,
+              gte: range.start,
+              lt: range.end,
             },
           },
-          orderBy: [
-            { likes: 'desc' },
-            { createdAt: 'desc' },
-          ],
-          take: 25,
+          take: 200,
         });
+        const sorted = entries
+          .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 25);
         // #region agent log
-        logDebug('H5', 'PATCH retry success', { id: updatedEntry.id, count: entries.length });
+        logDebug('H5', 'PATCH retry success', { id: updatedEntry.id, count: sorted.length });
         // #endregion agent log
-        return NextResponse.json({ entry: updatedEntry, entries });
+        return NextResponse.json({ entry: updatedEntry, entries: sorted });
       } catch (retryError) {
         // #region agent log
         logDebug('H5', 'PATCH retry error', {

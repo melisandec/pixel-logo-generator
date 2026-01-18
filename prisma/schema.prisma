@@ -16,6 +16,7 @@ model LeaderboardEntry {
   displayName String
   pfpUrl      String
   likes       Int      @default(0)
+  recasts     Int      @default(0)
   createdAt   DateTime @default(now())
   castUrl     String?
 
