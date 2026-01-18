@@ -63,6 +63,7 @@ export default function LogoGenerator() {
   const [favorites, setFavorites] = useState<LogoHistoryItem[]>([]);
   const [remixMode, setRemixMode] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<'home' | 'gallery' | 'leaderboard' | 'challenge'>('home');
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
     date: '',
     words: [],
@@ -90,6 +91,31 @@ export default function LogoGenerator() {
     },
   ] as const;
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const PRESET_SWATCHES: Record<string, string[]> = {
+    arcade: ['#00ff00', '#ff00ff', '#ffff00'],
+    vaporwave: ['#ff006e', '#8338ec', '#3a86ff'],
+    gameboy: ['#0f380f', '#306230', '#9bbc0f'],
+  };
+  const CHALLENGE_PROMPTS = [
+    'Arcade Storm',
+    'Neon Drift',
+    'Pixel Heist',
+    'Turbo Vortex',
+    'Ghost Signal',
+    'Cosmic Byte',
+  ] as const;
+  const [challengeDone, setChallengeDone] = useState<Record<string, boolean>>({});
+  const [challengeDays, setChallengeDays] = useState<string[]>([]);
+
+  const DAILY_PROMPTS = [
+    'Nova Arcade',
+    'Pixel Eclipse',
+    'Synth Runner',
+    'Turbo Bloom',
+    'Neon Prism',
+    'Retro Reactor',
+    'Byte Mirage',
+  ] as const;
 
   const getTodayKey = () => {
     const now = new Date();
@@ -108,6 +134,29 @@ export default function LogoGenerator() {
   };
 
   const normalizeWord = (value: string) => value.trim().toLowerCase();
+
+  const getPromptOfDay = () => {
+    const dayKey = getTodayKey();
+    let hash = 0;
+    for (let i = 0; i < dayKey.length; i += 1) {
+      hash = (hash * 31 + dayKey.charCodeAt(i)) % DAILY_PROMPTS.length;
+    }
+    return DAILY_PROMPTS[hash];
+  };
+
+  const getChallengeStreak = (days: string[]) => {
+    if (days.length === 0) return 0;
+    const set = new Set(days);
+    let count = 0;
+    let cursor = new Date();
+    while (true) {
+      const key = getDayKeyFromTimestamp(cursor.getTime());
+      if (!set.has(key)) break;
+      count += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return count;
+  };
 
   const formatHistoryTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleString(undefined, {
@@ -148,6 +197,46 @@ export default function LogoGenerator() {
       }
     } catch (error) {
       console.error('Failed to read leaderboard:', error);
+    }
+  };
+
+  const loadChallenge = () => {
+    try {
+      const stored = localStorage.getItem('plf:challenge');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as Record<string, boolean>;
+      setChallengeDone(parsed || {});
+    } catch (error) {
+      console.error('Failed to read challenge progress:', error);
+    }
+  };
+
+  const saveChallenge = (next: Record<string, boolean>) => {
+    try {
+      localStorage.setItem('plf:challenge', JSON.stringify(next));
+    } catch (error) {
+      console.error('Failed to store challenge progress:', error);
+    }
+  };
+
+  const loadChallengeDays = () => {
+    try {
+      const stored = localStorage.getItem('plf:challengeDays');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as string[];
+      if (Array.isArray(parsed)) {
+        setChallengeDays(parsed);
+      }
+    } catch (error) {
+      console.error('Failed to read challenge days:', error);
+    }
+  };
+
+  const saveChallengeDays = (days: string[]) => {
+    try {
+      localStorage.setItem('plf:challengeDays', JSON.stringify(days));
+    } catch (error) {
+      console.error('Failed to store challenge days:', error);
     }
   };
 
@@ -232,6 +321,8 @@ export default function LogoGenerator() {
     loadHistory();
     loadFavorites();
     loadLeaderboard();
+    loadChallenge();
+    loadChallengeDays();
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
     const initSdk = async () => {
       // Wait 3 seconds before calling ready (splash screen duration)
@@ -366,6 +457,24 @@ export default function LogoGenerator() {
         item.id === entryId ? { ...item, likes: item.likes + 1 } : item
       );
       saveLeaderboard(next);
+      return next;
+    });
+  };
+
+  const toggleChallengeDone = (prompt: string) => {
+    setChallengeDone((prev) => {
+      const next = { ...prev, [prompt]: !prev[prompt] };
+      saveChallenge(next);
+      const allDone = CHALLENGE_PROMPTS.every((item) => next[item]);
+      if (allDone) {
+        const todayKey = getTodayKey();
+        setChallengeDays((daysPrev) => {
+          if (daysPrev.includes(todayKey)) return daysPrev;
+          const updated = [...daysPrev, todayKey];
+          saveChallengeDays(updated);
+          return updated;
+        });
+      }
       return next;
     });
   };
@@ -650,6 +759,19 @@ export default function LogoGenerator() {
       setToast({ message: 'Failed to share. Please try again.', type: 'error' });
     } finally {
       setIsSharing(false);
+    }
+  };
+
+  const handleCopyCastText = async () => {
+    if (!logoResult) return;
+    const shareUrl = `${window.location.origin}?text=${encodeURIComponent(logoResult.config.text)}&seed=${logoResult.seed}`;
+    const castText = `Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\n✨ Rarity: ${logoResult.rarity}\n🎲 Seed: ${logoResult.seed}\n🔗 Recreate: ${shareUrl}\n\n#PixelLogoForge #${logoResult.rarity}Logo`;
+    try {
+      await navigator.clipboard.writeText(castText);
+      setToast({ message: 'Cast text copied!', type: 'success' });
+    } catch (error) {
+      console.error('Copy cast text error:', error);
+      setToast({ message: 'Failed to copy cast text.', type: 'error' });
     }
   };
 
@@ -1007,6 +1129,181 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
     }
   };
 
+  const favoritesContent = (
+    <>
+      {favorites.length > 0 && (
+        <div className="history-strip" aria-label="Favorite logos">
+          <div className="history-title">Favorites</div>
+          <div className="history-list">
+            {favorites.map((item) => (
+              <button
+                key={`fav-${item.result.seed}-${item.result.config.text}`}
+                className="history-item"
+                onClick={() => {
+                  setLogoResult(item.result);
+                  setInputText(item.result.config.text);
+                }}
+                aria-label={`Load favorite logo "${item.result.config.text}" with seed ${item.result.seed}`}
+              >
+                <img
+                  src={item.result.dataUrl}
+                  alt={`Favorite logo: ${item.result.config.text}`}
+                  className="history-image"
+                />
+                <span className="history-time">{formatHistoryTime(item.createdAt)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {logoHistory.length > 0 && (
+        <div className="history-strip" aria-label="Recent logos">
+          <div className="history-title">Recent logos</div>
+          <div className="history-list">
+            {logoHistory.map((item) => (
+              <button
+                key={`${item.result.seed}-${item.result.config.text}`}
+                className="history-item"
+                onClick={() => {
+                  setLogoResult(item.result);
+                  setInputText(item.result.config.text);
+                }}
+                aria-label={`Load logo "${item.result.config.text}" with seed ${item.result.seed}`}
+              >
+                <img
+                  src={item.result.dataUrl}
+                  alt={`Recent logo: ${item.result.config.text}`}
+                  className="history-image"
+                />
+                <span className="history-time">{formatHistoryTime(item.createdAt)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {favorites.length === 0 && logoHistory.length === 0 && (
+        <div className="leaderboard-status">No favorites or recent logos yet.</div>
+      )}
+    </>
+  );
+
+  const leaderboardContent = (
+    <div className="leaderboard">
+      <div className="leaderboard-title">Daily Leaderboard</div>
+      {leaderboard.length === 0 && (
+        <div className="leaderboard-status">No casts yet today.</div>
+      )}
+      {leaderboard.length > 0 && (
+        <div className="leaderboard-grid">
+          {leaderboard.map((entry) => (
+            <a
+              key={entry.id}
+              className="leaderboard-card"
+              href={entry.id.startsWith('0x') ? `https://warpcast.com/~/cast/${entry.id}` : undefined}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`Open cast by ${entry.username}`}
+            >
+              <div className="leaderboard-card-header">
+                {entry.pfpUrl ? (
+                  <img src={entry.pfpUrl} alt={entry.username} className="leaderboard-avatar" />
+                ) : (
+                  <div className="leaderboard-avatar placeholder" />
+                )}
+                <div className="leaderboard-user">
+                  <div className="leaderboard-name">{entry.displayName}</div>
+                  <div className="leaderboard-username">@{entry.username}</div>
+                </div>
+              </div>
+              {entry.imageUrl ? (
+                <img src={entry.imageUrl} alt="Cast media" className="leaderboard-image" />
+              ) : (
+                <div className="leaderboard-text">{entry.text || 'View cast'}</div>
+              )}
+              <div className="leaderboard-metrics">
+                <span>❤️ {entry.likes}</span>
+                <button
+                  type="button"
+                  className="leaderboard-like"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    incrementLeaderboardLike(entry.id);
+                  }}
+                  aria-label={`Like cast by ${entry.username}`}
+                >
+                  Like
+                </button>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+      {leaderboard.length > 0 && (
+        <div className="recent-casts">
+          <div className="leaderboard-title">Recent Casts</div>
+          <div className="recent-casts-list">
+            {[...leaderboard]
+              .sort((a, b) => b.createdAt - a.createdAt)
+              .slice(0, 5)
+              .map((entry) => (
+                <div key={`recent-${entry.id}`} className="recent-cast">
+                  <span>{formatHistoryTime(entry.createdAt)}</span>
+                  <span>@{entry.username}</span>
+                  {entry.id.startsWith('0x') ? (
+                    <a
+                      href={`https://warpcast.com/~/cast/${entry.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open
+                    </a>
+                  ) : (
+                    <span>Local</span>
+                  )}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const challengeContent = (
+    <div className="challenge">
+      <div className="leaderboard-title">Mini‑Series Challenge</div>
+      <div className="leaderboard-status">
+        Generate logos for each prompt, then cast your favorites.
+      </div>
+      <div className="challenge-streak">
+        Streak: {getChallengeStreak(challengeDays)} day{getChallengeStreak(challengeDays) === 1 ? '' : 's'}
+      </div>
+      <div className="challenge-list">
+        {CHALLENGE_PROMPTS.map((prompt) => (
+          <div key={prompt} className="challenge-item">
+            <label className="challenge-label">
+              <input
+                type="checkbox"
+                checked={!!challengeDone[prompt]}
+                onChange={() => toggleChallengeDone(prompt)}
+              />
+              <span>{prompt}</span>
+            </label>
+            <button
+              type="button"
+              className="challenge-button"
+              onClick={() => {
+                setInputText(prompt);
+                setActiveTab('home');
+              }}
+            >
+              Use prompt
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="logo-generator">
       {toast && (
@@ -1042,149 +1339,171 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           </div>
         </div>
       )}
-      <div className="input-section">
-        <div className="daily-limit">
-          Tries left today: {Math.max(0, TRIES_PER_DAY - dailyLimit.words.length)}/{TRIES_PER_DAY}
-        </div>
-        <input
-          type="text"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleGenerate()}
-          placeholder="Enter your text (max 30 chars)"
-          maxLength={30}
-          className="terminal-input"
-          disabled={isGenerating}
-          aria-label="Text input for logo generation"
-          aria-required="true"
-        />
-        <div className="seed-input-group">
-          <div className="seed-label">
-            <svg
-              className="seed-icon"
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <rect x="6" y="2" width="4" height="2" />
-              <rect x="5" y="4" width="6" height="2" />
-              <rect x="4" y="6" width="8" height="2" />
-              <rect x="4" y="8" width="8" height="2" />
-              <rect x="5" y="10" width="6" height="2" />
-              <rect x="6" y="12" width="4" height="2" />
-            </svg>
-            <span>Seed</span>
-            <button
-              type="button"
-              className={`remix-pill${remixMode ? ' active' : ''}`}
-              onClick={() => {
-                if (!customSeed.trim()) {
-                  setToast({ message: 'Enter a seed to enable remix.', type: 'info' });
-                  return;
-                }
-                if (!inputText.trim()) {
-                  setToast({ message: 'Enter the original text to remix.', type: 'info' });
-                  return;
-                }
-                setRemixMode((prev) => !prev);
-              }}
-              aria-pressed={remixMode}
-            >
-              Remix
-            </button>
-          </div>
-          <input
-            type="text"
-            value={customSeed}
-            onChange={(e) => {
-              const value = e.target.value.trim();
-              setCustomSeed(value);
-
-              if (value === '') {
-                setSeedError('');
-                return;
-              }
-
-              const parsedSeed = parseInt(value, 10);
-              if (isNaN(parsedSeed)) {
-                setSeedError('Seed must be a number');
-              } else if (parsedSeed < 0 || parsedSeed > 2147483647) {
-                setSeedError('Seed must be between 0 and 2147483647');
-              } else {
-                setSeedError('');
-              }
-            }}
-            placeholder="Optional: Use a seed once per day"
-            className="seed-input"
-            disabled={isGenerating || dailyLimit.seedUsed}
-            aria-label="Optional seed input for deterministic logo generation"
-            aria-invalid={seedError !== ''}
-            aria-describedby={seedError ? 'seed-error' : 'seed-hint'}
-          />
-          {seedError ? (
-            <span id="seed-error" className="seed-error" role="alert">
-              {seedError}
-            </span>
-          ) : (
-            <span id="seed-hint" className="seed-hint">
-              {dailyLimit.seedUsed ? 'Seed used today — try again tomorrow' : 'One seed entry per day'}
-            </span>
-          )}
-          <span className="seed-tip">Tip: seed = recreate</span>
-        </div>
-        <button
-          type="button"
-          className="how-link"
-          onClick={() => setShowHowItWorks(true)}
-          aria-label="How it works"
-        >
-          How it works
-        </button>
-        <div className="button-group">
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating || !inputText.trim()}
-            className="arcade-button"
-            aria-label="Generate pixel logo"
-            aria-busy={isGenerating ? 'true' : 'false'}
-          >
-            {isGenerating ? 'GENERATING...' : 'GENERATE'}
-          </button>
-          <button
-            onClick={handleRandomize}
-            disabled={isGenerating}
-            className="arcade-button secondary"
-            aria-label="Randomize logo"
-          >
-            RANDOMIZE
-          </button>
-        </div>
-        <div className="preset-group">
-          <div className="preset-title">Style presets</div>
-          <div className="preset-list">
-            {PRESETS.map((preset) => (
+      {activeTab === 'home' && (
+        <div className="input-panel">
+          <div className="input-section">
+            <div className="daily-limit">
+              Tries left today: {Math.max(0, TRIES_PER_DAY - dailyLimit.words.length)}/{TRIES_PER_DAY}
+            </div>
+            <div className="prompt-of-day">
+              Prompt of the day: <span>{getPromptOfDay()}</span>
               <button
-                key={preset.key}
-                className={`preset-button${selectedPreset === preset.key ? ' active' : ''}`}
-                onClick={() => {
-                  setSelectedPreset(preset.key);
-                  if (inputText.trim()) {
-                    setTimeout(() => handleGenerate(), 0);
+                type="button"
+                className="prompt-button"
+                onClick={() => setInputText(getPromptOfDay())}
+              >
+                Use prompt
+              </button>
+            </div>
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleGenerate()}
+              placeholder="Enter your text (max 30 chars)"
+              maxLength={30}
+              className="terminal-input"
+              disabled={isGenerating}
+              aria-label="Text input for logo generation"
+              aria-required="true"
+            />
+            <div className="seed-input-group">
+              <div className="seed-label">
+                <svg
+                  className="seed-icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <rect x="6" y="2" width="4" height="2" />
+                  <rect x="5" y="4" width="6" height="2" />
+                  <rect x="4" y="6" width="8" height="2" />
+                  <rect x="4" y="8" width="8" height="2" />
+                  <rect x="5" y="10" width="6" height="2" />
+                  <rect x="6" y="12" width="4" height="2" />
+                </svg>
+                <span>Seed</span>
+                <button
+                  type="button"
+                  className={`remix-pill${remixMode ? ' active' : ''}`}
+                  onClick={() => {
+                    if (!customSeed.trim()) {
+                      setToast({ message: 'Enter a seed to enable remix.', type: 'info' });
+                      return;
+                    }
+                    if (!inputText.trim()) {
+                      setToast({ message: 'Enter the original text to remix.', type: 'info' });
+                      return;
+                    }
+                    setRemixMode((prev) => !prev);
+                  }}
+                  aria-pressed={remixMode}
+                >
+                  Remix
+                </button>
+              </div>
+              <input
+                type="text"
+                value={customSeed}
+                onChange={(e) => {
+                  const value = e.target.value.trim();
+                  setCustomSeed(value);
+
+                  if (value === '') {
+                    setSeedError('');
+                    return;
+                  }
+
+                  const parsedSeed = parseInt(value, 10);
+                  if (isNaN(parsedSeed)) {
+                    setSeedError('Seed must be a number');
+                  } else if (parsedSeed < 0 || parsedSeed > 2147483647) {
+                    setSeedError('Seed must be between 0 and 2147483647');
+                  } else {
+                    setSeedError('');
                   }
                 }}
-                type="button"
-                aria-pressed={selectedPreset === preset.key}
+                placeholder="Optional: Use a seed once per day"
+                className="seed-input"
+                disabled={isGenerating || dailyLimit.seedUsed}
+                aria-label="Optional seed input for deterministic logo generation"
+                aria-invalid={seedError !== ''}
+                aria-describedby={seedError ? 'seed-error' : 'seed-hint'}
+              />
+              {seedError ? (
+                <span id="seed-error" className="seed-error" role="alert">
+                  {seedError}
+                </span>
+              ) : (
+                <span id="seed-hint" className="seed-hint">
+                  {dailyLimit.seedUsed ? 'Seed used today — try again tomorrow' : 'One seed entry per day'}
+                </span>
+              )}
+              <span className="seed-tip">Tip: seed = recreate</span>
+            </div>
+            <button
+              type="button"
+              className="how-link"
+              onClick={() => setShowHowItWorks(true)}
+              aria-label="How it works"
+            >
+              How it works
+            </button>
+            <div className="button-group">
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating || !inputText.trim()}
+                className="arcade-button"
+                aria-label="Generate pixel logo"
+                aria-busy={isGenerating ? 'true' : 'false'}
               >
-                {preset.label}
+                {isGenerating ? 'GENERATING...' : 'GENERATE'}
               </button>
-            ))}
+              <button
+                onClick={handleRandomize}
+                disabled={isGenerating}
+                className="arcade-button secondary"
+                aria-label="Randomize logo"
+              >
+                RANDOMIZE
+              </button>
+            </div>
+            <div className="preset-group">
+              <div className="preset-title">Style presets</div>
+              <div className="preset-list">
+                {PRESETS.map((preset) => (
+                  <button
+                    key={preset.key}
+                    className={`preset-button${selectedPreset === preset.key ? ' active' : ''}`}
+                    onClick={() => {
+                      setSelectedPreset(preset.key);
+                      if (inputText.trim()) {
+                        setTimeout(() => handleGenerate(), 0);
+                      }
+                    }}
+                    type="button"
+                    aria-pressed={selectedPreset === preset.key}
+                  >
+                    {preset.label}
+                    <span className="preset-swatches">
+                      <span
+                        className="preset-thumb"
+                        style={{
+                          background: `linear-gradient(90deg, ${(PRESET_SWATCHES[preset.key] || []).join(', ')})`,
+                        }}
+                      />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {logoResult && (
+      {activeTab === 'home' && logoResult && (
         <div className="output-section">
           <div className="logo-card">
             <div className="rarity-badge" style={{ borderColor: getRarityColor(logoResult.rarity) }}>
@@ -1261,6 +1580,14 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 {isFavorite(logoResult) ? 'SAVED' : 'SAVE'}
               </button>
               <button 
+                onClick={handleCopyCastText} 
+                className="action-button" 
+                disabled={isGenerating}
+                aria-label="Copy cast text"
+              >
+                COPY CAST TEXT
+              </button>
+              <button 
                 onClick={handleShare} 
                 className="action-button"
                 disabled={isSharing || isGenerating}
@@ -1280,109 +1607,61 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
               </button>
             </div>
           </div>
-          {favorites.length > 0 && (
-            <div className="history-strip" aria-label="Favorite logos">
-              <div className="history-title">Favorites</div>
-              <div className="history-list">
-                {favorites.map((item) => (
-                  <button
-                    key={`fav-${item.result.seed}-${item.result.config.text}`}
-                    className="history-item"
-                    onClick={() => {
-                      setLogoResult(item.result);
-                      setInputText(item.result.config.text);
-                    }}
-                    aria-label={`Load favorite logo "${item.result.config.text}" with seed ${item.result.seed}`}
-                  >
-                    <img
-                      src={item.result.dataUrl}
-                      alt={`Favorite logo: ${item.result.config.text}`}
-                      className="history-image"
-                    />
-                    <span className="history-time">{formatHistoryTime(item.createdAt)}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {logoHistory.length > 0 && (
-            <div className="history-strip" aria-label="Recent logos">
-              <div className="history-title">Recent logos</div>
-              <div className="history-list">
-                {logoHistory.map((item) => (
-                  <button
-                    key={`${item.result.seed}-${item.result.config.text}`}
-                    className="history-item"
-                    onClick={() => {
-                      setLogoResult(item.result);
-                      setInputText(item.result.config.text);
-                    }}
-                    aria-label={`Load logo "${item.result.config.text}" with seed ${item.result.seed}`}
-                  >
-                    <img
-                      src={item.result.dataUrl}
-                      alt={`Recent logo: ${item.result.config.text}`}
-                      className="history-image"
-                    />
-                    <span className="history-time">{formatHistoryTime(item.createdAt)}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="leaderboard">
-            <div className="leaderboard-title">Daily Leaderboard</div>
-            {leaderboard.length === 0 && (
-              <div className="leaderboard-status">No casts yet today.</div>
-            )}
-            {leaderboard.length > 0 && (
-              <div className="leaderboard-grid">
-                {leaderboard.map((entry) => (
-                  <a
-                    key={entry.id}
-                    className="leaderboard-card"
-                    href={entry.id.startsWith('0x') ? `https://warpcast.com/~/cast/${entry.id}` : undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`Open cast by ${entry.username}`}
-                  >
-                    <div className="leaderboard-card-header">
-                      {entry.pfpUrl ? (
-                        <img src={entry.pfpUrl} alt={entry.username} className="leaderboard-avatar" />
-                      ) : (
-                        <div className="leaderboard-avatar placeholder" />
-                      )}
-                      <div className="leaderboard-user">
-                        <div className="leaderboard-name">{entry.displayName}</div>
-                        <div className="leaderboard-username">@{entry.username}</div>
-                      </div>
-                    </div>
-                    {entry.imageUrl ? (
-                      <img src={entry.imageUrl} alt="Cast media" className="leaderboard-image" />
-                    ) : (
-                      <div className="leaderboard-text">{entry.text || 'View cast'}</div>
-                    )}
-                    <div className="leaderboard-metrics">
-                      <span>❤️ {entry.likes}</span>
-                      <button
-                        type="button"
-                        className="leaderboard-like"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          incrementLeaderboardLike(entry.id);
-                        }}
-                        aria-label={`Like cast by ${entry.username}`}
-                      >
-                        Like
-                      </button>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       )}
+
+      {activeTab === 'gallery' && (
+        <div className="output-section">
+          {favoritesContent}
+        </div>
+      )}
+
+      {activeTab === 'leaderboard' && (
+        <div className="output-section">
+          {leaderboardContent}
+        </div>
+      )}
+
+      {activeTab === 'challenge' && (
+        <div className="output-section">
+          {challengeContent}
+        </div>
+      )}
+
+      <nav className="bottom-nav" aria-label="Main navigation">
+        <button
+          type="button"
+          className={`bottom-nav-button${activeTab === 'home' ? ' active' : ''}`}
+          onClick={() => setActiveTab('home')}
+          aria-pressed={activeTab === 'home'}
+        >
+          Home
+        </button>
+        <button
+          type="button"
+          className={`bottom-nav-button${activeTab === 'gallery' ? ' active' : ''}`}
+          onClick={() => setActiveTab('gallery')}
+          aria-pressed={activeTab === 'gallery'}
+        >
+          Gallery
+        </button>
+        <button
+          type="button"
+          className={`bottom-nav-button${activeTab === 'leaderboard' ? ' active' : ''}`}
+          onClick={() => setActiveTab('leaderboard')}
+          aria-pressed={activeTab === 'leaderboard'}
+        >
+          Leaderboard
+        </button>
+        <button
+          type="button"
+          className={`bottom-nav-button${activeTab === 'challenge' ? ' active' : ''}`}
+          onClick={() => setActiveTab('challenge')}
+          aria-pressed={activeTab === 'challenge'}
+        >
+          Challenge
+        </button>
+      </nav>
     </div>
   );
 }

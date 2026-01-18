@@ -31,7 +31,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 20px 20px 90px;
   background: 
     radial-gradient(circle at 20% 50%, rgba(0, 255, 0, 0.05) 0%, transparent 50%),
     radial-gradient(circle at 80% 50%, rgba(255, 0, 255, 0.05) 0%, transparent 50%),
@@ -116,7 +116,7 @@ body {
   text-align: center;
   font-size: 12px;
   color: var(--text-secondary);
-  margin-bottom: 40px;
+  margin-bottom: 24px;
   letter-spacing: 3px;
   text-transform: uppercase;
 }
@@ -134,7 +134,14 @@ body {
 .logo-generator {
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 20px;
+}
+
+.input-panel {
+  border: 2px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 16px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.4);
 }
 
 .input-section {
@@ -148,6 +155,37 @@ body {
   color: var(--text-secondary);
   letter-spacing: 1px;
   text-transform: uppercase;
+}
+
+.prompt-of-day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  flex-wrap: wrap;
+}
+
+.prompt-of-day span {
+  color: var(--text-primary);
+}
+
+.prompt-button {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 9px;
+  padding: 4px 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.prompt-button:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .seed-input-group {
@@ -290,6 +328,26 @@ body {
   border-color: var(--text-primary);
   color: var(--text-primary);
   box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.preset-swatches {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.preset-thumb {
+  width: 28px;
+  height: 10px;
+  border: 1px solid var(--border-color);
+  display: inline-block;
+}
+
+.preset-swatch {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--border-color);
+  display: inline-block;
 }
 
 .arcade-button.secondary {
@@ -702,6 +760,95 @@ body {
   text-transform: uppercase;
 }
 
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.9);
+  border-top: 2px solid var(--border-color);
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 10px;
+  z-index: 10002;
+}
+
+.bottom-nav-button {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 9px;
+  padding: 6px 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+}
+
+.challenge {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.challenge-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.challenge-streak {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.challenge-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker);
+}
+
+.challenge-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.challenge-label input {
+  accent-color: var(--text-primary);
+}
+
+.challenge-button {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 9px;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.challenge-button:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.bottom-nav-button.active {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+}
+
 .leaderboard {
   width: 100%;
   display: flex;
@@ -802,6 +949,34 @@ body {
   justify-content: space-between;
   font-size: 9px;
   color: var(--text-secondary);
+}
+
+.recent-casts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.recent-casts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recent-cast {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 9px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 4px;
+}
+
+.recent-cast a {
+  color: var(--text-primary);
+  text-decoration: none;
 }
 
 .leaderboard-like {
