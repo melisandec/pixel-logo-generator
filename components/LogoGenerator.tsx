@@ -50,6 +50,13 @@ type LeaderboardEntry = {
   score?: number;
 };
 
+type UserProfile = {
+  username: string;
+  best: LeaderboardEntry | null;
+  latest?: LeaderboardEntry | null;
+  entries: LeaderboardEntry[];
+};
+
 
 const TRIES_PER_DAY = 3;
 const RANDOM_WORDS = ['Arcade', 'Pixel', 'Forge', 'Neon', 'Crt', 'Quest', 'Byte', 'Retro', 'Glitch'];
@@ -119,6 +126,11 @@ export default function LogoGenerator() {
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [galleryRarityFilter, setGalleryRarityFilter] = useState<string>('all');
   const [galleryPresetFilter, setGalleryPresetFilter] = useState<string>('all');
+  const [profileData, setProfileData] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [hasNewGallery, setHasNewGallery] = useState(false);
+  const [hasNewProfile, setHasNewProfile] = useState(false);
   const [activeTab, setActiveTab] = useState<'home' | 'gallery' | 'leaderboard' | 'challenge' | 'profile'>('home');
   const [miniappAdded, setMiniappAdded] = useState(false);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
@@ -196,6 +208,26 @@ export default function LogoGenerator() {
       localStorage.setItem('plf:leaderboard', JSON.stringify(items));
     } catch (error) {
       console.error('Failed to store leaderboard:', error);
+    }
+  }, []);
+
+  const getSeenTimestamp = useCallback((key: string) => {
+    try {
+      const stored = localStorage.getItem(key);
+      if (!stored) return 0;
+      const parsed = Number.parseInt(stored, 10);
+      return Number.isFinite(parsed) ? parsed : 0;
+    } catch (error) {
+      console.error('Failed to read seen timestamp:', error);
+      return 0;
+    }
+  }, []);
+
+  const setSeenTimestamp = useCallback((key: string, value: number) => {
+    try {
+      localStorage.setItem(key, String(value));
+    } catch (error) {
+      console.error('Failed to store seen timestamp:', error);
     }
   }, []);
 
@@ -286,6 +318,17 @@ export default function LogoGenerator() {
       if (Array.isArray(data.entries)) {
         const normalized = normalizeLeaderboardEntries(data.entries);
         setGalleryEntries(normalized);
+        const latestCreatedAt = normalized.reduce((max, entry) => {
+          const createdAtValue =
+            typeof entry.createdAt === 'string' ? new Date(entry.createdAt).getTime() : entry.createdAt;
+          return Math.max(max, createdAtValue);
+        }, 0);
+        if (latestCreatedAt > 0) {
+          const seenAt = getSeenTimestamp('plf:gallerySeenAt');
+          if (latestCreatedAt > seenAt && activeTab !== 'gallery') {
+            setHasNewGallery(true);
+          }
+        }
         return;
       }
       setGalleryEntries([]);
@@ -295,7 +338,43 @@ export default function LogoGenerator() {
     } finally {
       setGalleryLoading(false);
     }
-  }, [normalizeLeaderboardEntries]);
+  }, [activeTab, getSeenTimestamp, normalizeLeaderboardEntries]);
+
+  const loadProfileData = useCallback(async (username: string) => {
+    setProfileLoading(true);
+    setProfileError(null);
+    try {
+      const response = await fetch(`/api/users/${encodeURIComponent(username.toLowerCase())}`);
+      if (!response.ok) {
+        throw new Error('Failed to load profile');
+      }
+      const data = (await response.json()) as UserProfile;
+      setProfileData(data);
+      const latestEntry =
+        data.latest ??
+        data.entries.reduce<LeaderboardEntry | null>((latest, entry) => {
+          if (!latest) return entry;
+          const latestCreated =
+            typeof latest.createdAt === 'string' ? new Date(latest.createdAt).getTime() : latest.createdAt;
+          const entryCreated =
+            typeof entry.createdAt === 'string' ? new Date(entry.createdAt).getTime() : entry.createdAt;
+          return entryCreated > latestCreated ? entry : latest;
+        }, null);
+      if (latestEntry) {
+        const latestCreated =
+          typeof latestEntry.createdAt === 'string' ? new Date(latestEntry.createdAt).getTime() : latestEntry.createdAt;
+        const seenAt = getSeenTimestamp('plf:profileSeenAt');
+        if (latestCreated > seenAt && activeTab !== 'profile') {
+          setHasNewProfile(true);
+        }
+      }
+    } catch (error) {
+      console.error('Profile load error:', error);
+      setProfileError('Failed to load profile.');
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [activeTab, getSeenTimestamp]);
 
   const loadChallenge = useCallback(() => {
     try {
@@ -686,6 +765,50 @@ export default function LogoGenerator() {
       loadGallery();
     }
   }, [activeTab, loadGallery]);
+
+  useEffect(() => {
+    if (userInfo?.username) {
+      loadProfileData(userInfo.username);
+    }
+  }, [loadProfileData, userInfo?.username]);
+
+  useEffect(() => {
+    if (activeTab === 'gallery' && galleryEntries.length > 0) {
+      const latestCreatedAt = galleryEntries.reduce((max, entry) => {
+        const createdAtValue =
+          typeof entry.createdAt === 'string' ? new Date(entry.createdAt).getTime() : entry.createdAt;
+        return Math.max(max, createdAtValue);
+      }, 0);
+      if (latestCreatedAt > 0) {
+        setSeenTimestamp('plf:gallerySeenAt', latestCreatedAt);
+        setHasNewGallery(false);
+      }
+    }
+  }, [activeTab, galleryEntries, setSeenTimestamp]);
+
+  useEffect(() => {
+    if (activeTab === 'profile' && profileData) {
+      const latestEntry =
+        profileData.latest ??
+        profileData.entries.reduce<LeaderboardEntry | null>((latest, entry) => {
+          if (!latest) return entry;
+          const latestCreated =
+            typeof latest.createdAt === 'string' ? new Date(latest.createdAt).getTime() : latest.createdAt;
+          const entryCreated =
+            typeof entry.createdAt === 'string' ? new Date(entry.createdAt).getTime() : entry.createdAt;
+          return entryCreated > latestCreated ? entry : latest;
+        }, null);
+      if (latestEntry) {
+        const latestCreated =
+          typeof latestEntry.createdAt === 'string' ? new Date(latestEntry.createdAt).getTime() : latestEntry.createdAt;
+        setSeenTimestamp('plf:profileSeenAt', latestCreated);
+        setHasNewProfile(false);
+      }
+    }
+    if (activeTab === 'profile' && userInfo?.username && !profileLoading && !profileData) {
+      loadProfileData(userInfo.username);
+    }
+  }, [activeTab, loadProfileData, profileData, profileLoading, setSeenTimestamp, userInfo?.username]);
 
   const handleGenerate = () => {
     if (!inputText.trim()) {
@@ -1422,7 +1545,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
     <div className="cast-gallery">
       <div className="leaderboard-title">Cast Gallery</div>
       <div className="gallery-meta">
-        Recent casts from the community · {filteredGalleryEntries.length} shown
+        Recent casts from the community - {filteredGalleryEntries.length} shown
       </div>
       <div className="gallery-filters">
         <label className="gallery-filter">
@@ -1666,33 +1789,6 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
       <div className="challenge-streak">
         Streak: {getChallengeStreak(challengeDays)} day{getChallengeStreak(challengeDays) === 1 ? '' : 's'}
       </div>
-      {sortedLeaderboard.length > 0 && (
-        <div className="challenge-top">
-          <div className="leaderboard-title">Top 3 today</div>
-          <div className="challenge-top-grid">
-            {sortedLeaderboard.slice(0, 3).map((entry) => (
-              <div key={`challenge-top-${entry.id}`} className="challenge-top-card">
-                {entry.imageUrl ? (
-                  <NextImage
-                    src={entry.imageUrl}
-                    alt={`Logo by ${entry.username}`}
-                    className="challenge-top-image"
-                    width={180}
-                    height={120}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="challenge-top-text">{entry.text || 'View cast'}</div>
-                )}
-                <div className="challenge-top-meta">
-                  <span>@{entry.username}</span>
-                  <span>❤️ {entry.likes}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       <div className="challenge-list">
         {CHALLENGE_PROMPTS.map((prompt) => (
           <div key={prompt} className="challenge-item">
@@ -1726,6 +1822,14 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
       {userInfo?.username ? (
         <div className="profile-tab-card">
           <div className="profile-tab-name">@{userInfo.username}</div>
+          {profileLoading && <div className="profile-tab-meta">Loading profile...</div>}
+          {profileError && <div className="profile-tab-meta">{profileError}</div>}
+          {profileData && (
+            <div className="profile-tab-meta">
+              {profileData.entries.length} casts · ❤️{' '}
+              {profileData.entries.reduce((sum, entry) => sum + entry.likes, 0)}
+            </div>
+          )}
           <Link className="profile-tab-link" href={`/profile/${encodeURIComponent(userInfo.username)}`}>
             Open your profile
           </Link>
@@ -2113,6 +2217,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           onClick={() => setActiveTab('home')}
           aria-pressed={activeTab === 'home'}
           aria-label="Home"
+          data-label="Home"
         >
           <span className="bottom-nav-icon" aria-hidden="true">🏠</span>
         </button>
@@ -2122,8 +2227,10 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           onClick={() => setActiveTab('gallery')}
           aria-pressed={activeTab === 'gallery'}
           aria-label="Gallery"
+          data-label="Gallery"
         >
           <span className="bottom-nav-icon" aria-hidden="true">🖼️</span>
+          {hasNewGallery && <span className="nav-dot" aria-hidden="true" />}
         </button>
         <button
           type="button"
@@ -2131,6 +2238,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           onClick={() => setActiveTab('leaderboard')}
           aria-pressed={activeTab === 'leaderboard'}
           aria-label="Leaderboard"
+          data-label="Leaderboard"
         >
           <span className="bottom-nav-icon" aria-hidden="true">🏆</span>
         </button>
@@ -2140,6 +2248,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           onClick={() => setActiveTab('challenge')}
           aria-pressed={activeTab === 'challenge'}
           aria-label="Challenge"
+          data-label="Challenge"
         >
           <span className="bottom-nav-icon" aria-hidden="true">🎯</span>
         </button>
@@ -2149,8 +2258,10 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           onClick={() => setActiveTab('profile')}
           aria-pressed={activeTab === 'profile'}
           aria-label="Profile"
+          data-label="Profile"
         >
           <span className="bottom-nav-icon" aria-hidden="true">👤</span>
+          {hasNewProfile && <span className="nav-dot" aria-hidden="true" />}
         </button>
       </nav>
     </div>

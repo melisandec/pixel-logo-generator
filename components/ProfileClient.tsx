@@ -1,0 +1,278 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+
+type LeaderboardEntry = {
+  id: string;
+  text: string;
+  seed: number;
+  imageUrl: string;
+  username: string;
+  displayName: string;
+  pfpUrl: string;
+  likes: number;
+  recasts?: number;
+  createdAt: string;
+  castUrl?: string | null;
+  rarity?: string | null;
+  presetKey?: string | null;
+};
+
+type UserProfile = {
+  username: string;
+  best: LeaderboardEntry | null;
+  latest?: LeaderboardEntry | null;
+  entries: LeaderboardEntry[];
+};
+
+const PRESETS = [
+  { key: 'arcade', label: 'Arcade' },
+  { key: 'vaporwave', label: 'Vaporwave' },
+  { key: 'gameboy', label: 'Game Boy' },
+] as const;
+
+const RARITIES = ['COMMON', 'RARE', 'EPIC', 'LEGENDARY'] as const;
+
+const formatDate = (timestamp: string) => {
+  return new Date(timestamp).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+export default function ProfileClient({ profile }: { profile: UserProfile }) {
+  const [rarityFilter, setRarityFilter] = useState<string>('all');
+  const [presetFilter, setPresetFilter] = useState<string>('all');
+  const [recentOnly, setRecentOnly] = useState(false);
+
+  const presetLabelMap = useMemo(() => {
+    return PRESETS.reduce<Record<string, string>>((acc, preset) => {
+      acc[preset.key] = preset.label;
+      return acc;
+    }, {});
+  }, []);
+
+  const stats = useMemo(() => {
+    const totalCasts = profile.entries.length;
+    const totalLikes = profile.entries.reduce((sum, entry) => sum + entry.likes, 0);
+    const bestRarity = profile.best?.rarity ? String(profile.best.rarity).toUpperCase() : 'Unknown';
+    const presetCounts = profile.entries.reduce<Record<string, number>>((acc, entry) => {
+      const key = entry.presetKey ?? 'Unknown';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const topPresetKey =
+      Object.entries(presetCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Unknown';
+    return {
+      totalCasts,
+      totalLikes,
+      bestRarity,
+      topPreset: presetLabelMap[topPresetKey] ?? topPresetKey,
+    };
+  }, [presetLabelMap, profile.best?.rarity, profile.entries]);
+
+  const latestEntry = useMemo(() => {
+    return (
+      profile.latest ??
+      profile.entries.reduce<LeaderboardEntry | null>((latest, entry) => {
+        if (!latest) return entry;
+        return new Date(entry.createdAt).getTime() > new Date(latest.createdAt).getTime() ? entry : latest;
+      }, null)
+    );
+  }, [profile.entries, profile.latest]);
+
+  const filteredEntries = useMemo(() => {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return profile.entries.filter((entry) => {
+      const rarityValue = entry.rarity ? String(entry.rarity).toUpperCase() : 'UNKNOWN';
+      const presetValue = entry.presetKey ?? 'Unknown';
+      if (rarityFilter !== 'all') {
+        if (rarityFilter === 'Unknown' && rarityValue !== 'UNKNOWN') return false;
+        if (rarityFilter !== 'Unknown' && rarityValue !== rarityFilter) return false;
+      }
+      if (presetFilter !== 'all') {
+        if (presetFilter === 'Unknown' && presetValue !== 'Unknown') return false;
+        if (presetFilter !== 'Unknown' && presetValue !== presetFilter) return false;
+      }
+      if (recentOnly) {
+        return new Date(entry.createdAt).getTime() >= cutoff;
+      }
+      return true;
+    });
+  }, [presetFilter, profile.entries, rarityFilter, recentOnly]);
+
+  const handleCastBest = () => {
+    if (!profile.best) return;
+    const text = `My best pixel logo: "${profile.best.text}"`;
+    const base = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`;
+    const url = profile.best.imageUrl
+      ? `${base}&embeds[]=${encodeURIComponent(profile.best.imageUrl)}`
+      : base;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <div className="profile-page">
+      <div className="profile-header">
+        <Link href="/" className="profile-back">
+          <- Back
+        </Link>
+        <div className="profile-title">@{profile.username}</div>
+      </div>
+
+      <div className="profile-stats">
+        <div className="profile-stat">
+          <span>Total casts</span>
+          <strong>{stats.totalCasts}</strong>
+        </div>
+        <div className="profile-stat">
+          <span>Total likes</span>
+          <strong>{stats.totalLikes}</strong>
+        </div>
+        <div className="profile-stat">
+          <span>Best rarity</span>
+          <strong>{stats.bestRarity}</strong>
+        </div>
+        <div className="profile-stat">
+          <span>Top preset</span>
+          <strong>{stats.topPreset}</strong>
+        </div>
+      </div>
+
+      <div className="profile-section">
+        <div className="leaderboard-title">Latest cast</div>
+        {latestEntry ? (
+          <div className="profile-latest-card">
+            {latestEntry.imageUrl ? (
+              <Image
+                src={latestEntry.imageUrl}
+                alt={`Latest logo by ${latestEntry.username}`}
+                className="profile-latest-image"
+                width={360}
+                height={240}
+                unoptimized
+              />
+            ) : (
+              <div className="profile-best-text">{latestEntry.text}</div>
+            )}
+            <div className="profile-latest-meta">
+              <span>{formatDate(latestEntry.createdAt)}</span>
+              <span>❤️ {latestEntry.likes}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="leaderboard-status">Cast your first logo to populate this.</div>
+        )}
+      </div>
+
+      <div className="profile-section">
+        <div className="leaderboard-title">Personal best</div>
+        {profile.best ? (
+          <div className="profile-best-card">
+            {profile.best.imageUrl ? (
+              <Image
+                src={profile.best.imageUrl}
+                alt={`Best logo by ${profile.best.username}`}
+                className="profile-best-image"
+                width={360}
+                height={240}
+                unoptimized
+              />
+            ) : (
+              <div className="profile-best-text">{profile.best.text}</div>
+            )}
+            <div className="profile-best-meta">
+              <span>❤️ {profile.best.likes}</span>
+              <span>🔁 {profile.best.recasts ?? 0}</span>
+            </div>
+            <button type="button" className="profile-cast-button" onClick={handleCastBest}>
+              Cast this
+            </button>
+          </div>
+        ) : (
+          <div className="leaderboard-status">Cast your first logo to populate this.</div>
+        )}
+      </div>
+
+      <div className="profile-section">
+        <div className="leaderboard-title">Filters</div>
+        <div className="profile-filters">
+          <div className="profile-filter-row">
+            <span>Rarity</span>
+            <div className="profile-filter-chips">
+              {['all', ...RARITIES, 'Unknown'].map((option) => (
+                <button
+                  key={`rarity-${option}`}
+                  type="button"
+                  className={`profile-chip${rarityFilter === option ? ' active' : ''}`}
+                  onClick={() => setRarityFilter(option)}
+                  aria-pressed={rarityFilter === option}
+                >
+                  {option === 'all' ? 'All' : option}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="profile-filter-row">
+            <span>Preset</span>
+            <div className="profile-filter-chips">
+              {['all', ...PRESETS.map((preset) => preset.key), 'Unknown'].map((option) => (
+                <button
+                  key={`preset-${option}`}
+                  type="button"
+                  className={`profile-chip${presetFilter === option ? ' active' : ''}`}
+                  onClick={() => setPresetFilter(option)}
+                  aria-pressed={presetFilter === option}
+                >
+                  {option === 'all' ? 'All' : presetLabelMap[option] ?? option}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`profile-chip${recentOnly ? ' active' : ''}`}
+            onClick={() => setRecentOnly((prev) => !prev)}
+            aria-pressed={recentOnly}
+          >
+            Last 7 days
+          </button>
+        </div>
+      </div>
+
+      <div className="profile-section">
+        <div className="leaderboard-title">Recent logos</div>
+        {filteredEntries.length === 0 ? (
+          <div className="leaderboard-status">No casts match those filters yet.</div>
+        ) : (
+          <div className="profile-gallery-grid">
+            {filteredEntries.map((entry) => (
+              <div key={`profile-${entry.id}`} className="profile-gallery-card">
+                {entry.imageUrl ? (
+                  <Image
+                    src={entry.imageUrl}
+                    alt={`Logo by ${entry.username}`}
+                    className="profile-gallery-image"
+                    width={200}
+                    height={140}
+                    unoptimized
+                  />
+                ) : (
+                  <div className="profile-gallery-text">{entry.text}</div>
+                )}
+                <div className="profile-gallery-meta">
+                  <span>{formatDate(entry.createdAt)}</span>
+                  <span>{entry.rarity ? String(entry.rarity).toUpperCase() : 'Unknown'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

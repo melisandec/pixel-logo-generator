@@ -295,6 +295,14 @@ body {
   box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.3);
 }
 
+.seed-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
 .seed-hint {
   font-size: 10px;
   color: var(--text-secondary);
@@ -445,7 +453,9 @@ body {
 .terminal-input::placeholder {
   color: var(--text-secondary);
   opacity: 0.5;
-  font-size: 12px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .arcade-button {
@@ -919,11 +929,56 @@ body {
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   font-size: 10px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
   cursor: pointer;
   font-family: 'Courier New', monospace;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottom-nav-button::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translate(-50%, -8px);
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid var(--border-color);
+  padding: 4px 6px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.bottom-nav-button:hover::after,
+.bottom-nav-button:focus-visible::after,
+.bottom-nav-button.active::after {
+  opacity: 1;
+  transform: translate(-50%, -10px);
+}
+
+.bottom-nav-button:active {
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.35);
+}
+
+.nav-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff3b3b;
+  box-shadow: 0 0 6px rgba(255, 59, 59, 0.8);
 }
 
 .challenge {
@@ -1202,6 +1257,13 @@ body {
   border-color: var(--text-primary);
 }
 
+.profile-tab-meta {
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
 .leaderboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1291,6 +1353,56 @@ body {
   gap: 8px;
 }
 
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.profile-stat {
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker);
+  padding: 8px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.profile-stat strong {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.profile-latest-card {
+  border: 1px solid var(--border-color);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-darker);
+}
+
+.profile-latest-image {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border-color);
+  object-fit: cover;
+}
+
+.profile-latest-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
 .profile-best-card {
   border: 1px solid var(--border-color);
   padding: 8px;
@@ -1321,6 +1433,60 @@ body {
   text-transform: uppercase;
 }
 
+.profile-cast-button {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 9px;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.profile-cast-button:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.profile-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
+.profile-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.profile-chip {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  padding: 3px 6px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.profile-chip.active {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
 .profile-gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1343,6 +1509,16 @@ body {
 .profile-gallery-text {
   font-size: 9px;
   color: var(--text-secondary);
+}
+
+.profile-gallery-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 4px;
 }
 
 .leaderboard-name {
