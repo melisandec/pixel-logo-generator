@@ -302,21 +302,24 @@ body {
 
 .preset-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 6px;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .preset-button {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 5px 8px;
+  padding: 4px 6px;
   font-family: 'Courier New', monospace;
-  font-size: 9px;
+  font-size: 8px;
   letter-spacing: 1px;
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .preset-button:hover {
@@ -337,8 +340,8 @@ body {
 }
 
 .preset-thumb {
-  width: 24px;
-  height: 9px;
+  width: 20px;
+  height: 8px;
   border: 1px solid var(--border-color);
   display: inline-block;
 }
@@ -535,7 +538,7 @@ body {
 }
 
 .action-row-two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
 }
 
 .actions-divider {
@@ -817,7 +820,7 @@ body {
   border-top: 2px solid var(--border-color);
   display: flex;
   justify-content: space-around;
-  padding: 8px 10px;
+  padding: 10px 12px;
   z-index: 10002;
 }
 
@@ -825,8 +828,8 @@ body {
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  font-size: 9px;
-  padding: 6px 8px;
+  font-size: 10px;
+  padding: 8px 10px;
   text-transform: uppercase;
   letter-spacing: 1px;
   cursor: pointer;
@@ -1090,6 +1093,10 @@ body {
 }
 
 @media (max-width: 768px) {
+  .main-container {
+    padding: 20px 20px 110px;
+  }
+
   .crt-screen {
     padding: 20px;
   }
@@ -1123,6 +1130,15 @@ body {
 
   .logo-actions {
     flex-direction: column;
+  }
+
+  .bottom-nav {
+    padding: 12px 14px;
+  }
+
+  .bottom-nav-button {
+    font-size: 11px;
+    padding: 10px 12px;
   }
 
   .action-row-three,

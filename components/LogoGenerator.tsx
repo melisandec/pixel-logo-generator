@@ -1650,14 +1650,6 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                   >
                     {isFavorite(logoResult) ? 'SAVED' : 'SAVE'}
                   </button>
-                  <button 
-                    onClick={handleCopyCastText} 
-                    className="action-button" 
-                    disabled={isGenerating}
-                    aria-label="Copy cast text"
-                  >
-                    COPY CAST TEXT
-                  </button>
                 </div>
               </div>
             </div>
