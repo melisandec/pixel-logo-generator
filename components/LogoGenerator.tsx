@@ -386,6 +386,26 @@ export default function LogoGenerator() {
     }
   };
 
+  const handleCopyImage = async () => {
+    if (!logoResult) return;
+    if (!navigator.clipboard?.write) {
+      handleDownload();
+      return;
+    }
+
+    try {
+      const response = await fetch(logoResult.dataUrl);
+      const blob = await response.blob();
+      const item = new ClipboardItem({ [blob.type]: blob });
+      await navigator.clipboard.write([item]);
+      setToast({ message: 'Image copied to clipboard!', type: 'success' });
+    } catch (error) {
+      console.error('Copy image error:', error);
+      setToast({ message: 'Copy failed, downloading instead.', type: 'info' });
+      handleDownload();
+    }
+  };
+
   const handleShare = async () => {
     if (!logoResult) return;
     
@@ -922,6 +942,16 @@ export default function LogoGenerator() {
               <span className="rarity-value" style={{ color: getRarityColor(logoResult.rarity) }}>
                 {logoResult.rarity}
               </span>
+              <button
+                type="button"
+                className="rarity-tooltip"
+                aria-label="Rarity breakdown: Common 50, Rare 30, Epic 15, Legendary 5"
+              >
+                i
+                <span className="rarity-tooltip-text">
+                  Common 50% • Rare 30% • Epic 15% • Legendary 5%
+                </span>
+              </button>
             </div>
             <img
               key={`${logoResult.seed}-${logoResult.config.text}`}
@@ -963,6 +993,14 @@ export default function LogoGenerator() {
                 aria-label="Download logo as PNG"
               >
                 DOWNLOAD PNG
+              </button>
+              <button 
+                onClick={handleCopyImage} 
+                className="action-button" 
+                disabled={isGenerating}
+                aria-label="Copy logo image"
+              >
+                COPY IMAGE
               </button>
               <button 
                 onClick={handleShare} 

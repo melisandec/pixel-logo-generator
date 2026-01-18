@@ -412,6 +412,53 @@ body {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
+.rarity-tooltip {
+  position: relative;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier New', monospace;
+}
+
+.rarity-tooltip:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.rarity-tooltip-text {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-darker);
+  border: 1px solid var(--text-primary);
+  color: var(--text-primary);
+  padding: 6px 8px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 2;
+}
+
+.rarity-tooltip:hover .rarity-tooltip-text,
+.rarity-tooltip:focus .rarity-tooltip-text,
+.rarity-tooltip:focus-visible .rarity-tooltip-text {
+  opacity: 1;
+}
+
 .rarity-label {
   font-family: 'Press Start 2P', monospace;
   font-size: 10px;
