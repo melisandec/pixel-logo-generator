@@ -57,6 +57,8 @@ export default function LogoGenerator() {
   const [showCastPreview, setShowCastPreview] = useState(false);
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
   const [castPreviewText, setCastPreviewText] = useState<string>('');
+  const [castTarget, setCastTarget] = useState<LogoResult | null>(null);
+  const [castTargetRemixSeed, setCastTargetRemixSeed] = useState<number | undefined>(undefined);
   const [logoHistory, setLogoHistory] = useState<LogoHistoryItem[]>([]);
   const [favorites, setFavorites] = useState<LogoHistoryItem[]>([]);
   const [remixMode, setRemixMode] = useState(false);
@@ -678,6 +680,8 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
       
       setCastPreviewImage(previewImage);
       setCastPreviewText(previewText);
+      setCastTarget(activeResult);
+      setCastTargetRemixSeed(remixSeed);
       setShowCastPreview(true);
     } catch (error) {
       console.error('Failed to generate preview:', error);
@@ -693,6 +697,8 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
     
     setShowCastPreview(false);
     setIsCasting(true);
+    setCastTarget(null);
+    setCastTargetRemixSeed(undefined);
     try {
       // Create share URL with logo parameters
       const shareUrl = `${window.location.origin}?text=${encodeURIComponent(activeResult.config.text)}&seed=${activeResult.seed}`;
@@ -1014,7 +1020,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
         <CastPreviewModal
           previewImage={castPreviewImage}
           castText={castPreviewText}
-          onConfirm={handleCast}
+          onConfirm={() => handleCast(castTarget ?? undefined, castTargetRemixSeed)}
           onCancel={() => setShowCastPreview(false)}
           isCasting={isCasting}
         />
