@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import NextImage from 'next/image';
+import Link from 'next/link';
 import { generateLogo, LogoResult, Rarity } from '@/lib/logoGenerator';
 import { sdk } from '@farcaster/miniapp-sdk';
 import dynamic from 'next/dynamic';
@@ -42,16 +43,13 @@ type LeaderboardEntry = {
   pfpUrl: string;
   likes: number;
   recasts?: number;
+  rarity?: Rarity | string | null;
+  presetKey?: string | null;
   createdAt: number | string;
   castUrl?: string;
   score?: number;
 };
 
-type UserProfile = {
-  username: string;
-  best: LeaderboardEntry | null;
-  entries: LeaderboardEntry[];
-};
 
 const TRIES_PER_DAY = 3;
 const RANDOM_WORDS = ['Arcade', 'Pixel', 'Forge', 'Neon', 'Crt', 'Quest', 'Byte', 'Retro', 'Glitch'];
@@ -72,6 +70,7 @@ const PRESETS = [
     config: { backgroundStyle: 'grid-horizon', frameStyle: 'none', colorSystem: 'GameBoy', compositionMode: 'centered' },
   },
 ] as const;
+const RARITY_OPTIONS: Rarity[] = ['COMMON', 'RARE', 'EPIC', 'LEGENDARY'];
 const PRESET_SWATCHES: Record<string, string[]> = {
   arcade: ['#00ff00', '#ff00ff', '#ffff00'],
   vaporwave: ['#ff006e', '#8338ec', '#3a86ff'],
@@ -115,12 +114,13 @@ export default function LogoGenerator() {
   const [favorites, setFavorites] = useState<LogoHistoryItem[]>([]);
   const [remixMode, setRemixMode] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<'home' | 'gallery' | 'leaderboard' | 'challenge'>('home');
+  const [galleryEntries, setGalleryEntries] = useState<LeaderboardEntry[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
+  const [galleryRarityFilter, setGalleryRarityFilter] = useState<string>('all');
+  const [galleryPresetFilter, setGalleryPresetFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<'home' | 'gallery' | 'leaderboard' | 'challenge' | 'profile'>('home');
   const [miniappAdded, setMiniappAdded] = useState(false);
-  const [profileUser, setProfileUser] = useState<string | null>(null);
-  const [profileData, setProfileData] = useState<UserProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
     date: '',
     words: [],
@@ -273,6 +273,29 @@ export default function LogoGenerator() {
       console.error('Failed to read leaderboard:', error);
     }
   }, [getDayKeyFromTimestamp, getTodayKey, normalizeLeaderboardEntries, saveLeaderboard]);
+
+  const loadGallery = useCallback(async () => {
+    setGalleryLoading(true);
+    setGalleryError(null);
+    try {
+      const response = await fetch(`/api/leaderboard?scope=recent&limit=80`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch gallery');
+      }
+      const data = (await response.json()) as { entries?: LeaderboardEntry[] };
+      if (Array.isArray(data.entries)) {
+        const normalized = normalizeLeaderboardEntries(data.entries);
+        setGalleryEntries(normalized);
+        return;
+      }
+      setGalleryEntries([]);
+    } catch (error) {
+      console.error('Failed to fetch gallery:', error);
+      setGalleryError('Failed to load gallery.');
+    } finally {
+      setGalleryLoading(false);
+    }
+  }, [normalizeLeaderboardEntries]);
 
   const loadChallenge = useCallback(() => {
     try {
@@ -580,6 +603,7 @@ export default function LogoGenerator() {
     loadHistory();
     loadFavorites();
     loadLeaderboard();
+    loadGallery();
     loadMiniappAdded();
     loadChallenge();
     loadChallengeDays();
@@ -649,12 +673,19 @@ export default function LogoGenerator() {
     loadChallenge,
     loadChallengeDays,
     loadFavorites,
+    loadGallery,
     loadHistory,
     loadLeaderboard,
     loadMiniappAdded,
     runWhenIdle,
     selectedPreset,
   ]);
+
+  useEffect(() => {
+    if (activeTab === 'gallery') {
+      loadGallery();
+    }
+  }, [activeTab, loadGallery]);
 
   const handleGenerate = () => {
     if (!inputText.trim()) {
@@ -885,26 +916,6 @@ export default function LogoGenerator() {
     }
   };
 
-  const loadUserProfile = async (username: string) => {
-    const key = username.toLowerCase();
-    setProfileUser(key);
-    setProfileLoading(true);
-    setProfileError(null);
-    try {
-      const response = await fetch(`/api/users/${encodeURIComponent(key)}`);
-      if (!response.ok) {
-        throw new Error('Failed to load profile');
-      }
-      const data = (await response.json()) as UserProfile;
-      setProfileData(data);
-    } catch (error) {
-      console.error('Profile load error:', error);
-      setProfileError('Failed to load profile.');
-      setProfileData(null);
-    } finally {
-      setProfileLoading(false);
-    }
-  };
 
   const handleAddMiniapp = async () => {
     if (!sdkReady) {
@@ -1102,6 +1113,8 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
               pfpUrl: '',
               likes: 0,
               recasts: 0,
+              rarity: activeResult.rarity,
+              presetKey: selectedPreset ?? null,
               createdAt: Date.now(),
               castUrl,
             });
@@ -1370,6 +1383,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
     </>
   );
 
+
   const leaderboardDate = 'Last 7 days';
   const sortedLeaderboard = [...leaderboard].sort((a, b) => {
     const bScore = b.score ?? b.likes + (b.recasts ?? 0) * 2;
@@ -1380,6 +1394,126 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
     return bCreated - aCreated;
   });
 
+  const galleryRarityOptions = ['all', ...RARITY_OPTIONS, 'Unknown'];
+  const galleryPresetOptions = ['all', ...PRESETS.map((preset) => preset.key), 'Unknown'];
+  const presetLabelMap = PRESETS.reduce<Record<string, string>>((acc, preset) => {
+    acc[preset.key] = preset.label;
+    return acc;
+  }, {});
+  const filteredGalleryEntries = galleryEntries
+    .filter((entry) => {
+      const rarityValue = entry.rarity ? String(entry.rarity).toUpperCase() : 'UNKNOWN';
+      const presetValue = entry.presetKey ?? 'Unknown';
+      const matchesRarity =
+        galleryRarityFilter === 'all' ||
+        (galleryRarityFilter === 'Unknown' ? rarityValue === 'UNKNOWN' : rarityValue === galleryRarityFilter);
+      const matchesPreset =
+        galleryPresetFilter === 'all' ||
+        (galleryPresetFilter === 'Unknown' ? presetValue === 'Unknown' : presetValue === galleryPresetFilter);
+      return matchesRarity && matchesPreset;
+    })
+    .sort((a, b) => {
+      const bCreated = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : b.createdAt;
+      const aCreated = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : a.createdAt;
+      return bCreated - aCreated;
+    });
+
+  const castGalleryContent = (
+    <div className="cast-gallery">
+      <div className="leaderboard-title">Cast Gallery</div>
+      <div className="gallery-meta">
+        Recent casts from the community · {filteredGalleryEntries.length} shown
+      </div>
+      <div className="gallery-filters">
+        <label className="gallery-filter">
+          <span>Rarity</span>
+          <select
+            value={galleryRarityFilter}
+            onChange={(event) => setGalleryRarityFilter(event.target.value)}
+          >
+            {galleryRarityOptions.map((option) => (
+              <option key={`rarity-${option}`} value={option}>
+                {option === 'all' ? 'All' : option}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="gallery-filter">
+          <span>Preset</span>
+          <select
+            value={galleryPresetFilter}
+            onChange={(event) => setGalleryPresetFilter(event.target.value)}
+          >
+            {galleryPresetOptions.map((option) => (
+              <option key={`preset-${option}`} value={option}>
+                {option === 'all' ? 'All' : presetLabelMap[option] ?? option}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {galleryLoading && <div className="leaderboard-status">Loading gallery...</div>}
+      {galleryError && <div className="leaderboard-status">{galleryError}</div>}
+      {!galleryLoading && !galleryError && filteredGalleryEntries.length === 0 && (
+        <div className="leaderboard-status">No casts match those filters yet.</div>
+      )}
+      {filteredGalleryEntries.length > 0 && (
+        <div className="gallery-grid">
+          {filteredGalleryEntries.map((entry) => {
+            const castUrl =
+              entry.castUrl ??
+              (entry.id && /^0x[a-fA-F0-9]{64}$/.test(entry.id)
+                ? `https://warpcast.com/~/cast/${entry.id}`
+                : undefined);
+            const rarityValue = entry.rarity ? String(entry.rarity).toUpperCase() : 'Unknown';
+            const presetValue = entry.presetKey ? presetLabelMap[entry.presetKey] ?? entry.presetKey : 'Unknown';
+            const CardBody = (
+              <>
+                {entry.imageUrl ? (
+                  <NextImage
+                    src={entry.imageUrl}
+                    alt={`Cast by ${entry.username}`}
+                    className="gallery-image"
+                    width={320}
+                    height={200}
+                    unoptimized
+                  />
+                ) : (
+                  <div className="gallery-text">{entry.text || 'View cast'}</div>
+                )}
+                <div className="gallery-card-meta">
+                  <span>@{entry.username}</span>
+                  <span>{formatHistoryTime(
+                    typeof entry.createdAt === 'string' ? new Date(entry.createdAt).getTime() : entry.createdAt
+                  )}</span>
+                </div>
+                <div className="gallery-card-tags">
+                  <span className="gallery-chip">{rarityValue}</span>
+                  <span className="gallery-chip">{presetValue}</span>
+                </div>
+              </>
+            );
+            return castUrl ? (
+              <a
+                key={`gallery-${entry.id}`}
+                className="gallery-card"
+                href={castUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {CardBody}
+              </a>
+            ) : (
+              <div key={`gallery-${entry.id}`} className="gallery-card">
+                {CardBody}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   const leaderboardContent = (
     <div className="leaderboard">
       <div className="leaderboard-title">Global Leaderboard</div>
@@ -1387,74 +1521,6 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
         <span>{leaderboardDate}</span>
         <span>{leaderboard.length} entries</span>
       </div>
-      {profileUser && (
-        <div className="profile-panel">
-          <div className="profile-header">
-            <span>Profile: @{profileUser}</span>
-            <button
-              type="button"
-              className="profile-close"
-              onClick={() => {
-                setProfileUser(null);
-                setProfileData(null);
-                setProfileError(null);
-              }}
-            >
-              Close
-            </button>
-          </div>
-          {profileLoading && <div className="leaderboard-status">Loading profile...</div>}
-          {profileError && <div className="leaderboard-status">{profileError}</div>}
-          {!profileLoading && !profileError && profileData && (
-            <div className="profile-content">
-              {profileData.best && (
-                <div className="profile-best">
-                  <div className="leaderboard-title">Personal best</div>
-                  <div className="profile-best-card">
-                    {profileData.best.imageUrl ? (
-                      <NextImage
-                        src={profileData.best.imageUrl}
-                        alt={`Best logo by ${profileData.best.username}`}
-                        className="profile-best-image"
-                        width={240}
-                        height={160}
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="profile-best-text">{profileData.best.text}</div>
-                    )}
-                    <div className="profile-best-meta">
-                      <span>❤️ {profileData.best.likes}</span>
-                      <span>🔁 {profileData.best.recasts ?? 0}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="profile-gallery">
-                <div className="leaderboard-title">Recent logos</div>
-                <div className="profile-gallery-grid">
-                  {profileData.entries.slice(0, 6).map((entry) => (
-                    <div key={`profile-${entry.id}`} className="profile-gallery-card">
-                      {entry.imageUrl ? (
-                        <NextImage
-                          src={entry.imageUrl}
-                          alt={`Logo by ${entry.username}`}
-                          className="profile-gallery-image"
-                          width={140}
-                          height={100}
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="profile-gallery-text">{entry.text}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
       {leaderboard.length === 0 && (
         <div className="leaderboard-status">No casts yet today. Be the first!</div>
       )}
@@ -1482,18 +1548,14 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                   ) : (
                     <div className="leaderboard-avatar placeholder" />
                   )}
-                  <button
-                    type="button"
+                  <Link
+                    href={`/profile/${encodeURIComponent(entry.username)}`}
                     className="leaderboard-user"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      loadUserProfile(entry.username);
-                    }}
                     aria-label={`View profile for ${entry.username}`}
                   >
                     <div className="leaderboard-name">{entry.displayName}</div>
                     <div className="leaderboard-username">@{entry.username}</div>
-                  </button>
+                  </Link>
                 </div>
                 {entry.imageUrl ? (
                   <NextImage
@@ -1557,6 +1619,14 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
               .slice(0, 5)
               .map((entry) => (
                 <div key={`recent-${entry.id}`} className="recent-cast">
+                  {(() => {
+                    const castUrl =
+                      entry.castUrl ??
+                      (entry.id && /^0x[a-fA-F0-9]{64}$/.test(entry.id)
+                        ? `https://warpcast.com/~/cast/${entry.id}`
+                        : undefined);
+                    return (
+                      <>
                   <span>
                     {formatHistoryTime(
                       typeof entry.createdAt === 'string'
@@ -1565,9 +1635,9 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                     )}
                   </span>
                   <span>@{entry.username}</span>
-                  {entry.id.startsWith('0x') ? (
+                  {castUrl ? (
                     <a
-                      href={`https://warpcast.com/~/cast/${entry.id}`}
+                      href={castUrl}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -1576,6 +1646,9 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                   ) : (
                     <span>Local</span>
                   )}
+                      </>
+                    );
+                  })()}
                 </div>
               ))}
           </div>
@@ -1647,6 +1720,22 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
     </div>
   );
 
+  const profileTabContent = (
+    <div className="profile-tab">
+      <div className="leaderboard-title">Your Profile</div>
+      {userInfo?.username ? (
+        <div className="profile-tab-card">
+          <div className="profile-tab-name">@{userInfo.username}</div>
+          <Link className="profile-tab-link" href={`/profile/${encodeURIComponent(userInfo.username)}`}>
+            Open your profile
+          </Link>
+        </div>
+      ) : (
+        <div className="leaderboard-status">Sign in with Farcaster to view your profile.</div>
+      )}
+    </div>
+  );
+
   return (
     <div className="logo-generator">
       {toast && (
@@ -1698,33 +1787,6 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 Use prompt
               </button>
             </div>
-            {sortedLeaderboard.length > 0 && (
-              <div className="home-top-casts">
-                <div className="leaderboard-title">Top 3 casts today</div>
-                <div className="home-top-casts-grid">
-                  {sortedLeaderboard.slice(0, 3).map((entry) => (
-                    <div key={`home-top-${entry.id}`} className="home-top-cast">
-                      {entry.imageUrl ? (
-                        <NextImage
-                          src={entry.imageUrl}
-                          alt={`Logo by ${entry.username}`}
-                          className="home-top-cast-image"
-                          width={160}
-                          height={110}
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="home-top-cast-text">{entry.text || 'View cast'}</div>
-                      )}
-                      <div className="home-top-cast-meta">
-                        <span>@{entry.username}</span>
-                        <span>❤️ {entry.likes}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
             <input
               type="text"
               value={inputText}
@@ -1985,8 +2047,43 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
         </div>
       )}
 
+      {activeTab === 'home' && (
+        <div className="output-section">
+          <div className="home-top-casts">
+            <div className="leaderboard-title">Top 3 casts today</div>
+            {sortedLeaderboard.length === 0 ? (
+              <div className="leaderboard-status">No casts yet today. Be the first!</div>
+            ) : (
+              <div className="home-top-casts-grid">
+                {sortedLeaderboard.slice(0, 3).map((entry) => (
+                  <div key={`home-top-${entry.id}`} className="home-top-cast">
+                    {entry.imageUrl ? (
+                      <NextImage
+                        src={entry.imageUrl}
+                        alt={`Logo by ${entry.username}`}
+                        className="home-top-cast-image"
+                        width={160}
+                        height={110}
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="home-top-cast-text">{entry.text || 'View cast'}</div>
+                    )}
+                    <div className="home-top-cast-meta">
+                      <span>@{entry.username}</span>
+                      <span>❤️ {entry.likes}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'gallery' && (
         <div className="output-section">
+          {castGalleryContent}
           {favoritesContent}
         </div>
       )}
@@ -2000,6 +2097,12 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
       {activeTab === 'challenge' && (
         <div className="output-section">
           {challengeContent}
+        </div>
+      )}
+
+      {activeTab === 'profile' && (
+        <div className="output-section">
+          {profileTabContent}
         </div>
       )}
 
@@ -2039,6 +2142,15 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           aria-label="Challenge"
         >
           <span className="bottom-nav-icon" aria-hidden="true">🎯</span>
+        </button>
+        <button
+          type="button"
+          className={`bottom-nav-button${activeTab === 'profile' ? ' active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+          aria-pressed={activeTab === 'profile'}
+          aria-label="Profile"
+        >
+          <span className="bottom-nav-icon" aria-hidden="true">👤</span>
         </button>
       </nav>
     </div>

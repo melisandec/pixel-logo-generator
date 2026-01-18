@@ -12,6 +12,8 @@ type LeaderboardEntry = {
   pfpUrl: string;
   likes: number;
   recasts: number;
+  rarity?: string | null;
+  presetKey?: string | null;
   createdAt: number | string | Date;
   castUrl?: string;
 };
@@ -32,6 +34,9 @@ const ensureLeaderboardTable = async () => {
       "displayName" TEXT NOT NULL,
       "pfpUrl" TEXT NOT NULL,
       "likes" INTEGER NOT NULL DEFAULT 0,
+      "recasts" INTEGER NOT NULL DEFAULT 0,
+      "rarity" TEXT,
+      "presetKey" TEXT,
       "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       "castUrl" TEXT
     );
@@ -85,6 +90,24 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const dateKey = searchParams.get('date');
     const scope = searchParams.get('scope');
+    const limitParam = Number.parseInt(searchParams.get('limit') ?? '50', 10);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 50;
+    if (scope === 'recent') {
+      const range = getRecentRange(7);
+      const entries = await prisma.leaderboardEntry.findMany({
+        where: {
+          createdAt: {
+            gte: range.start,
+            lt: range.end,
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: limit,
+      });
+      return NextResponse.json({ entries });
+    }
     const range = scope === 'daily' && dateKey ? getDateRange(dateKey) : getRecentRange(7);
     const entries = await prisma.leaderboardEntry.findMany({
       where: {
@@ -118,6 +141,24 @@ export async function GET(request: Request) {
       const { searchParams } = new URL(request.url);
       const dateKey = searchParams.get('date');
       const scope = searchParams.get('scope');
+      const limitParam = Number.parseInt(searchParams.get('limit') ?? '50', 10);
+      const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 50;
+      if (scope === 'recent') {
+        const range = getRecentRange(7);
+        const entries = await prisma.leaderboardEntry.findMany({
+          where: {
+            createdAt: {
+              gte: range.start,
+              lt: range.end,
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: limit,
+        });
+        return NextResponse.json({ entries });
+      }
       const range = scope === 'daily' && dateKey ? getDateRange(dateKey) : getRecentRange(7);
       const entries = await prisma.leaderboardEntry.findMany({
         where: {
@@ -175,6 +216,8 @@ export async function POST(request: Request) {
       pfpUrl: body.pfpUrl ?? '',
       likes: body.likes ?? 0,
       recasts: body.recasts ?? 0,
+      rarity: body.rarity ?? null,
+      presetKey: body.presetKey ?? null,
       createdAt: body.createdAt ?? Date.now(),
       castUrl: body.castUrl,
     };
@@ -190,6 +233,8 @@ export async function POST(request: Request) {
         pfpUrl: entry.pfpUrl,
         likes: entry.likes,
         recasts: entry.recasts,
+        rarity: entry.rarity,
+        presetKey: entry.presetKey,
         createdAt: new Date(entry.createdAt),
         castUrl: entry.castUrl,
       },
@@ -203,6 +248,8 @@ export async function POST(request: Request) {
         pfpUrl: entry.pfpUrl,
         likes: entry.likes,
         recasts: entry.recasts,
+        rarity: entry.rarity,
+        presetKey: entry.presetKey,
         createdAt: new Date(entry.createdAt),
         castUrl: entry.castUrl,
       },
@@ -253,6 +300,8 @@ export async function POST(request: Request) {
             pfpUrl: entry.pfpUrl,
             likes: entry.likes,
             recasts: entry.recasts,
+            rarity: entry.rarity,
+            presetKey: entry.presetKey,
             createdAt: new Date(entry.createdAt),
             castUrl: entry.castUrl,
           },
@@ -266,6 +315,8 @@ export async function POST(request: Request) {
             pfpUrl: entry.pfpUrl,
             likes: entry.likes,
             recasts: entry.recasts,
+            rarity: entry.rarity,
+            presetKey: entry.presetKey,
             createdAt: new Date(entry.createdAt),
             castUrl: entry.castUrl,
           },
