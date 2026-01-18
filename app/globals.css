@@ -37,6 +37,7 @@ body {
     radial-gradient(circle at 80% 50%, rgba(255, 0, 255, 0.05) 0%, transparent 50%),
     var(--bg-darker);
   position: relative;
+  overflow-x: hidden;
 }
 
 .crt-screen {
@@ -314,6 +315,7 @@ body {
   gap: 6px;
   justify-content: space-between;
   width: 100%;
+  min-width: 0;
 }
 
 .preset-button {
@@ -328,6 +330,10 @@ body {
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .preset-button:hover {
@@ -1161,6 +1167,17 @@ body {
 
   .bottom-nav-icon {
     font-size: 18px;
+  }
+
+  .preset-button {
+    padding: 3px 4px;
+    font-size: 7px;
+    letter-spacing: 0.5px;
+  }
+
+  .preset-thumb {
+    width: 16px;
+    height: 7px;
   }
 
   .action-row-three,
