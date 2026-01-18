@@ -41,6 +41,8 @@ export default function LogoGenerator() {
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
   const [castPreviewText, setCastPreviewText] = useState<string>('');
   const [logoHistory, setLogoHistory] = useState<LogoHistoryItem[]>([]);
+  const [favorites, setFavorites] = useState<LogoHistoryItem[]>([]);
+  const [remixMode, setRemixMode] = useState(false);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
     date: '',
     words: [],
@@ -130,6 +132,14 @@ export default function LogoGenerator() {
     }
   };
 
+  const saveFavorites = (items: LogoHistoryItem[]) => {
+    try {
+      localStorage.setItem('plf:favorites', JSON.stringify(items));
+    } catch (error) {
+      console.error('Failed to store favorites:', error);
+    }
+  };
+
   const loadHistory = () => {
     try {
       const stored = localStorage.getItem('plf:history');
@@ -143,9 +153,23 @@ export default function LogoGenerator() {
     }
   };
 
+  const loadFavorites = () => {
+    try {
+      const stored = localStorage.getItem('plf:favorites');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as LogoHistoryItem[];
+      if (Array.isArray(parsed)) {
+        setFavorites(parsed);
+      }
+    } catch (error) {
+      console.error('Failed to read favorites:', error);
+    }
+  };
+
   useEffect(() => {
     const dailyState = ensureDailyLimit();
     loadHistory();
+    loadFavorites();
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
     const initSdk = async () => {
       // Wait 3 seconds before calling ready (splash screen duration)
@@ -221,6 +245,37 @@ export default function LogoGenerator() {
     });
   };
 
+  const toggleFavorite = (result: LogoResult) => {
+    setFavorites((prev) => {
+      const exists = prev.some(
+        (item) =>
+          item.result.seed === result.seed &&
+          item.result.config.text === result.config.text
+      );
+      if (exists) {
+        const next = prev.filter(
+          (item) =>
+            item.result.seed !== result.seed ||
+            item.result.config.text !== result.config.text
+        );
+        saveFavorites(next);
+        return next;
+      }
+      const next = [{ result, createdAt: Date.now() }, ...prev].slice(0, 20);
+      saveFavorites(next);
+      return next;
+    });
+  };
+
+  const isFavorite = (result: LogoResult | null) => {
+    if (!result) return false;
+    return favorites.some(
+      (item) =>
+        item.result.seed === result.seed &&
+        item.result.config.text === result.config.text
+    );
+  };
+
   const getPresetConfig = (presetKey?: string | null) => {
     if (!presetKey) return undefined;
     return PRESETS.find((preset) => preset.key === presetKey)?.config;
@@ -268,6 +323,8 @@ export default function LogoGenerator() {
       setToast({ message: 'Please enter some text to generate a logo', type: 'error' });
       return;
     }
+
+    setRemixMode(false);
 
     const limitCheck = checkDailyLimits(inputText, !!customSeed.trim());
     if (!limitCheck.ok) {
@@ -317,6 +374,7 @@ export default function LogoGenerator() {
     setCustomSeed('');
     setSeedError('');
     setSelectedPreset(null);
+    setRemixMode(false);
 
     const limitCheck = checkDailyLimits(randomText, false);
     if (!limitCheck.ok) {
@@ -340,6 +398,54 @@ export default function LogoGenerator() {
         });
       } finally {
         setIsGenerating(false);
+      }
+    }, 100);
+  };
+
+  const handleRemixCast = () => {
+    if (!inputText.trim()) {
+      setToast({ message: 'Enter the original text to remix.', type: 'error' });
+      return;
+    }
+
+    const seedValue = customSeed.trim();
+    if (!seedValue) {
+      setToast({ message: 'Enter the seed you want to remix.', type: 'error' });
+      return;
+    }
+
+    const parsedSeed = parseInt(seedValue, 10);
+    if (isNaN(parsedSeed)) {
+      setSeedError('Seed must be a number');
+      return;
+    }
+    if (parsedSeed < 0 || parsedSeed > 2147483647) {
+      setSeedError('Seed must be between 0 and 2147483647');
+      return;
+    }
+
+    const limitCheck = checkDailyLimits(inputText.trim(), true);
+    if (!limitCheck.ok) {
+      setToast({ message: limitCheck.message, type: 'info' });
+      return;
+    }
+
+    setIsGenerating(true);
+    setTimeout(() => {
+      try {
+        const result = generateWithText(inputText.trim(), parsedSeed, selectedPreset);
+        finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, true);
+        setToast({ message: 'Remix ready! Opening cast...', type: 'success' });
+        handleCastClick(result, parsedSeed);
+      } catch (error) {
+        console.error('Remix error:', error);
+        setToast({
+          message: error instanceof Error ? error.message : 'Failed to remix logo. Please try again.',
+          type: 'error',
+        });
+      } finally {
+        setIsGenerating(false);
+        setRemixMode(false);
       }
     }, 100);
   };
@@ -453,28 +559,30 @@ export default function LogoGenerator() {
     }
   };
 
-  const handleCastClick = async () => {
-    if (!logoResult) return;
+  const handleCastClick = async (override?: LogoResult, remixSeed?: number) => {
+    const activeResult = override ?? logoResult;
+    if (!activeResult) return;
     
     // Generate preview first
     try {
-      const previewImage = await generateCastImage(logoResult);
-      const shareUrl = `${window.location.origin}?text=${encodeURIComponent(logoResult.config.text)}&seed=${logoResult.seed}`;
+      const previewImage = await generateCastImage(activeResult);
+      const shareUrl = `${window.location.origin}?text=${encodeURIComponent(activeResult.config.text)}&seed=${activeResult.seed}`;
       
       const rarityEmoji = {
         'COMMON': '⚪',
         'RARE': '🔵',
         'EPIC': '🟣',
         'LEGENDARY': '🟠',
-      }[logoResult.rarity] || '🎮';
+      }[activeResult.rarity] || '🎮';
       
-      const previewText = `${rarityEmoji} Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"
+      const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : '';
+      const previewText = `${rarityEmoji} ${remixSeed ? 'Remixed' : 'Forged'} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
 
-✨ Rarity: ${logoResult.rarity}
-🎲 Seed: ${logoResult.seed}
-🔗 Recreate: ${shareUrl}
+✨ Rarity: ${activeResult.rarity}
+🎲 Seed: ${activeResult.seed}
+${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
 
-#PixelLogoForge #${logoResult.rarity}Logo`;
+#PixelLogoForge #${activeResult.rarity}Logo`;
       
       setCastPreviewImage(previewImage);
       setCastPreviewText(previewText);
@@ -483,28 +591,29 @@ export default function LogoGenerator() {
       console.error('Failed to generate preview:', error);
       setToast({ message: 'Failed to generate preview. Casting directly...', type: 'error' });
       // Fall through to direct cast
-      handleCast();
+      handleCast(activeResult, remixSeed);
     }
   };
 
-  const handleCast = async () => {
-    if (!logoResult) return;
+  const handleCast = async (override?: LogoResult, remixSeed?: number) => {
+    const activeResult = override ?? logoResult;
+    if (!activeResult) return;
     
     setShowCastPreview(false);
     setIsCasting(true);
     try {
       // Create share URL with logo parameters
-      const shareUrl = `${window.location.origin}?text=${encodeURIComponent(logoResult.config.text)}&seed=${logoResult.seed}`;
+      const shareUrl = `${window.location.origin}?text=${encodeURIComponent(activeResult.config.text)}&seed=${activeResult.seed}`;
       
       console.log('Starting cast process...');
       console.log('SDK ready:', sdkReady);
       
       // Generate the composite cast image with logo, rarity, and owner
-      let castImageUrl = logoResult.dataUrl; // Fallback to original logo
+      let castImageUrl = activeResult.dataUrl; // Fallback to original logo
       
       try {
         console.log('Generating cast image...');
-        const castImageDataUrl = await generateCastImage(logoResult);
+        const castImageDataUrl = await generateCastImage(activeResult);
         console.log('Cast image generated, length:', castImageDataUrl.length);
         
         // Upload the composite image to get a shareable URL
@@ -516,8 +625,8 @@ export default function LogoGenerator() {
           },
           body: JSON.stringify({
             dataUrl: castImageDataUrl,
-            text: logoResult.config.text,
-            seed: logoResult.seed,
+            text: activeResult.config.text,
+            seed: activeResult.seed,
           }),
         });
         
@@ -547,15 +656,16 @@ export default function LogoGenerator() {
             'RARE': '🔵',
             'EPIC': '🟣',
             'LEGENDARY': '🟠',
-          }[logoResult.rarity] || '🎮';
+          }[activeResult.rarity] || '🎮';
           
-          const castText = `${rarityEmoji} Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"
+          const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : '';
+          const castText = `${rarityEmoji} ${remixSeed ? 'Remixed' : 'Forged'} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
 
-✨ Rarity: ${logoResult.rarity}
-🎲 Seed: ${logoResult.seed}
-🔗 Recreate: ${shareUrl}
+✨ Rarity: ${activeResult.rarity}
+🎲 Seed: ${activeResult.seed}
+${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
 
-#PixelLogoForge #${logoResult.rarity}Logo`;
+#PixelLogoForge #${activeResult.rarity}Logo`;
           
           // Farcaster embeds - build as tuple type
           let embeds: [string] | undefined = undefined;
@@ -604,15 +714,16 @@ export default function LogoGenerator() {
           'RARE': '🔵',
           'EPIC': '🟣',
           'LEGENDARY': '🟠',
-        }[logoResult.rarity] || '🎮';
+        }[activeResult.rarity] || '🎮';
         
-        const castText = `${rarityEmoji} Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"
+        const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : '';
+        const castText = `${rarityEmoji} ${remixSeed ? 'Remixed' : 'Forged'} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
 
-✨ Rarity: ${logoResult.rarity}
-🎲 Seed: ${logoResult.seed}
-🔗 Recreate: ${shareUrl}
+✨ Rarity: ${activeResult.rarity}
+🎲 Seed: ${activeResult.seed}
+${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
 
-#PixelLogoForge #${logoResult.rarity}Logo`;
+#PixelLogoForge #${activeResult.rarity}Logo`;
         
         const warpcastUrl = castImageUrl
           ? `https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(castImageUrl)}`
@@ -853,6 +964,24 @@ export default function LogoGenerator() {
               <rect x="6" y="12" width="4" height="2" />
             </svg>
             <span>Seed</span>
+            <button
+              type="button"
+              className={`remix-pill${remixMode ? ' active' : ''}`}
+              onClick={() => {
+                if (!customSeed.trim()) {
+                  setToast({ message: 'Enter a seed to enable remix.', type: 'info' });
+                  return;
+                }
+                if (!inputText.trim()) {
+                  setToast({ message: 'Enter the original text to remix.', type: 'info' });
+                  return;
+                }
+                setRemixMode((prev) => !prev);
+              }}
+              aria-pressed={remixMode}
+            >
+              Remix
+            </button>
           </div>
           <input
             type="text"
@@ -1003,6 +1132,14 @@ export default function LogoGenerator() {
                 COPY IMAGE
               </button>
               <button 
+                onClick={() => toggleFavorite(logoResult)} 
+                className="action-button" 
+                disabled={isGenerating}
+                aria-label="Save logo to favorites"
+              >
+                {isFavorite(logoResult) ? 'SAVED' : 'SAVE'}
+              </button>
+              <button 
                 onClick={handleShare} 
                 className="action-button"
                 disabled={isSharing || isGenerating}
@@ -1012,7 +1149,7 @@ export default function LogoGenerator() {
                 {isSharing ? 'SHARING...' : 'SHARE'}
               </button>
               <button 
-                onClick={handleCastClick} 
+                onClick={() => (remixMode ? handleRemixCast() : handleCastClick())} 
                 className="action-button cast-button"
                 disabled={isCasting || isGenerating}
                 aria-label="Cast logo to Farcaster"
@@ -1022,6 +1159,31 @@ export default function LogoGenerator() {
               </button>
             </div>
           </div>
+          {favorites.length > 0 && (
+            <div className="history-strip" aria-label="Favorite logos">
+              <div className="history-title">Favorites</div>
+              <div className="history-list">
+                {favorites.map((item) => (
+                  <button
+                    key={`fav-${item.result.seed}-${item.result.config.text}`}
+                    className="history-item"
+                    onClick={() => {
+                      setLogoResult(item.result);
+                      setInputText(item.result.config.text);
+                    }}
+                    aria-label={`Load favorite logo "${item.result.config.text}" with seed ${item.result.seed}`}
+                  >
+                    <img
+                      src={item.result.dataUrl}
+                      alt={`Favorite logo: ${item.result.config.text}`}
+                      className="history-image"
+                    />
+                    <span className="history-time">{formatHistoryTime(item.createdAt)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {logoHistory.length > 0 && (
             <div className="history-strip" aria-label="Recent logos">
               <div className="history-title">Recent logos</div>
