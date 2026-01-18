@@ -636,16 +636,6 @@ export default function LogoGenerator() {
     return PRESETS.find((preset) => preset.key === presetKey)?.config;
   }, []);
 
-  const getMiniappRecreateUrl = useCallback((text: string, seed?: number) => {
-    const canonicalDomain = 'pixel-logo-generator.vercel.app';
-    const url = new URL(`https://warpcast.com/~/miniapps/${canonicalDomain}`);
-    url.searchParams.set('text', text);
-    if (seed !== undefined) {
-      url.searchParams.set('seed', String(seed));
-    }
-    return url.toString();
-  }, []);
-
   const checkDailyLimits = useCallback((text: string, seedProvided: boolean): LimitCheck => {
     const normalizedText = normalizeWord(text);
     const todayState = ensureDailyLimit();
@@ -1015,16 +1005,13 @@ export default function LogoGenerator() {
     
     setIsSharing(true);
     try {
-      // Create share URL with logo parameters
-      const shareUrl = getMiniappRecreateUrl(logoResult.config.text, logoResult.seed);
-      
       // Try Farcaster SDK first if available
       if (sdkReady) {
         try {
           // Use the logo image in the share
           const result = await sdk.actions.composeCast({
-            text: `Just generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}" 🎮\n\nRecreate it: ${shareUrl}`,
-            embeds: [logoResult.dataUrl, shareUrl], // Include image and share URL
+            text: `Just generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}" 🎮`,
+            embeds: [logoResult.dataUrl], // Include image only
           });
           
           if (result && result.cast) {
@@ -1041,13 +1028,12 @@ export default function LogoGenerator() {
         await navigator.share({
           title: `Pixel Logo: ${logoResult.config.text} [${logoResult.rarity}]`,
           text: `Check out my retro pixel logo: ${logoResult.config.text}`,
-          url: shareUrl,
         });
         setToast({ message: 'Shared successfully!', type: 'success' });
       } else {
         // Fallback to clipboard
-        await navigator.clipboard.writeText(shareUrl);
-        setToast({ message: 'Share URL copied to clipboard!', type: 'success' });
+        await navigator.clipboard.writeText(`Check out my retro pixel logo: ${logoResult.config.text}`);
+        setToast({ message: 'Share text copied to clipboard!', type: 'success' });
       }
     } catch (error) {
       console.error('Share error:', error);
@@ -1059,12 +1045,11 @@ export default function LogoGenerator() {
 
   const openWarpcastShare = useCallback(async (entry: LeaderboardEntry) => {
     const safeText = entry.text || 'Pixel logo';
-    const shareUrl = getMiniappRecreateUrl(safeText, entry.seed);
     const embeds: string[] = [];
     if (entry.imageUrl && (entry.imageUrl.startsWith('http://') || entry.imageUrl.startsWith('https://'))) {
       embeds.push(entry.imageUrl);
     }
-    const shareText = `Pixel Logo Forge: "${safeText}"\nRecreate: ${shareUrl}`;
+    const shareText = `Pixel Logo Forge: "${safeText}"`;
     if (sdkReady) {
       try {
         const embedsForSdk = embeds.slice(0, 2) as string[];
@@ -1090,7 +1075,7 @@ export default function LogoGenerator() {
     if (!opened) {
       window.location.href = composeUrl;
     }
-  }, [getMiniappRecreateUrl, sdkReady]);
+  }, [sdkReady]);
 
   const handleTagFriend = useCallback(() => {
     setCastDraftText((prev) => {
@@ -1129,8 +1114,7 @@ export default function LogoGenerator() {
 
   const handleCopyCastText = async () => {
     if (!logoResult) return;
-    const shareUrl = getMiniappRecreateUrl(logoResult.config.text, logoResult.seed);
-    const castText = `Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\n✨ Rarity: ${logoResult.rarity}\n🎲 Seed: ${logoResult.seed}\n🔗 Recreate: ${shareUrl}\n\n#PixelLogoForge #${logoResult.rarity}Logo`;
+    const castText = `Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\n✨ Rarity: ${logoResult.rarity}\n🎲 Seed: ${logoResult.seed}\n\n#PixelLogoForge #${logoResult.rarity}Logo`;
     try {
       await navigator.clipboard.writeText(castText);
       setToast({ message: 'Cast text copied!', type: 'success' });
@@ -1147,7 +1131,6 @@ export default function LogoGenerator() {
     // Generate preview first
     try {
       const previewImage = await generateCastImage(activeResult);
-      const shareUrl = getMiniappRecreateUrl(activeResult.config.text, activeResult.seed);
       
       const rarityEmoji = {
         'COMMON': '⚪',
@@ -1161,9 +1144,7 @@ export default function LogoGenerator() {
 
 ✨ Rarity: ${activeResult.rarity}
 🎲 Seed: ${activeResult.seed}
-${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
-
-#PixelLogoForge #${activeResult.rarity}Logo`;
+${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo`;
       
       setCastPreviewImage(previewImage);
       setCastPreviewText(previewText);
@@ -1188,9 +1169,6 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
     setCastTarget(null);
     setCastTargetRemixSeed(undefined);
     try {
-      // Create share URL with logo parameters
-      const shareUrl = getMiniappRecreateUrl(activeResult.config.text, activeResult.seed);
-      
       console.log('Starting cast process...');
       console.log('SDK ready:', sdkReady);
       
@@ -1249,9 +1227,8 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
 
 ✨ Rarity: ${activeResult.rarity}
 🎲 Seed: ${activeResult.seed}
-${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
-
-#PixelLogoForge #${activeResult.rarity}Logo`;
+${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
+`;
           const castText = textOverride?.trim() ? textOverride : defaultText;
           
           // Farcaster embeds - build as tuple type
@@ -1331,9 +1308,8 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
 
 ✨ Rarity: ${activeResult.rarity}
 🎲 Seed: ${activeResult.seed}
-${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
-
-#PixelLogoForge #${activeResult.rarity}Logo`;
+${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
+`;
         const castText = textOverride?.trim() ? textOverride : defaultText;
         
         const warpcastUrl = castImageUrl
