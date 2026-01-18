@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import NextImage from 'next/image';
 import { generateLogo, LogoResult, Rarity } from '@/lib/logoGenerator';
 import { sdk } from '@farcaster/miniapp-sdk';
 import dynamic from 'next/dynamic';
@@ -43,6 +44,48 @@ type LeaderboardEntry = {
   createdAt: number;
 };
 
+const TRIES_PER_DAY = 3;
+const RANDOM_WORDS = ['Arcade', 'Pixel', 'Forge', 'Neon', 'Crt', 'Quest', 'Byte', 'Retro', 'Glitch'];
+const PRESETS = [
+  {
+    key: 'arcade',
+    label: 'Arcade',
+    config: { backgroundStyle: 'crt-scanlines', frameStyle: 'arcade-bezel', colorSystem: 'Classic', compositionMode: 'centered' },
+  },
+  {
+    key: 'vaporwave',
+    label: 'Vaporwave',
+    config: { backgroundStyle: 'vaporwave-sky', frameStyle: 'trading-card', colorSystem: 'Vaporwave', compositionMode: 'vertical-stacked' },
+  },
+  {
+    key: 'gameboy',
+    label: 'Game Boy',
+    config: { backgroundStyle: 'grid-horizon', frameStyle: 'none', colorSystem: 'GameBoy', compositionMode: 'centered' },
+  },
+] as const;
+const PRESET_SWATCHES: Record<string, string[]> = {
+  arcade: ['#00ff00', '#ff00ff', '#ffff00'],
+  vaporwave: ['#ff006e', '#8338ec', '#3a86ff'],
+  gameboy: ['#0f380f', '#306230', '#9bbc0f'],
+};
+const CHALLENGE_PROMPTS = [
+  'Arcade Storm',
+  'Neon Drift',
+  'Pixel Heist',
+  'Turbo Vortex',
+  'Ghost Signal',
+  'Cosmic Byte',
+] as const;
+const DAILY_PROMPTS = [
+  'Nova Arcade',
+  'Pixel Eclipse',
+  'Synth Runner',
+  'Turbo Bloom',
+  'Neon Prism',
+  'Retro Reactor',
+  'Byte Mirage',
+] as const;
+
 export default function LogoGenerator() {
   const [inputText, setInputText] = useState('');
   const [customSeed, setCustomSeed] = useState<string>('');
@@ -70,81 +113,40 @@ export default function LogoGenerator() {
     seedUsed: false,
   });
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const initRef = useRef(false);
 
-  const TRIES_PER_DAY = 3;
-  const RANDOM_WORDS = ['Arcade', 'Pixel', 'Forge', 'Neon', 'Crt', 'Quest', 'Byte', 'Retro', 'Glitch'];
-  const PRESETS = [
-    {
-      key: 'arcade',
-      label: 'Arcade',
-      config: { backgroundStyle: 'crt-scanlines', frameStyle: 'arcade-bezel', colorSystem: 'Classic', compositionMode: 'centered' },
-    },
-    {
-      key: 'vaporwave',
-      label: 'Vaporwave',
-      config: { backgroundStyle: 'vaporwave-sky', frameStyle: 'trading-card', colorSystem: 'Vaporwave', compositionMode: 'vertical-stacked' },
-    },
-    {
-      key: 'gameboy',
-      label: 'Game Boy',
-      config: { backgroundStyle: 'grid-horizon', frameStyle: 'none', colorSystem: 'GameBoy', compositionMode: 'centered' },
-    },
-  ] as const;
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
-  const PRESET_SWATCHES: Record<string, string[]> = {
-    arcade: ['#00ff00', '#ff00ff', '#ffff00'],
-    vaporwave: ['#ff006e', '#8338ec', '#3a86ff'],
-    gameboy: ['#0f380f', '#306230', '#9bbc0f'],
-  };
-  const CHALLENGE_PROMPTS = [
-    'Arcade Storm',
-    'Neon Drift',
-    'Pixel Heist',
-    'Turbo Vortex',
-    'Ghost Signal',
-    'Cosmic Byte',
-  ] as const;
   const [challengeDone, setChallengeDone] = useState<Record<string, boolean>>({});
   const [challengeDays, setChallengeDays] = useState<string[]>([]);
 
-  const DAILY_PROMPTS = [
-    'Nova Arcade',
-    'Pixel Eclipse',
-    'Synth Runner',
-    'Turbo Bloom',
-    'Neon Prism',
-    'Retro Reactor',
-    'Byte Mirage',
-  ] as const;
-
-  const getTodayKey = () => {
+  const getTodayKey = useCallback(() => {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  };
+  }, []);
 
-  const getDayKeyFromTimestamp = (timestamp: number) => {
+  const getDayKeyFromTimestamp = useCallback((timestamp: number) => {
     const date = new Date(timestamp);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  };
+  }, []);
 
-  const normalizeWord = (value: string) => value.trim().toLowerCase();
+  const normalizeWord = useCallback((value: string) => value.trim().toLowerCase(), []);
 
-  const getPromptOfDay = () => {
+  const getPromptOfDay = useCallback(() => {
     const dayKey = getTodayKey();
     let hash = 0;
     for (let i = 0; i < dayKey.length; i += 1) {
       hash = (hash * 31 + dayKey.charCodeAt(i)) % DAILY_PROMPTS.length;
     }
     return DAILY_PROMPTS[hash];
-  };
+  }, [getTodayKey]);
 
-  const getChallengeStreak = (days: string[]) => {
+  const getChallengeStreak = useCallback((days: string[]) => {
     if (days.length === 0) return 0;
     const set = new Set(days);
     let count = 0;
@@ -156,7 +158,7 @@ export default function LogoGenerator() {
       cursor.setDate(cursor.getDate() - 1);
     }
     return count;
-  };
+  }, [getDayKeyFromTimestamp]);
 
   const formatHistoryTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleString(undefined, {
@@ -167,23 +169,23 @@ export default function LogoGenerator() {
     });
   };
 
-  const runWhenIdle = (callback: () => void) => {
+  const runWhenIdle = useCallback((callback: () => void) => {
     if (typeof window === 'undefined') return;
     if ('requestIdleCallback' in window) {
       window.requestIdleCallback(() => callback());
       return;
     }
     setTimeout(() => callback(), 200);
-  };
-  const saveLeaderboard = (items: LeaderboardEntry[]) => {
+  }, []);
+  const saveLeaderboard = useCallback((items: LeaderboardEntry[]) => {
     try {
       localStorage.setItem('plf:leaderboard', JSON.stringify(items));
     } catch (error) {
       console.error('Failed to store leaderboard:', error);
     }
-  };
+  }, []);
 
-  const loadLeaderboard = () => {
+  const loadLeaderboard = useCallback(() => {
     try {
       const stored = localStorage.getItem('plf:leaderboard');
       if (!stored) return;
@@ -198,9 +200,9 @@ export default function LogoGenerator() {
     } catch (error) {
       console.error('Failed to read leaderboard:', error);
     }
-  };
+  }, [getDayKeyFromTimestamp, getTodayKey]);
 
-  const loadChallenge = () => {
+  const loadChallenge = useCallback(() => {
     try {
       const stored = localStorage.getItem('plf:challenge');
       if (!stored) return;
@@ -209,17 +211,17 @@ export default function LogoGenerator() {
     } catch (error) {
       console.error('Failed to read challenge progress:', error);
     }
-  };
+  }, []);
 
-  const saveChallenge = (next: Record<string, boolean>) => {
+  const saveChallenge = useCallback((next: Record<string, boolean>) => {
     try {
       localStorage.setItem('plf:challenge', JSON.stringify(next));
     } catch (error) {
       console.error('Failed to store challenge progress:', error);
     }
-  };
+  }, []);
 
-  const loadChallengeDays = () => {
+  const loadChallengeDays = useCallback(() => {
     try {
       const stored = localStorage.getItem('plf:challengeDays');
       if (!stored) return;
@@ -230,25 +232,25 @@ export default function LogoGenerator() {
     } catch (error) {
       console.error('Failed to read challenge days:', error);
     }
-  };
+  }, []);
 
-  const saveChallengeDays = (days: string[]) => {
+  const saveChallengeDays = useCallback((days: string[]) => {
     try {
       localStorage.setItem('plf:challengeDays', JSON.stringify(days));
     } catch (error) {
       console.error('Failed to store challenge days:', error);
     }
-  };
+  }, []);
 
-  const saveDailyLimit = (state: DailyLimitState) => {
+  const saveDailyLimit = useCallback((state: DailyLimitState) => {
     try {
       localStorage.setItem('plf:dailyLimit', JSON.stringify(state));
     } catch (error) {
       console.error('Failed to store daily limit:', error);
     }
-  };
+  }, []);
 
-  const ensureDailyLimit = () => {
+  const ensureDailyLimit = useCallback(() => {
     const today = getTodayKey();
     try {
       const stored = localStorage.getItem('plf:dailyLimit');
@@ -272,25 +274,25 @@ export default function LogoGenerator() {
     setDailyLimit(reset);
     saveDailyLimit(reset);
     return reset;
-  };
+  }, [getTodayKey, saveDailyLimit]);
 
-  const saveHistory = (items: LogoHistoryItem[]) => {
+  const saveHistory = useCallback((items: LogoHistoryItem[]) => {
     try {
       localStorage.setItem('plf:history', JSON.stringify(items));
     } catch (error) {
       console.error('Failed to store history:', error);
     }
-  };
+  }, []);
 
-  const saveFavorites = (items: LogoHistoryItem[]) => {
+  const saveFavorites = useCallback((items: LogoHistoryItem[]) => {
     try {
       localStorage.setItem('plf:favorites', JSON.stringify(items));
     } catch (error) {
       console.error('Failed to store favorites:', error);
     }
-  };
+  }, []);
 
-  const loadHistory = () => {
+  const loadHistory = useCallback(() => {
     try {
       const stored = localStorage.getItem('plf:history');
       if (!stored) return;
@@ -301,9 +303,9 @@ export default function LogoGenerator() {
     } catch (error) {
       console.error('Failed to read history:', error);
     }
-  };
+  }, []);
 
-  const loadFavorites = () => {
+  const loadFavorites = useCallback(() => {
     try {
       const stored = localStorage.getItem('plf:favorites');
       if (!stored) return;
@@ -314,10 +316,145 @@ export default function LogoGenerator() {
     } catch (error) {
       console.error('Failed to read favorites:', error);
     }
+  }, []);
+
+
+  const addToHistory = useCallback((result: LogoResult) => {
+    setLogoHistory((prev) => {
+      const next = [
+        { result, createdAt: Date.now() },
+        ...prev.filter(
+          (item) =>
+            item.result.seed !== result.seed || item.result.config.text !== result.config.text
+        ),
+      ];
+      const trimmed = next.slice(0, 5);
+      saveHistory(trimmed);
+      return trimmed;
+    });
+  }, [saveHistory]);
+
+  const toggleFavorite = (result: LogoResult) => {
+    setFavorites((prev) => {
+      const exists = prev.some(
+        (item) =>
+          item.result.seed === result.seed &&
+          item.result.config.text === result.config.text
+      );
+      if (exists) {
+        const next = prev.filter(
+          (item) =>
+            item.result.seed !== result.seed ||
+            item.result.config.text !== result.config.text
+        );
+        saveFavorites(next);
+        return next;
+      }
+      const next = [{ result, createdAt: Date.now() }, ...prev].slice(0, 20);
+      saveFavorites(next);
+      return next;
+    });
   };
 
+  const isFavorite = (result: LogoResult | null) => {
+    if (!result) return false;
+    return favorites.some(
+      (item) =>
+        item.result.seed === result.seed &&
+        item.result.config.text === result.config.text
+    );
+  };
+
+  const addToLeaderboard = (entry: LeaderboardEntry) => {
+    const todayKey = getTodayKey();
+    setLeaderboard((prev) => {
+      const merged = [entry, ...prev].filter(
+        (item) => getDayKeyFromTimestamp(item.createdAt) === todayKey
+      );
+      const trimmed = merged.slice(0, 25);
+      saveLeaderboard(trimmed);
+      return trimmed;
+    });
+  };
+
+  const incrementLeaderboardLike = (entryId: string) => {
+    setLeaderboard((prev) => {
+      const next = prev.map((item) =>
+        item.id === entryId ? { ...item, likes: item.likes + 1 } : item
+      );
+      saveLeaderboard(next);
+      return next;
+    });
+  };
+
+  const toggleChallengeDone = useCallback((prompt: string) => {
+    setChallengeDone((prev) => {
+      const next = { ...prev, [prompt]: !prev[prompt] };
+      saveChallenge(next);
+      const allDone = CHALLENGE_PROMPTS.every((item) => next[item]);
+      if (allDone) {
+        const todayKey = getTodayKey();
+        setChallengeDays((daysPrev) => {
+          if (daysPrev.includes(todayKey)) return daysPrev;
+          const updated = [...daysPrev, todayKey];
+          saveChallengeDays(updated);
+          return updated;
+        });
+      }
+      return next;
+    });
+  }, [getTodayKey, saveChallenge, saveChallengeDays]);
+
+  const getPresetConfig = useCallback((presetKey?: string | null) => {
+    if (!presetKey) return undefined;
+    return PRESETS.find((preset) => preset.key === presetKey)?.config;
+  }, []);
+
+  const checkDailyLimits = useCallback((text: string, seedProvided: boolean): LimitCheck => {
+    const normalizedText = normalizeWord(text);
+    const todayState = ensureDailyLimit();
+    if (todayState.words.includes(normalizedText)) {
+      return { ok: false, message: 'You already tried this word today. Please wait until tomorrow.' };
+    }
+    if (todayState.words.length >= TRIES_PER_DAY) {
+      return { ok: false, message: 'Daily limit reached. Please wait until tomorrow.' };
+    }
+    if (seedProvided && todayState.seedUsed) {
+      return { ok: false, message: 'Seed already used today. Please wait until tomorrow.' };
+    }
+    return { ok: true, normalizedText, todayState };
+  }, [ensureDailyLimit, normalizeWord]);
+
+  const finalizeDailyLimit = useCallback((
+    normalizedText: string,
+    todayState: DailyLimitState,
+    seedProvided: boolean
+  ) => {
+    const nextLimit = {
+      ...todayState,
+      words: [...todayState.words, normalizedText],
+      seedUsed: todayState.seedUsed || seedProvided,
+    };
+    setDailyLimit(nextLimit);
+    saveDailyLimit(nextLimit);
+  }, [saveDailyLimit]);
+
+  const generateWithText = useCallback((text: string, seed?: number, presetKey?: string | null) => {
+    const presetConfig = getPresetConfig(presetKey);
+    const result = generateLogo({
+      text,
+      seed,
+      ...presetConfig,
+    });
+    setLogoResult(result);
+    addToHistory(result);
+    return result;
+  }, [addToHistory, getPresetConfig]);
+
   useEffect(() => {
-    const dailyState = ensureDailyLimit();
+    if (initRef.current) return;
+    initRef.current = true;
+    ensureDailyLimit();
     loadHistory();
     loadFavorites();
     loadLeaderboard();
@@ -391,135 +528,19 @@ export default function LogoGenerator() {
         }
       });
     }
-  }, []);
-
-  const addToHistory = (result: LogoResult) => {
-    setLogoHistory((prev) => {
-      const next = [
-        { result, createdAt: Date.now() },
-        ...prev.filter(
-          (item) =>
-            item.result.seed !== result.seed || item.result.config.text !== result.config.text
-        ),
-      ];
-      const trimmed = next.slice(0, 5);
-      saveHistory(trimmed);
-      return trimmed;
-    });
-  };
-
-  const toggleFavorite = (result: LogoResult) => {
-    setFavorites((prev) => {
-      const exists = prev.some(
-        (item) =>
-          item.result.seed === result.seed &&
-          item.result.config.text === result.config.text
-      );
-      if (exists) {
-        const next = prev.filter(
-          (item) =>
-            item.result.seed !== result.seed ||
-            item.result.config.text !== result.config.text
-        );
-        saveFavorites(next);
-        return next;
-      }
-      const next = [{ result, createdAt: Date.now() }, ...prev].slice(0, 20);
-      saveFavorites(next);
-      return next;
-    });
-  };
-
-  const isFavorite = (result: LogoResult | null) => {
-    if (!result) return false;
-    return favorites.some(
-      (item) =>
-        item.result.seed === result.seed &&
-        item.result.config.text === result.config.text
-    );
-  };
-
-  const addToLeaderboard = (entry: LeaderboardEntry) => {
-    const todayKey = getTodayKey();
-    setLeaderboard((prev) => {
-      const merged = [entry, ...prev].filter(
-        (item) => getDayKeyFromTimestamp(item.createdAt) === todayKey
-      );
-      const trimmed = merged.slice(0, 25);
-      saveLeaderboard(trimmed);
-      return trimmed;
-    });
-  };
-
-  const incrementLeaderboardLike = (entryId: string) => {
-    setLeaderboard((prev) => {
-      const next = prev.map((item) =>
-        item.id === entryId ? { ...item, likes: item.likes + 1 } : item
-      );
-      saveLeaderboard(next);
-      return next;
-    });
-  };
-
-  const toggleChallengeDone = (prompt: string) => {
-    setChallengeDone((prev) => {
-      const next = { ...prev, [prompt]: !prev[prompt] };
-      saveChallenge(next);
-      const allDone = CHALLENGE_PROMPTS.every((item) => next[item]);
-      if (allDone) {
-        const todayKey = getTodayKey();
-        setChallengeDays((daysPrev) => {
-          if (daysPrev.includes(todayKey)) return daysPrev;
-          const updated = [...daysPrev, todayKey];
-          saveChallengeDays(updated);
-          return updated;
-        });
-      }
-      return next;
-    });
-  };
-
-  const getPresetConfig = (presetKey?: string | null) => {
-    if (!presetKey) return undefined;
-    return PRESETS.find((preset) => preset.key === presetKey)?.config;
-  };
-
-  const checkDailyLimits = (text: string, seedProvided: boolean): LimitCheck => {
-    const normalizedText = normalizeWord(text);
-    const todayState = ensureDailyLimit();
-    if (todayState.words.includes(normalizedText)) {
-      return { ok: false, message: 'You already tried this word today. Please wait until tomorrow.' };
-    }
-    if (todayState.words.length >= TRIES_PER_DAY) {
-      return { ok: false, message: 'Daily limit reached. Please wait until tomorrow.' };
-    }
-    if (seedProvided && todayState.seedUsed) {
-      return { ok: false, message: 'Seed already used today. Please wait until tomorrow.' };
-    }
-    return { ok: true, normalizedText, todayState };
-  };
-
-  const finalizeDailyLimit = (normalizedText: string, todayState: DailyLimitState, seedProvided: boolean) => {
-    const nextLimit = {
-      ...todayState,
-      words: [...todayState.words, normalizedText],
-      seedUsed: todayState.seedUsed || seedProvided,
-    };
-    setDailyLimit(nextLimit);
-    saveDailyLimit(nextLimit);
-  };
-
-  const generateWithText = (text: string, seed?: number, presetKey?: string | null) => {
-    const presetConfig = getPresetConfig(presetKey);
-    const result = generateLogo({
-      text,
-      seed,
-      ...presetConfig,
-    });
-    setLogoResult(result);
-    addToHistory(result);
-    return result;
-  };
+  }, [
+    checkDailyLimits,
+    ensureDailyLimit,
+    finalizeDailyLimit,
+    generateWithText,
+    loadChallenge,
+    loadChallengeDays,
+    loadFavorites,
+    loadHistory,
+    loadLeaderboard,
+    runWhenIdle,
+    selectedPreset,
+  ]);
 
   const handleGenerate = () => {
     if (!inputText.trim()) {
@@ -1145,10 +1166,13 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 }}
                 aria-label={`Load favorite logo "${item.result.config.text}" with seed ${item.result.seed}`}
               >
-                <img
+                <NextImage
                   src={item.result.dataUrl}
                   alt={`Favorite logo: ${item.result.config.text}`}
                   className="history-image"
+                  width={64}
+                  height={64}
+                  unoptimized
                 />
                 <span className="history-time">{formatHistoryTime(item.createdAt)}</span>
               </button>
@@ -1170,10 +1194,13 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 }}
                 aria-label={`Load logo "${item.result.config.text}" with seed ${item.result.seed}`}
               >
-                <img
+                <NextImage
                   src={item.result.dataUrl}
                   alt={`Recent logo: ${item.result.config.text}`}
                   className="history-image"
+                  width={64}
+                  height={64}
+                  unoptimized
                 />
                 <span className="history-time">{formatHistoryTime(item.createdAt)}</span>
               </button>
@@ -1206,7 +1233,14 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
             >
               <div className="leaderboard-card-header">
                 {entry.pfpUrl ? (
-                  <img src={entry.pfpUrl} alt={entry.username} className="leaderboard-avatar" />
+                  <NextImage
+                    src={entry.pfpUrl}
+                    alt={entry.username}
+                    className="leaderboard-avatar"
+                    width={28}
+                    height={28}
+                    unoptimized
+                  />
                 ) : (
                   <div className="leaderboard-avatar placeholder" />
                 )}
@@ -1216,7 +1250,14 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 </div>
               </div>
               {entry.imageUrl ? (
-                <img src={entry.imageUrl} alt="Cast media" className="leaderboard-image" />
+                <NextImage
+                  src={entry.imageUrl}
+                  alt="Cast media"
+                  className="leaderboard-image"
+                  width={400}
+                  height={120}
+                  unoptimized
+                />
               ) : (
                 <div className="leaderboard-text">{entry.text || 'View cast'}</div>
               )}
@@ -1522,13 +1563,16 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 </span>
               </button>
             </div>
-            <img
+            <NextImage
               key={`${logoResult.seed}-${logoResult.config.text}`}
               src={logoResult.dataUrl}
               alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
               className="logo-image logo-image-reveal"
               role="img"
               aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity`}
+              width={512}
+              height={512}
+              unoptimized
             />
             <div className="logo-info">
               <button
@@ -1554,57 +1598,68 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 Generated by Pixel Logo Forge
               </div>
             </div>
+            <div className="actions-divider">Actions</div>
             <div className="logo-actions">
-              <button 
-                onClick={handleDownload} 
-                className="action-button" 
-                disabled={isGenerating}
-                aria-label="Download logo as PNG"
-              >
-                DOWNLOAD PNG
-              </button>
-              <button 
-                onClick={handleCopyImage} 
-                className="action-button" 
-                disabled={isGenerating}
-                aria-label="Copy logo image"
-              >
-                COPY IMAGE
-              </button>
-              <button 
-                onClick={() => toggleFavorite(logoResult)} 
-                className="action-button" 
-                disabled={isGenerating}
-                aria-label="Save logo to favorites"
-              >
-                {isFavorite(logoResult) ? 'SAVED' : 'SAVE'}
-              </button>
-              <button 
-                onClick={handleCopyCastText} 
-                className="action-button" 
-                disabled={isGenerating}
-                aria-label="Copy cast text"
-              >
-                COPY CAST TEXT
-              </button>
-              <button 
-                onClick={handleShare} 
-                className="action-button"
-                disabled={isSharing || isGenerating}
-                aria-label="Share logo"
-                aria-busy={isSharing}
-              >
-                {isSharing ? 'SHARING...' : 'SHARE'}
-              </button>
-              <button 
-                onClick={() => (remixMode ? handleRemixCast() : handleCastClick())} 
-                className="action-button cast-button"
-                disabled={isCasting || isGenerating}
-                aria-label="Cast logo to Farcaster"
-                aria-busy={isCasting ? 'true' : 'false'}
-              >
-                {isCasting ? 'CASTING...' : 'CAST THIS LOGO'}
-              </button>
+              <div className="logo-actions-primary">
+                <button 
+                  onClick={() => (remixMode ? handleRemixCast() : handleCastClick())} 
+                  className="action-button cast-button"
+                  disabled={isCasting || isGenerating}
+                  aria-label="Cast logo to Farcaster"
+                  aria-busy={isCasting ? 'true' : 'false'}
+                >
+                  {isCasting ? 'CASTING...' : 'CAST THIS LOGO'}
+                </button>
+              </div>
+              <div className="logo-actions-secondary">
+                <div className="action-row action-row-three">
+                  <button 
+                    onClick={handleDownload} 
+                    className="action-button" 
+                    disabled={isGenerating}
+                    aria-label="Download logo as PNG"
+                  >
+                    DOWNLOAD PNG
+                  </button>
+                  <button 
+                    onClick={handleCopyImage} 
+                    className="action-button" 
+                    disabled={isGenerating}
+                    aria-label="Copy logo image"
+                  >
+                    <span className="action-icon" aria-hidden="true">📋</span>
+                    COPY IMAGE
+                  </button>
+                  <button 
+                    onClick={handleShare} 
+                    className="action-button"
+                    disabled={isSharing || isGenerating}
+                    aria-label="Share logo"
+                    aria-busy={isSharing}
+                  >
+                    <span className="action-icon" aria-hidden="true">🔗</span>
+                    {isSharing ? 'SHARING...' : 'SHARE'}
+                  </button>
+                </div>
+                <div className="action-row action-row-two">
+                  <button 
+                    onClick={() => toggleFavorite(logoResult)} 
+                    className="action-button" 
+                    disabled={isGenerating}
+                    aria-label="Save logo to favorites"
+                  >
+                    {isFavorite(logoResult) ? 'SAVED' : 'SAVE'}
+                  </button>
+                  <button 
+                    onClick={handleCopyCastText} 
+                    className="action-button" 
+                    disabled={isGenerating}
+                    aria-label="Copy cast text"
+                  >
+                    COPY CAST TEXT
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

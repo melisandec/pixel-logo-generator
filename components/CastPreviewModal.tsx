@@ -1,5 +1,7 @@
 'use client';
 
+import NextImage from 'next/image';
+
 interface CastPreviewModalProps {
   previewImage: string;
   castText: string;
@@ -50,7 +52,7 @@ export default function CastPreviewModal({
       >
         <h2
           style={{
-            fontFamily: "'Press Start 2P', monospace",
+            fontFamily: 'var(--font-press-start), monospace',
             fontSize: '16px',
             color: '#00ff00',
             marginBottom: '20px',
@@ -61,9 +63,12 @@ export default function CastPreviewModal({
         </h2>
 
         <div style={{ marginBottom: '20px' }}>
-          <img
+          <NextImage
             src={previewImage}
             alt="Cast preview"
+            width={512}
+            height={512}
+            unoptimized
             style={{
               width: '100%',
               height: 'auto',

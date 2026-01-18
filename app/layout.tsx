@@ -1,5 +1,12 @@
 import type { Metadata } from 'next';
+import { Press_Start_2P } from 'next/font/google';
 import './globals.css';
+
+const pressStart = Press_Start_2P({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-press-start',
+});
 
 export const metadata: Metadata = {
   title: 'Pixel Logo Forge - Retro Arcade Logo Generator',
@@ -75,14 +82,8 @@ export default function RootLayout({
             }
           })}
         />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
-          rel="stylesheet"
-        />
       </head>
-      <body>{children}</body>
+      <body className={pressStart.variable}>{children}</body>
     </html>
   );
 }
