@@ -3,8 +3,13 @@
 import { useState, useEffect } from 'react';
 import { generateLogo, LogoResult, Rarity } from '@/lib/logoGenerator';
 import { sdk } from '@farcaster/miniapp-sdk';
+import dynamic from 'next/dynamic';
 import Toast from './Toast';
-import CastPreviewModal from './CastPreviewModal';
+
+const CastPreviewModal = dynamic(() => import('./CastPreviewModal'), {
+  ssr: false,
+  loading: () => null,
+});
 
 interface ToastState {
   message: string;
@@ -26,6 +31,19 @@ type LimitCheck =
   | { ok: true; normalizedText: string; todayState: DailyLimitState }
   | { ok: false; message: string };
 
+type LeaderboardEntry = {
+  hash: string;
+  text: string;
+  timestamp: string;
+  username: string;
+  displayName: string;
+  pfpUrl: string;
+  likes: number;
+  recasts: number;
+  score: number;
+  imageUrl: string | null;
+};
+
 export default function LogoGenerator() {
   const [inputText, setInputText] = useState('');
   const [customSeed, setCustomSeed] = useState<string>('');
@@ -43,6 +61,9 @@ export default function LogoGenerator() {
   const [logoHistory, setLogoHistory] = useState<LogoHistoryItem[]>([]);
   const [favorites, setFavorites] = useState<LogoHistoryItem[]>([]);
   const [remixMode, setRemixMode] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
     date: '',
     words: [],
@@ -88,6 +109,33 @@ export default function LogoGenerator() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const runWhenIdle = (callback: () => void) => {
+    if (typeof window === 'undefined') return;
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(() => callback());
+      return;
+    }
+    setTimeout(() => callback(), 200);
+  };
+
+  const fetchLeaderboard = async () => {
+    setLeaderboardLoading(true);
+    setLeaderboardError(null);
+    try {
+      const response = await fetch('/api/leaderboard?limit=10');
+      if (!response.ok) {
+        throw new Error(`Leaderboard fetch failed: ${response.status}`);
+      }
+      const data = await response.json();
+      setLeaderboard(data.entries ?? []);
+    } catch (error) {
+      console.error('Leaderboard fetch error:', error);
+      setLeaderboardError('Failed to load leaderboard.');
+    } finally {
+      setLeaderboardLoading(false);
+    }
   };
 
   const saveDailyLimit = (state: DailyLimitState) => {
@@ -170,6 +218,9 @@ export default function LogoGenerator() {
     const dailyState = ensureDailyLimit();
     loadHistory();
     loadFavorites();
+    runWhenIdle(() => {
+      fetchLeaderboard();
+    });
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
     const initSdk = async () => {
       // Wait 3 seconds before calling ready (splash screen duration)
@@ -227,6 +278,16 @@ export default function LogoGenerator() {
           });
         }
       }, 100);
+    } else {
+      // Show a sample logo after initial paint (does not count toward daily limits)
+      runWhenIdle(() => {
+        try {
+          const sample = generateLogo({ text: 'Pixel' });
+          setLogoResult(sample);
+        } catch (error) {
+          console.error('Error generating sample logo:', error);
+        }
+      });
     }
   }, []);
 
@@ -1020,7 +1081,16 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
               {dailyLimit.seedUsed ? 'Seed used today — try again tomorrow' : 'One seed entry per day'}
             </span>
           )}
+          <span className="seed-tip">Tip: seed = recreate</span>
         </div>
+        <button
+          type="button"
+          className="how-link"
+          onClick={() => setShowHowItWorks(true)}
+          aria-label="How it works"
+        >
+          How it works
+        </button>
         <div className="button-group">
           <button
             onClick={handleGenerate}
@@ -1209,6 +1279,53 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
               </div>
             </div>
           )}
+          <div className="leaderboard">
+            <div className="leaderboard-title">Daily Leaderboard</div>
+            {leaderboardLoading && (
+              <div className="leaderboard-status">Loading top casts…</div>
+            )}
+            {leaderboardError && (
+              <div className="leaderboard-status">{leaderboardError}</div>
+            )}
+            {!leaderboardLoading && !leaderboardError && leaderboard.length === 0 && (
+              <div className="leaderboard-status">No casts yet today.</div>
+            )}
+            {!leaderboardLoading && !leaderboardError && leaderboard.length > 0 && (
+              <div className="leaderboard-grid">
+                {leaderboard.map((entry) => (
+                  <a
+                    key={entry.hash}
+                    className="leaderboard-card"
+                    href={`https://warpcast.com/~/cast/${entry.hash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Open cast by ${entry.username}`}
+                  >
+                    <div className="leaderboard-card-header">
+                      {entry.pfpUrl ? (
+                        <img src={entry.pfpUrl} alt={entry.username} className="leaderboard-avatar" />
+                      ) : (
+                        <div className="leaderboard-avatar placeholder" />
+                      )}
+                      <div className="leaderboard-user">
+                        <div className="leaderboard-name">{entry.displayName}</div>
+                        <div className="leaderboard-username">@{entry.username}</div>
+                      </div>
+                    </div>
+                    {entry.imageUrl ? (
+                      <img src={entry.imageUrl} alt="Cast media" className="leaderboard-image" />
+                    ) : (
+                      <div className="leaderboard-text">{entry.text || 'View cast'}</div>
+                    )}
+                    <div className="leaderboard-metrics">
+                      <span>❤️ {entry.likes}</span>
+                      <span>🔁 {entry.recasts}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
