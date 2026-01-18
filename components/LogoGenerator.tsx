@@ -107,6 +107,7 @@ export default function LogoGenerator() {
   const [remixMode, setRemixMode] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [activeTab, setActiveTab] = useState<'home' | 'gallery' | 'leaderboard' | 'challenge'>('home');
+  const [miniappAdded, setMiniappAdded] = useState(false);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
     date: '',
     words: [],
@@ -182,6 +183,25 @@ export default function LogoGenerator() {
       localStorage.setItem('plf:leaderboard', JSON.stringify(items));
     } catch (error) {
       console.error('Failed to store leaderboard:', error);
+    }
+  }, []);
+
+  const loadMiniappAdded = useCallback(() => {
+    try {
+      const stored = localStorage.getItem('plf:miniappAdded');
+      if (stored) {
+        setMiniappAdded(stored === 'true');
+      }
+    } catch (error) {
+      console.error('Failed to read mini app status:', error);
+    }
+  }, []);
+
+  const saveMiniappAdded = useCallback((value: boolean) => {
+    try {
+      localStorage.setItem('plf:miniappAdded', value ? 'true' : 'false');
+    } catch (error) {
+      console.error('Failed to store mini app status:', error);
     }
   }, []);
 
@@ -458,6 +478,7 @@ export default function LogoGenerator() {
     loadHistory();
     loadFavorites();
     loadLeaderboard();
+    loadMiniappAdded();
     loadChallenge();
     loadChallengeDays();
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
@@ -517,16 +538,6 @@ export default function LogoGenerator() {
           });
         }
       }, 100);
-    } else {
-      // Show a sample logo after initial paint (does not count toward daily limits)
-      runWhenIdle(() => {
-        try {
-          const sample = generateLogo({ text: 'Pixel' });
-          setLogoResult(sample);
-        } catch (error) {
-          console.error('Error generating sample logo:', error);
-        }
-      });
     }
   }, [
     checkDailyLimits,
@@ -538,6 +549,7 @@ export default function LogoGenerator() {
     loadFavorites,
     loadHistory,
     loadLeaderboard,
+    loadMiniappAdded,
     runWhenIdle,
     selectedPreset,
   ]);
@@ -768,6 +780,32 @@ export default function LogoGenerator() {
       setToast({ message: 'Failed to share. Please try again.', type: 'error' });
     } finally {
       setIsSharing(false);
+    }
+  };
+
+  const handleAddMiniapp = async () => {
+    if (!sdkReady) {
+      setToast({ message: 'Add to collection is available in Farcaster.', type: 'info' });
+      return;
+    }
+
+    try {
+      await sdk.actions.addMiniApp();
+      setMiniappAdded(true);
+      saveMiniappAdded(true);
+      setToast({ message: 'Added to your collection!', type: 'success' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.toLowerCase().includes('rejected')) {
+        setToast({ message: 'Add to collection canceled.', type: 'info' });
+        return;
+      }
+      if (message.toLowerCase().includes('invaliddomainmanifestjson')) {
+        setToast({ message: 'Domain/manifest mismatch. Please try again later.', type: 'error' });
+        return;
+      }
+      console.error('Add mini app error:', error);
+      setToast({ message: 'Unable to add right now. Please try again.', type: 'error' });
     }
   };
 
@@ -1632,6 +1670,14 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 </div>
               </div>
             </div>
+            {sdkReady && !miniappAdded && (
+              <div className="miniapp-cta">
+                <span>Add to collection for quick access.</span>
+                <button type="button" className="miniapp-cta-button" onClick={handleAddMiniapp}>
+                  Add to Collection
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
