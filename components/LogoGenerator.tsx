@@ -41,7 +41,8 @@ type LeaderboardEntry = {
   displayName: string;
   pfpUrl: string;
   likes: number;
-  createdAt: number;
+  createdAt: number | string;
+  castUrl?: string;
 };
 
 const TRIES_PER_DAY = 3;
@@ -69,21 +70,21 @@ const PRESET_SWATCHES: Record<string, string[]> = {
   gameboy: ['#0f380f', '#306230', '#9bbc0f'],
 };
 const CHALLENGE_PROMPTS = [
-  'Arcade Storm',
-  'Neon Drift',
-  'Pixel Heist',
-  'Turbo Vortex',
-  'Ghost Signal',
-  'Cosmic Byte',
+  'Nike',
+  'Adidas',
+  'Apple',
+  'Tesla',
+  'Gucci',
+  'Spotify',
 ] as const;
 const DAILY_PROMPTS = [
-  'Nova Arcade',
-  'Pixel Eclipse',
-  'Synth Runner',
-  'Turbo Bloom',
-  'Neon Prism',
-  'Retro Reactor',
-  'Byte Mirage',
+  'Meta',
+  'Sony',
+  'Uber',
+  'BMW',
+  'Dior',
+  'Amazon',
+  'Nintendo',
 ] as const;
 
 export default function LogoGenerator() {
@@ -205,22 +206,60 @@ export default function LogoGenerator() {
     }
   }, []);
 
-  const loadLeaderboard = useCallback(() => {
+  const normalizeLeaderboardEntries = useCallback((entries: LeaderboardEntry[]) => {
+    return entries.map((item) => {
+      const castUrl =
+        item.castUrl ??
+        (item.id && /^0x[a-fA-F0-9]{64}$/.test(item.id)
+          ? `https://warpcast.com/~/cast/${item.id}`
+          : undefined);
+      const createdAtValue =
+        typeof item.createdAt === 'string' ? new Date(item.createdAt).getTime() : item.createdAt;
+      return {
+        ...item,
+        castUrl,
+        createdAt: createdAtValue,
+      };
+    });
+  }, []);
+
+  const loadLeaderboard = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/leaderboard?date=${getTodayKey()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch leaderboard');
+      }
+      const data = (await response.json()) as { entries?: LeaderboardEntry[] };
+      if (Array.isArray(data.entries)) {
+        const normalized = normalizeLeaderboardEntries(data.entries);
+        setLeaderboard(normalized);
+        saveLeaderboard(normalized);
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to fetch leaderboard:', error);
+    }
+
     try {
       const stored = localStorage.getItem('plf:leaderboard');
       if (!stored) return;
       const parsed = JSON.parse(stored) as LeaderboardEntry[];
       if (Array.isArray(parsed)) {
         const todayKey = getTodayKey();
-        const filtered = parsed.filter(
-          (item) => getDayKeyFromTimestamp(item.createdAt) === todayKey
+        const normalized = normalizeLeaderboardEntries(
+          parsed.filter((item) => {
+            const createdAtValue =
+              typeof item.createdAt === 'string' ? new Date(item.createdAt).getTime() : item.createdAt;
+            return getDayKeyFromTimestamp(createdAtValue) === todayKey;
+          })
         );
-        setLeaderboard(filtered);
+        setLeaderboard(normalized);
+        saveLeaderboard(normalized);
       }
     } catch (error) {
       console.error('Failed to read leaderboard:', error);
     }
-  }, [getDayKeyFromTimestamp, getTodayKey]);
+  }, [getDayKeyFromTimestamp, getTodayKey, normalizeLeaderboardEntries, saveLeaderboard]);
 
   const loadChallenge = useCallback(() => {
     try {
@@ -385,7 +424,27 @@ export default function LogoGenerator() {
     );
   };
 
-  const addToLeaderboard = (entry: LeaderboardEntry) => {
+  const addToLeaderboard = useCallback(async (entry: LeaderboardEntry) => {
+    try {
+      const response = await fetch('/api/leaderboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to save leaderboard entry');
+      }
+      const data = (await response.json()) as { entries?: LeaderboardEntry[] };
+      if (Array.isArray(data.entries)) {
+        const normalized = normalizeLeaderboardEntries(data.entries);
+        setLeaderboard(normalized);
+        saveLeaderboard(normalized);
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to save leaderboard entry:', error);
+    }
+
     const todayKey = getTodayKey();
     setLeaderboard((prev) => {
       const merged = [entry, ...prev].filter(
@@ -395,9 +454,37 @@ export default function LogoGenerator() {
       saveLeaderboard(trimmed);
       return trimmed;
     });
-  };
+  }, [getDayKeyFromTimestamp, getTodayKey, normalizeLeaderboardEntries, saveLeaderboard]);
 
-  const incrementLeaderboardLike = (entryId: string) => {
+  const incrementLeaderboardLike = useCallback(async (entryId: string) => {
+    try {
+      const response = await fetch('/api/leaderboard', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: entryId }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update like');
+      }
+      const data = (await response.json()) as { entries?: LeaderboardEntry[]; entry?: LeaderboardEntry };
+      if (Array.isArray(data.entries)) {
+        const normalized = normalizeLeaderboardEntries(data.entries);
+        setLeaderboard(normalized);
+        saveLeaderboard(normalized);
+        return;
+      }
+      if (data.entry) {
+        setLeaderboard((prev) => {
+          const next = prev.map((item) => (item.id === entryId ? data.entry! : item));
+          saveLeaderboard(next);
+          return next;
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to update like:', error);
+    }
+
     setLeaderboard((prev) => {
       const next = prev.map((item) =>
         item.id === entryId ? { ...item, likes: item.likes + 1 } : item
@@ -405,7 +492,7 @@ export default function LogoGenerator() {
       saveLeaderboard(next);
       return next;
     });
-  };
+  }, [normalizeLeaderboardEntries, saveLeaderboard]);
 
   const toggleChallengeDone = useCallback((prompt: string) => {
     setChallengeDone((prev) => {
@@ -964,6 +1051,11 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
             const entryId =
               (result.cast as { hash?: string })?.hash ??
               `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const castHash = (result.cast as { hash?: string })?.hash;
+            const castUrl =
+              castHash && /^0x[a-fA-F0-9]{64}$/.test(castHash)
+                ? `https://warpcast.com/~/cast/${castHash}`
+                : undefined;
             addToLeaderboard({
               id: entryId,
               text: activeResult.config.text,
@@ -974,6 +1066,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
               pfpUrl: '',
               likes: 0,
               createdAt: Date.now(),
+              castUrl,
             });
           } else {
             setToast({ message: 'Cast cancelled', type: 'info' });
@@ -1259,7 +1352,12 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
       {leaderboard.length > 0 && (
         <div className="leaderboard-grid">
           {sortedLeaderboard.map((entry) => {
-            const isCastLink = entry.id.startsWith('0x');
+            const castUrl =
+              entry.castUrl ??
+              (entry.id && /^0x[a-fA-F0-9]{64}$/.test(entry.id)
+                ? `https://warpcast.com/~/cast/${entry.id}`
+                : undefined);
+            const isCastLink = !!castUrl;
             const CardContent = (
               <>
                 <div className="leaderboard-card-header">
@@ -1313,7 +1411,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
               <a
                 key={entry.id}
                 className="leaderboard-card"
-                href={`https://warpcast.com/~/cast/${entry.id}`}
+                href={castUrl}
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`Open cast by ${entry.username}`}
@@ -1367,6 +1465,33 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
       <div className="challenge-streak">
         Streak: {getChallengeStreak(challengeDays)} day{getChallengeStreak(challengeDays) === 1 ? '' : 's'}
       </div>
+      {sortedLeaderboard.length > 0 && (
+        <div className="challenge-top">
+          <div className="leaderboard-title">Top 3 today</div>
+          <div className="challenge-top-grid">
+            {sortedLeaderboard.slice(0, 3).map((entry) => (
+              <div key={`challenge-top-${entry.id}`} className="challenge-top-card">
+                {entry.imageUrl ? (
+                  <NextImage
+                    src={entry.imageUrl}
+                    alt={`Logo by ${entry.username}`}
+                    className="challenge-top-image"
+                    width={180}
+                    height={120}
+                    unoptimized
+                  />
+                ) : (
+                  <div className="challenge-top-text">{entry.text || 'View cast'}</div>
+                )}
+                <div className="challenge-top-meta">
+                  <span>@{entry.username}</span>
+                  <span>❤️ {entry.likes}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="challenge-list">
         {CHALLENGE_PROMPTS.map((prompt) => (
           <div key={prompt} className="challenge-item">
