@@ -7,6 +7,7 @@ interface CastPreviewModalProps {
   castText: string;
   onConfirm: () => void;
   onCancel: () => void;
+  onTagFriend: () => void;
   isCasting: boolean;
 }
 
@@ -15,6 +16,7 @@ export default function CastPreviewModal({
   castText,
   onConfirm,
   onCancel,
+  onTagFriend,
   isCasting,
 }: CastPreviewModalProps) {
   return (
@@ -43,7 +45,7 @@ export default function CastPreviewModal({
           border: '4px solid #00ff00',
           borderRadius: '8px',
           padding: '30px',
-          maxWidth: '600px',
+          maxWidth: '720px',
           width: '100%',
           maxHeight: '90vh',
           overflow: 'auto',
@@ -62,7 +64,14 @@ export default function CastPreviewModal({
           CAST PREVIEW
         </h2>
 
-        <div style={{ marginBottom: '20px' }}>
+        <div
+          style={{
+            marginBottom: '24px',
+            marginTop: '10px',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
           <NextImage
             src={previewImage}
             alt="Cast preview"
@@ -71,30 +80,53 @@ export default function CastPreviewModal({
             unoptimized
             style={{
               width: '100%',
+              maxWidth: '640px',
               height: 'auto',
               border: '2px solid #00ff00',
               imageRendering: 'pixelated',
+              display: 'block',
             }}
           />
         </div>
 
-        <div
-          style={{
-            background: '#111111',
-            border: '2px solid #00ff00',
-            padding: '15px',
-            marginBottom: '20px',
-            fontFamily: "'Courier New', monospace",
-            fontSize: '12px',
-            color: '#00ff00',
-            whiteSpace: 'pre-wrap',
-            maxHeight: '150px',
-            overflow: 'auto',
-          }}
-        >
-          <strong>Cast Text:</strong>
-          <br />
-          {castText}
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+            <button
+              type="button"
+              onClick={onTagFriend}
+              disabled={isCasting}
+              style={{
+                padding: '6px 10px',
+                background: '#111111',
+                border: '2px solid #00ff00',
+                color: '#00ff00',
+                fontFamily: "'Courier New', monospace",
+                fontSize: '10px',
+                cursor: isCasting ? 'not-allowed' : 'pointer',
+                opacity: isCasting ? 0.5 : 1,
+                textTransform: 'uppercase',
+              }}
+            >
+              Tag a friend
+            </button>
+          </div>
+          <div
+            style={{
+              background: '#111111',
+              border: '2px solid #00ff00',
+              padding: '15px',
+              fontFamily: "'Courier New', monospace",
+              fontSize: '12px',
+              color: '#00ff00',
+              whiteSpace: 'pre-wrap',
+              maxHeight: '150px',
+              overflow: 'auto',
+            }}
+          >
+            <strong>Cast Text:</strong>
+            <br />
+            {castText}
+          </div>
         </div>
 
         <div

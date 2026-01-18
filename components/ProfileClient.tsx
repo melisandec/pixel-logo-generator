@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 type LeaderboardEntry = {
   id: string;
@@ -85,6 +86,17 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
     );
   }, [profile.entries, profile.latest]);
 
+  const topEntries = useMemo(() => {
+    return [...profile.entries]
+      .sort((a, b) => {
+        const aScore = a.likes + (a.recasts ?? 0) * 2;
+        const bScore = b.likes + (b.recasts ?? 0) * 2;
+        if (aScore !== bScore) return bScore - aScore;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      })
+      .slice(0, 3);
+  }, [profile.entries]);
+
   const filteredEntries = useMemo(() => {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return profile.entries.filter((entry) => {
@@ -115,13 +127,62 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const handleShareCollection = async () => {
+    const profileUrl = `${window.location.origin}/profile/${encodeURIComponent(profile.username)}`;
+    const embeds = topEntries
+      .map((entry) => entry.imageUrl)
+      .filter((url) => url && (url.startsWith('http://') || url.startsWith('https://')));
+    const text = `My Pixel Logo Forge collection (top 3)\n${profileUrl}`;
+    try {
+      const embedsForSdk = embeds.slice(0, 2) as string[];
+      await sdk.actions.composeCast({
+        text,
+        embeds:
+          embedsForSdk.length === 2
+            ? ([embedsForSdk[0], embedsForSdk[1]] as [string, string])
+            : embedsForSdk.length === 1
+            ? ([embedsForSdk[0]] as [string])
+            : undefined,
+      });
+      return;
+    } catch (error) {
+      console.error('Share collection via SDK failed:', error);
+    }
+    let composeUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`;
+    embeds.forEach((embed) => {
+      composeUrl += `&embeds[]=${encodeURIComponent(embed)}`;
+    });
+    const opened = window.open(composeUrl, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      window.location.href = composeUrl;
+    }
+  };
+
+  const handleCopyProfileLink = async () => {
+    const profileUrl = `${window.location.origin}/profile/${encodeURIComponent(profile.username)}`;
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+    } catch (error) {
+      console.error('Failed to copy profile link:', error);
+      window.open(profileUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
     <div className="profile-page">
       <div className="profile-header">
         <Link href="/" className="profile-back">
-          <- Back
+          &larr; Back
         </Link>
         <div className="profile-title">@{profile.username}</div>
+      </div>
+      <div className="profile-actions">
+        <button type="button" className="profile-share-button" onClick={handleShareCollection}>
+          Share collection
+        </button>
+        <button type="button" className="profile-share-link" onClick={handleCopyProfileLink}>
+          Copy profile link
+        </button>
       </div>
 
       <div className="profile-stats">

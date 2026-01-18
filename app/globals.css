@@ -1106,6 +1106,29 @@ body {
   color: var(--text-secondary);
 }
 
+.leaderboard-filters {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.leaderboard-filter-button {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 9px;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.leaderboard-filter-button.active {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
 .leaderboard-title {
   font-size: 10px;
   color: var(--text-secondary);
@@ -1220,6 +1243,27 @@ body {
   color: var(--text-secondary);
 }
 
+.gallery-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gallery-share-button {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 8px;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.gallery-share-button:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
 .profile-tab {
   display: flex;
   flex-direction: column;
@@ -1280,6 +1324,7 @@ body {
   text-decoration: none;
   color: var(--text-primary);
   transition: all 0.2s;
+  position: relative;
 }
 
 .leaderboard-card:hover {
@@ -1291,6 +1336,20 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.leaderboard-rank {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.leaderboard-rank.top {
+  color: var(--text-primary);
 }
 
 .leaderboard-avatar {
@@ -1351,6 +1410,31 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.profile-share-button,
+.profile-share-link {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 9px;
+  padding: 6px 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.profile-share-button:hover,
+.profile-share-link:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .profile-stats {
@@ -1546,6 +1630,21 @@ body {
   overflow: hidden;
 }
 
+.leaderboard-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.leaderboard-chip {
+  border: 1px solid var(--border-color);
+  padding: 2px 6px;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
 .leaderboard-metrics {
   display: flex;
   justify-content: space-between;
@@ -1593,6 +1692,22 @@ body {
 }
 
 .leaderboard-like:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.leaderboard-share {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 9px;
+  padding: 2px 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.leaderboard-share:hover {
   border-color: var(--text-primary);
   color: var(--text-primary);
 }

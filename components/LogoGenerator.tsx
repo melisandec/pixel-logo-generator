@@ -115,12 +115,14 @@ export default function LogoGenerator() {
   const [showCastPreview, setShowCastPreview] = useState(false);
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
   const [castPreviewText, setCastPreviewText] = useState<string>('');
+  const [castDraftText, setCastDraftText] = useState<string>('');
   const [castTarget, setCastTarget] = useState<LogoResult | null>(null);
   const [castTargetRemixSeed, setCastTargetRemixSeed] = useState<number | undefined>(undefined);
   const [logoHistory, setLogoHistory] = useState<LogoHistoryItem[]>([]);
   const [favorites, setFavorites] = useState<LogoHistoryItem[]>([]);
   const [remixMode, setRemixMode] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [leaderboardSort, setLeaderboardSort] = useState<'score' | 'recent' | 'likes'>('score');
   const [galleryEntries, setGalleryEntries] = useState<LeaderboardEntry[]>([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
@@ -637,6 +639,10 @@ export default function LogoGenerator() {
   const checkDailyLimits = useCallback((text: string, seedProvided: boolean): LimitCheck => {
     const normalizedText = normalizeWord(text);
     const todayState = ensureDailyLimit();
+    const isUnlimitedUser = userInfo?.username?.toLowerCase() === 'ladymel';
+    if (isUnlimitedUser) {
+      return { ok: true, normalizedText, todayState };
+    }
     if (todayState.words.includes(normalizedText)) {
       return { ok: false, message: 'You already tried this word today. Please wait until tomorrow.' };
     }
@@ -647,13 +653,15 @@ export default function LogoGenerator() {
       return { ok: false, message: 'Seed already used today. Please wait until tomorrow.' };
     }
     return { ok: true, normalizedText, todayState };
-  }, [ensureDailyLimit, normalizeWord]);
+  }, [ensureDailyLimit, normalizeWord, userInfo?.username]);
 
   const finalizeDailyLimit = useCallback((
     normalizedText: string,
     todayState: DailyLimitState,
     seedProvided: boolean
   ) => {
+    const isUnlimitedUser = userInfo?.username?.toLowerCase() === 'ladymel';
+    if (isUnlimitedUser) return;
     const nextLimit = {
       ...todayState,
       words: [...todayState.words, normalizedText],
@@ -661,7 +669,7 @@ export default function LogoGenerator() {
     };
     setDailyLimit(nextLimit);
     saveDailyLimit(nextLimit);
-  }, [saveDailyLimit]);
+  }, [saveDailyLimit, userInfo?.username]);
 
   const generateWithText = useCallback((text: string, seed?: number, presetKey?: string | null) => {
     const presetConfig = getPresetConfig(presetKey);
@@ -1039,6 +1047,51 @@ export default function LogoGenerator() {
     }
   };
 
+  const openWarpcastShare = useCallback(async (entry: LeaderboardEntry) => {
+    const origin = window.location.origin;
+    const safeText = entry.text || 'Pixel logo';
+    const shareUrl = `${origin}?text=${encodeURIComponent(safeText)}&seed=${entry.seed}`;
+    const embeds: string[] = [];
+    if (entry.imageUrl && (entry.imageUrl.startsWith('http://') || entry.imageUrl.startsWith('https://'))) {
+      embeds.push(entry.imageUrl);
+    }
+    embeds.push(shareUrl);
+    const shareText = `Pixel Logo Forge: "${safeText}"\nRecreate: ${shareUrl}`;
+    if (sdkReady) {
+      try {
+        const embedsForSdk = embeds.slice(0, 2) as string[];
+        await sdk.actions.composeCast({
+          text: shareText,
+          embeds:
+            embedsForSdk.length === 2
+              ? ([embedsForSdk[0], embedsForSdk[1]] as [string, string])
+              : embedsForSdk.length === 1
+              ? ([embedsForSdk[0]] as [string])
+              : undefined,
+        });
+        return;
+      } catch (error) {
+        console.error('Warpcast share via SDK failed:', error);
+      }
+    }
+    let composeUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`;
+    embeds.forEach((embed) => {
+      composeUrl += `&embeds[]=${encodeURIComponent(embed)}`;
+    });
+    const opened = window.open(composeUrl, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      window.location.href = composeUrl;
+    }
+  }, [sdkReady]);
+
+  const handleTagFriend = useCallback(() => {
+    setCastDraftText((prev) => {
+      const suffix = '\n\nTag a friend: @';
+      if (!prev) return `Tag a friend: @`;
+      return prev.includes('Tag a friend: @') ? prev : `${prev}${suffix}`;
+    });
+  }, []);
+
 
   const handleAddMiniapp = async () => {
     if (!sdkReady) {
@@ -1106,6 +1159,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
       
       setCastPreviewImage(previewImage);
       setCastPreviewText(previewText);
+      setCastDraftText(previewText);
       setCastTarget(activeResult);
       setCastTargetRemixSeed(remixSeed);
       setShowCastPreview(true);
@@ -1117,7 +1171,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
     }
   };
 
-  const handleCast = async (override?: LogoResult, remixSeed?: number) => {
+  const handleCast = async (override?: LogoResult, remixSeed?: number, textOverride?: string) => {
     const activeResult = override ?? logoResult;
     if (!activeResult) return;
     
@@ -1183,13 +1237,14 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           }[activeResult.rarity] || '🎮';
           
           const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : '';
-          const castText = `${rarityEmoji} ${remixSeed ? 'Remixed' : 'Forged'} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
+          const defaultText = `${rarityEmoji} ${remixSeed ? 'Remixed' : 'Forged'} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
 
 ✨ Rarity: ${activeResult.rarity}
 🎲 Seed: ${activeResult.seed}
 ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
 
 #PixelLogoForge #${activeResult.rarity}Logo`;
+          const castText = textOverride?.trim() ? textOverride : defaultText;
           
           // Farcaster embeds - build as tuple type
           let embeds: [string] | undefined = undefined;
@@ -1264,13 +1319,14 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
         }[activeResult.rarity] || '🎮';
         
         const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : '';
-        const castText = `${rarityEmoji} ${remixSeed ? 'Remixed' : 'Forged'} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
+        const defaultText = `${rarityEmoji} ${remixSeed ? 'Remixed' : 'Forged'} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
 
 ✨ Rarity: ${activeResult.rarity}
 🎲 Seed: ${activeResult.seed}
 ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
 
 #PixelLogoForge #${activeResult.rarity}Logo`;
+        const castText = textOverride?.trim() ? textOverride : defaultText;
         
         const warpcastUrl = castImageUrl
           ? `https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(castImageUrl)}`
@@ -1354,10 +1410,12 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           cardCtx.textBaseline = 'middle';
           cardCtx.fillText('PIXEL LOGO FORGE', 32, 38);
 
-          // Calculate logo size and position (bigger + centered)
-          const logoPadding = 50;
+          // Calculate logo size and position (larger + centered in main area)
+          const logoPadding = 30;
+          const titleBarHeight = 70;
+          const footerHeight = 80;
           const maxLogoWidth = cardWidth - logoPadding * 2;
-          const maxLogoHeight = cardHeight - logoPadding * 2 - 140;
+          const maxLogoHeight = cardHeight - logoPadding * 2 - titleBarHeight - footerHeight;
           
           let logoWidth = logoImg.width;
           let logoHeight = logoImg.height;
@@ -1373,7 +1431,8 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           }
 
           const logoX = (cardWidth - logoWidth) / 2;
-          const logoY = 110;
+          const availableHeight = cardHeight - titleBarHeight - footerHeight;
+          const logoY = titleBarHeight + (availableHeight - logoHeight) / 2;
 
           // Draw logo with a subtle glow
           cardCtx.shadowColor = 'rgba(0, 255, 0, 0.35)';
@@ -1455,6 +1514,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 onClick={() => {
                   setLogoResult(item.result);
                   setInputText(item.result.config.text);
+                  setActiveTab('home');
                 }}
                 aria-label={`Load favorite logo "${item.result.config.text}" with seed ${item.result.seed}`}
               >
@@ -1483,6 +1543,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 onClick={() => {
                   setLogoResult(item.result);
                   setInputText(item.result.config.text);
+                  setActiveTab('home');
                 }}
                 aria-label={`Load logo "${item.result.config.text}" with seed ${item.result.seed}`}
               >
@@ -1511,9 +1572,16 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
   const sortedLeaderboard = [...leaderboard].sort((a, b) => {
     const bScore = b.score ?? b.likes + (b.recasts ?? 0) * 2;
     const aScore = a.score ?? a.likes + (a.recasts ?? 0) * 2;
-    if (bScore !== aScore) return bScore - aScore;
     const bCreated = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : b.createdAt;
     const aCreated = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : a.createdAt;
+    if (leaderboardSort === 'recent') {
+      return bCreated - aCreated;
+    }
+    if (leaderboardSort === 'likes') {
+      if (bScore !== aScore) return bScore - aScore;
+      return bCreated - aCreated;
+    }
+    if (bScore !== aScore) return bScore - aScore;
     return bCreated - aCreated;
   });
 
@@ -1614,6 +1682,20 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                   <span className="gallery-chip">{rarityValue}</span>
                   <span className="gallery-chip">{presetValue}</span>
                 </div>
+                <div className="gallery-actions">
+                  <button
+                    type="button"
+                    className="gallery-share-button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      openWarpcastShare(entry);
+                    }}
+                    aria-label={`Share cast by ${entry.username}`}
+                  >
+                    Share to Warpcast
+                  </button>
+                </div>
               </>
             );
             return castUrl ? (
@@ -1644,20 +1726,50 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
         <span>{leaderboardDate}</span>
         <span>{leaderboard.length} entries</span>
       </div>
+      <div className="leaderboard-filters">
+        <button
+          type="button"
+          className={`leaderboard-filter-button${leaderboardSort === 'score' ? ' active' : ''}`}
+          onClick={() => setLeaderboardSort('score')}
+          aria-pressed={leaderboardSort === 'score'}
+        >
+          Trending
+        </button>
+        <button
+          type="button"
+          className={`leaderboard-filter-button${leaderboardSort === 'recent' ? ' active' : ''}`}
+          onClick={() => setLeaderboardSort('recent')}
+          aria-pressed={leaderboardSort === 'recent'}
+        >
+          Recent
+        </button>
+        <button
+          type="button"
+          className={`leaderboard-filter-button${leaderboardSort === 'likes' ? ' active' : ''}`}
+          onClick={() => setLeaderboardSort('likes')}
+          aria-pressed={leaderboardSort === 'likes'}
+        >
+          Most liked
+        </button>
+      </div>
       {leaderboard.length === 0 && (
         <div className="leaderboard-status">No casts yet today. Be the first!</div>
       )}
       {leaderboard.length > 0 && (
         <div className="leaderboard-grid">
-          {sortedLeaderboard.map((entry) => {
+          {sortedLeaderboard.map((entry, index) => {
             const castUrl =
               entry.castUrl ??
               (entry.id && /^0x[a-fA-F0-9]{64}$/.test(entry.id)
                 ? `https://warpcast.com/~/cast/${entry.id}`
                 : undefined);
             const isCastLink = !!castUrl;
+            const rank = index + 1;
+            const rarityValue = entry.rarity ? String(entry.rarity).toUpperCase() : 'Unknown';
+            const presetValue = entry.presetKey ?? 'Unknown';
             const CardContent = (
               <>
+                <div className={`leaderboard-rank${rank <= 3 ? ' top' : ''}`}>#{rank}</div>
                 <div className="leaderboard-card-header">
                   {entry.pfpUrl ? (
                     <NextImage
@@ -1692,6 +1804,10 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 ) : (
                   <div className="leaderboard-text">{entry.text || 'View cast'}</div>
                 )}
+                <div className="leaderboard-tags">
+                  <span className="leaderboard-chip">{rarityValue}</span>
+                  <span className="leaderboard-chip">{presetValue}</span>
+                </div>
                 <div className="leaderboard-metrics">
                   <span>❤️ {entry.likes}</span>
                   <span>🔁 {entry.recasts ?? 0}</span>
@@ -1705,6 +1821,17 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                     aria-label={`Like cast by ${entry.username}`}
                   >
                     Like
+                  </button>
+                  <button
+                    type="button"
+                    className="leaderboard-share"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      openWarpcastShare(entry);
+                    }}
+                    aria-label={`Share cast by ${entry.username}`}
+                  >
+                    Share
                   </button>
                 </div>
               </>
@@ -1852,9 +1979,10 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
       {showCastPreview && castPreviewImage && (
         <CastPreviewModal
           previewImage={castPreviewImage}
-          castText={castPreviewText}
-          onConfirm={() => handleCast(castTarget ?? undefined, castTargetRemixSeed)}
+          castText={castDraftText || castPreviewText}
+          onConfirm={() => handleCast(castTarget ?? undefined, castTargetRemixSeed, castDraftText)}
           onCancel={() => setShowCastPreview(false)}
+          onTagFriend={handleTagFriend}
           isCasting={isCasting}
         />
       )}
@@ -1879,7 +2007,10 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
         <div className="input-panel">
           <div className="input-section">
             <div className="daily-limit">
-              Tries left today: {Math.max(0, TRIES_PER_DAY - dailyLimit.words.length)}/{TRIES_PER_DAY}
+              Tries left today:{' '}
+              {userInfo?.username?.toLowerCase() === 'ladymel'
+                ? 'Unlimited'
+                : `${Math.max(0, TRIES_PER_DAY - dailyLimit.words.length)}/${TRIES_PER_DAY}`}
             </div>
             <div className="prompt-of-day">
               Prompt of the day: <span>{getPromptOfDay()}</span>
