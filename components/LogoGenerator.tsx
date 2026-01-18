@@ -1338,7 +1338,9 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
   const leaderboardDate = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const sortedLeaderboard = [...leaderboard].sort((a, b) => {
     if (b.likes !== a.likes) return b.likes - a.likes;
-    return b.createdAt - a.createdAt;
+    const bCreated = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : b.createdAt;
+    const aCreated = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : a.createdAt;
+    return bCreated - aCreated;
   });
 
   const leaderboardContent = (
@@ -1433,11 +1435,21 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           <div className="leaderboard-title">Recent Casts</div>
           <div className="recent-casts-list">
             {[...leaderboard]
-              .sort((a, b) => b.createdAt - a.createdAt)
+                .sort((a, b) => {
+                  const bCreated = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : b.createdAt;
+                  const aCreated = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : a.createdAt;
+                  return bCreated - aCreated;
+                })
               .slice(0, 5)
               .map((entry) => (
                 <div key={`recent-${entry.id}`} className="recent-cast">
-                  <span>{formatHistoryTime(entry.createdAt)}</span>
+                  <span>
+                    {formatHistoryTime(
+                      typeof entry.createdAt === 'string'
+                        ? new Date(entry.createdAt).getTime()
+                        : entry.createdAt
+                    )}
+                  </span>
                   <span>@{entry.username}</span>
                   {entry.id.startsWith('0x') ? (
                     <a
