@@ -32,16 +32,15 @@ type LimitCheck =
   | { ok: false; message: string };
 
 type LeaderboardEntry = {
-  hash: string;
+  id: string;
   text: string;
-  timestamp: string;
+  seed: number;
+  imageUrl: string;
   username: string;
   displayName: string;
   pfpUrl: string;
   likes: number;
-  recasts: number;
-  score: number;
-  imageUrl: string | null;
+  createdAt: number;
 };
 
 export default function LogoGenerator() {
@@ -62,8 +61,6 @@ export default function LogoGenerator() {
   const [favorites, setFavorites] = useState<LogoHistoryItem[]>([]);
   const [remixMode, setRemixMode] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
-  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
     date: '',
     words: [],
@@ -100,6 +97,14 @@ export default function LogoGenerator() {
     return `${year}-${month}-${day}`;
   };
 
+  const getDayKeyFromTimestamp = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const normalizeWord = (value: string) => value.trim().toLowerCase();
 
   const formatHistoryTime = (timestamp: number) => {
@@ -119,22 +124,28 @@ export default function LogoGenerator() {
     }
     setTimeout(() => callback(), 200);
   };
-
-  const fetchLeaderboard = async () => {
-    setLeaderboardLoading(true);
-    setLeaderboardError(null);
+  const saveLeaderboard = (items: LeaderboardEntry[]) => {
     try {
-      const response = await fetch('/api/leaderboard?limit=10');
-      if (!response.ok) {
-        throw new Error(`Leaderboard fetch failed: ${response.status}`);
-      }
-      const data = await response.json();
-      setLeaderboard(data.entries ?? []);
+      localStorage.setItem('plf:leaderboard', JSON.stringify(items));
     } catch (error) {
-      console.error('Leaderboard fetch error:', error);
-      setLeaderboardError('Failed to load leaderboard.');
-    } finally {
-      setLeaderboardLoading(false);
+      console.error('Failed to store leaderboard:', error);
+    }
+  };
+
+  const loadLeaderboard = () => {
+    try {
+      const stored = localStorage.getItem('plf:leaderboard');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as LeaderboardEntry[];
+      if (Array.isArray(parsed)) {
+        const todayKey = getTodayKey();
+        const filtered = parsed.filter(
+          (item) => getDayKeyFromTimestamp(item.createdAt) === todayKey
+        );
+        setLeaderboard(filtered);
+      }
+    } catch (error) {
+      console.error('Failed to read leaderboard:', error);
     }
   };
 
@@ -218,9 +229,7 @@ export default function LogoGenerator() {
     const dailyState = ensureDailyLimit();
     loadHistory();
     loadFavorites();
-    runWhenIdle(() => {
-      fetchLeaderboard();
-    });
+    loadLeaderboard();
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
     const initSdk = async () => {
       // Wait 3 seconds before calling ready (splash screen duration)
@@ -335,6 +344,28 @@ export default function LogoGenerator() {
         item.result.seed === result.seed &&
         item.result.config.text === result.config.text
     );
+  };
+
+  const addToLeaderboard = (entry: LeaderboardEntry) => {
+    const todayKey = getTodayKey();
+    setLeaderboard((prev) => {
+      const merged = [entry, ...prev].filter(
+        (item) => getDayKeyFromTimestamp(item.createdAt) === todayKey
+      );
+      const trimmed = merged.slice(0, 25);
+      saveLeaderboard(trimmed);
+      return trimmed;
+    });
+  };
+
+  const incrementLeaderboardLike = (entryId: string) => {
+    setLeaderboard((prev) => {
+      const next = prev.map((item) =>
+        item.id === entryId ? { ...item, likes: item.likes + 1 } : item
+      );
+      saveLeaderboard(next);
+      return next;
+    });
   };
 
   const getPresetConfig = (presetKey?: string | null) => {
@@ -755,6 +786,20 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           
           if (result && result.cast) {
             setToast({ message: 'Logo casted! 🎉', type: 'success' });
+            const entryId =
+              (result.cast as { hash?: string })?.hash ??
+              `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            addToLeaderboard({
+              id: entryId,
+              text: activeResult.config.text,
+              seed: activeResult.seed,
+              imageUrl: castImageUrl,
+              username: userInfo?.username ?? 'unknown',
+              displayName: userInfo?.username ?? 'Unknown',
+              pfpUrl: '',
+              likes: 0,
+              createdAt: Date.now(),
+            });
           } else {
             setToast({ message: 'Cast cancelled', type: 'info' });
           }
@@ -1281,22 +1326,16 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
           )}
           <div className="leaderboard">
             <div className="leaderboard-title">Daily Leaderboard</div>
-            {leaderboardLoading && (
-              <div className="leaderboard-status">Loading top casts…</div>
-            )}
-            {leaderboardError && (
-              <div className="leaderboard-status">{leaderboardError}</div>
-            )}
-            {!leaderboardLoading && !leaderboardError && leaderboard.length === 0 && (
+            {leaderboard.length === 0 && (
               <div className="leaderboard-status">No casts yet today.</div>
             )}
-            {!leaderboardLoading && !leaderboardError && leaderboard.length > 0 && (
+            {leaderboard.length > 0 && (
               <div className="leaderboard-grid">
                 {leaderboard.map((entry) => (
                   <a
-                    key={entry.hash}
+                    key={entry.id}
                     className="leaderboard-card"
-                    href={`https://warpcast.com/~/cast/${entry.hash}`}
+                    href={entry.id.startsWith('0x') ? `https://warpcast.com/~/cast/${entry.id}` : undefined}
                     target="_blank"
                     rel="noreferrer"
                     aria-label={`Open cast by ${entry.username}`}
@@ -1319,7 +1358,17 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                     )}
                     <div className="leaderboard-metrics">
                       <span>❤️ {entry.likes}</span>
-                      <span>🔁 {entry.recasts}</span>
+                      <button
+                        type="button"
+                        className="leaderboard-like"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          incrementLeaderboardLike(entry.id);
+                        }}
+                        aria-label={`Like cast by ${entry.username}`}
+                      >
+                        Like
+                      </button>
                     </div>
                   </a>
                 ))}
