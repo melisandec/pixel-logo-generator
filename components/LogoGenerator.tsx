@@ -1381,6 +1381,18 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               createdAt: Date.now(),
               castUrl,
             });
+
+            if (castHash) {
+              try {
+                const castShareUrl = 'https://pixel-logo-generator.vercel.app';
+                await sdk.actions.composeCast({
+                  embeds: [castShareUrl],
+                  parent: { type: 'cast', hash: castHash },
+                });
+              } catch (replyError) {
+                console.error('Auto-reply failed:', replyError);
+              }
+            }
           } else {
             setToast({ message: 'Cast cancelled', type: 'info' });
           }
