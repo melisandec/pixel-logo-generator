@@ -1584,6 +1584,33 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 Use prompt
               </button>
             </div>
+            {sortedLeaderboard.length > 0 && (
+              <div className="home-top-casts">
+                <div className="leaderboard-title">Top 3 casts today</div>
+                <div className="home-top-casts-grid">
+                  {sortedLeaderboard.slice(0, 3).map((entry) => (
+                    <div key={`home-top-${entry.id}`} className="home-top-cast">
+                      {entry.imageUrl ? (
+                        <NextImage
+                          src={entry.imageUrl}
+                          alt={`Logo by ${entry.username}`}
+                          className="home-top-cast-image"
+                          width={160}
+                          height={110}
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="home-top-cast-text">{entry.text || 'View cast'}</div>
+                      )}
+                      <div className="home-top-cast-meta">
+                        <span>@{entry.username}</span>
+                        <span>❤️ {entry.likes}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <input
               type="text"
               value={inputText}

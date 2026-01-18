@@ -15,21 +15,7 @@ type LeaderboardEntry = {
   castUrl?: string;
 };
 
-const logDebug = (hypothesisId: string, message: string, data: Record<string, unknown>) => {
-  fetch('http://127.0.0.1:7242/ingest/5b00a065-ddd4-4316-a315-7081c299b37d', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId: 'debug-session',
-      runId: 'leaderboard-db',
-      hypothesisId,
-      location: 'app/api/leaderboard/route.ts',
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-};
+const logDebug = () => {};
 
 const ensureLeaderboardTable = async () => {
   // #region agent log
@@ -141,6 +127,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let entry: LeaderboardEntry | null = null;
+  let body: Partial<LeaderboardEntry> | null = null;
   try {
     // #region agent log
     logDebug('H1', 'POST start', {
@@ -148,7 +136,7 @@ export async function POST(request: Request) {
       databaseUrlPrefix: process.env.DATABASE_URL?.split(':')[0] ?? 'missing',
     });
     // #endregion agent log
-    const body = (await request.json()) as Partial<LeaderboardEntry>;
+    body = (await request.json()) as Partial<LeaderboardEntry>;
 
     if (!body || !body.id || !body.text || !body.username) {
       // #region agent log
@@ -161,7 +149,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid entry payload.' }, { status: 400 });
     }
 
-    const entry: LeaderboardEntry = {
+    entry = {
       id: body.id,
       text: body.text,
       seed: body.seed ?? 0,
@@ -229,7 +217,7 @@ export async function POST(request: Request) {
       errorMessage: error instanceof Error ? error.message : String(error),
     });
     // #endregion agent log
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021' && entry) {
       // #region agent log
       logDebug('H5', 'POST missing table detected', { code: error.code });
       // #endregion agent log
@@ -294,6 +282,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  let body: { id?: string } | null = null;
   try {
     // #region agent log
     logDebug('H1', 'PATCH start', {
@@ -301,7 +290,7 @@ export async function PATCH(request: Request) {
       databaseUrlPrefix: process.env.DATABASE_URL?.split(':')[0] ?? 'missing',
     });
     // #endregion agent log
-    const body = (await request.json()) as { id?: string };
+    body = (await request.json()) as { id?: string };
 
     if (!body?.id) {
       // #region agent log
@@ -345,7 +334,7 @@ export async function PATCH(request: Request) {
       errorMessage: error instanceof Error ? error.message : String(error),
     });
     // #endregion agent log
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021' && body?.id) {
       // #region agent log
       logDebug('H5', 'PATCH missing table detected', { code: error.code });
       // #endregion agent log
