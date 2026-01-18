@@ -17,6 +17,15 @@ interface DailyLimitState {
   seedUsed: boolean;
 }
 
+interface LogoHistoryItem {
+  result: LogoResult;
+  createdAt: number;
+}
+
+type LimitCheck =
+  | { ok: true; normalizedText: string; todayState: DailyLimitState }
+  | { ok: false; message: string };
+
 export default function LogoGenerator() {
   const [inputText, setInputText] = useState('');
   const [customSeed, setCustomSeed] = useState<string>('');
@@ -31,13 +40,34 @@ export default function LogoGenerator() {
   const [showCastPreview, setShowCastPreview] = useState(false);
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
   const [castPreviewText, setCastPreviewText] = useState<string>('');
-  const [logoHistory, setLogoHistory] = useState<LogoResult[]>([]);
+  const [logoHistory, setLogoHistory] = useState<LogoHistoryItem[]>([]);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
     date: '',
     words: [],
     seedUsed: false,
   });
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  const TRIES_PER_DAY = 3;
+  const RANDOM_WORDS = ['Arcade', 'Pixel', 'Forge', 'Neon', 'Crt', 'Quest', 'Byte', 'Retro', 'Glitch'];
+  const PRESETS = [
+    {
+      key: 'arcade',
+      label: 'Arcade',
+      config: { backgroundStyle: 'crt-scanlines', frameStyle: 'arcade-bezel', colorSystem: 'Classic', compositionMode: 'centered' },
+    },
+    {
+      key: 'vaporwave',
+      label: 'Vaporwave',
+      config: { backgroundStyle: 'vaporwave-sky', frameStyle: 'trading-card', colorSystem: 'Vaporwave', compositionMode: 'vertical-stacked' },
+    },
+    {
+      key: 'gameboy',
+      label: 'Game Boy',
+      config: { backgroundStyle: 'grid-horizon', frameStyle: 'none', colorSystem: 'GameBoy', compositionMode: 'centered' },
+    },
+  ] as const;
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
 
   const getTodayKey = () => {
     const now = new Date();
@@ -48,6 +78,15 @@ export default function LogoGenerator() {
   };
 
   const normalizeWord = (value: string) => value.trim().toLowerCase();
+
+  const formatHistoryTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   const saveDailyLimit = (state: DailyLimitState) => {
     try {
@@ -83,8 +122,30 @@ export default function LogoGenerator() {
     return reset;
   };
 
+  const saveHistory = (items: LogoHistoryItem[]) => {
+    try {
+      localStorage.setItem('plf:history', JSON.stringify(items));
+    } catch (error) {
+      console.error('Failed to store history:', error);
+    }
+  };
+
+  const loadHistory = () => {
+    try {
+      const stored = localStorage.getItem('plf:history');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as LogoHistoryItem[];
+      if (Array.isArray(parsed)) {
+        setLogoHistory(parsed.slice(0, 5));
+      }
+    } catch (error) {
+      console.error('Failed to read history:', error);
+    }
+  };
+
   useEffect(() => {
     const dailyState = ensureDailyLimit();
+    loadHistory();
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
     const initSdk = async () => {
       // Wait 3 seconds before calling ready (splash screen duration)
@@ -120,37 +181,20 @@ export default function LogoGenerator() {
     
     if (textParam) {
       setInputText(textParam);
-      const normalizedText = normalizeWord(textParam);
-      if (dailyState.words.includes(normalizedText)) {
-        setToast({ message: 'You already tried this word today. Please wait until tomorrow.', type: 'info' });
-        return;
-      }
-      if (dailyState.words.length >= 3) {
-        setToast({ message: 'Daily limit reached. Please wait until tomorrow.', type: 'info' });
+      const limitCheck = checkDailyLimits(textParam, !!seedParam);
+      if (!limitCheck.ok) {
+        setToast({ message: limitCheck.message, type: 'info' });
         return;
       }
       const seed = seedParam ? parseInt(seedParam, 10) : undefined;
-      if (seedParam && dailyState.seedUsed) {
-        setToast({ message: 'Seed already used today. Please wait until tomorrow.', type: 'info' });
-        return;
-      }
       
       // Auto-generate if we have text
       setTimeout(() => {
         try {
-          const result = generateLogo({
-            text: textParam,
-            seed: seed,
-          });
-          setLogoResult(result);
-          addToHistory(result);
-          const nextLimit = {
-            ...dailyState,
-            words: [...dailyState.words, normalizedText],
-            seedUsed: dailyState.seedUsed || !!seedParam,
-          };
-          setDailyLimit(nextLimit);
-          saveDailyLimit(nextLimit);
+          generateWithText(textParam, seed, selectedPreset);
+          if (limitCheck.ok) {
+            finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, !!seedParam);
+          }
         } catch (error) {
           console.error('Error loading logo from URL:', error);
           setToast({ 
@@ -165,13 +209,58 @@ export default function LogoGenerator() {
   const addToHistory = (result: LogoResult) => {
     setLogoHistory((prev) => {
       const next = [
-        result,
+        { result, createdAt: Date.now() },
         ...prev.filter(
-          (item) => item.seed !== result.seed || item.config.text !== result.config.text
+          (item) =>
+            item.result.seed !== result.seed || item.result.config.text !== result.config.text
         ),
       ];
-      return next.slice(0, 5);
+      const trimmed = next.slice(0, 5);
+      saveHistory(trimmed);
+      return trimmed;
     });
+  };
+
+  const getPresetConfig = (presetKey?: string | null) => {
+    if (!presetKey) return undefined;
+    return PRESETS.find((preset) => preset.key === presetKey)?.config;
+  };
+
+  const checkDailyLimits = (text: string, seedProvided: boolean): LimitCheck => {
+    const normalizedText = normalizeWord(text);
+    const todayState = ensureDailyLimit();
+    if (todayState.words.includes(normalizedText)) {
+      return { ok: false, message: 'You already tried this word today. Please wait until tomorrow.' };
+    }
+    if (todayState.words.length >= TRIES_PER_DAY) {
+      return { ok: false, message: 'Daily limit reached. Please wait until tomorrow.' };
+    }
+    if (seedProvided && todayState.seedUsed) {
+      return { ok: false, message: 'Seed already used today. Please wait until tomorrow.' };
+    }
+    return { ok: true, normalizedText, todayState };
+  };
+
+  const finalizeDailyLimit = (normalizedText: string, todayState: DailyLimitState, seedProvided: boolean) => {
+    const nextLimit = {
+      ...todayState,
+      words: [...todayState.words, normalizedText],
+      seedUsed: todayState.seedUsed || seedProvided,
+    };
+    setDailyLimit(nextLimit);
+    saveDailyLimit(nextLimit);
+  };
+
+  const generateWithText = (text: string, seed?: number, presetKey?: string | null) => {
+    const presetConfig = getPresetConfig(presetKey);
+    const result = generateLogo({
+      text,
+      seed,
+      ...presetConfig,
+    });
+    setLogoResult(result);
+    addToHistory(result);
+    return result;
   };
 
   const handleGenerate = () => {
@@ -180,24 +269,15 @@ export default function LogoGenerator() {
       return;
     }
 
-    const normalizedText = normalizeWord(inputText);
-    const todayState = ensureDailyLimit();
-    if (todayState.words.includes(normalizedText)) {
-      setToast({ message: 'You already tried this word today. Please wait until tomorrow.', type: 'info' });
-      return;
-    }
-    if (todayState.words.length >= 3) {
-      setToast({ message: 'Daily limit reached. Please wait until tomorrow.', type: 'info' });
+    const limitCheck = checkDailyLimits(inputText, !!customSeed.trim());
+    if (!limitCheck.ok) {
+      setToast({ message: limitCheck.message, type: 'info' });
       return;
     }
 
     const seedValue = customSeed.trim();
     let seed: number | undefined = undefined;
     if (seedValue) {
-      if (todayState.seedUsed) {
-        setToast({ message: 'Seed already used today. Please wait until tomorrow.', type: 'info' });
-        return;
-      }
       const parsedSeed = parseInt(seedValue, 10);
       if (isNaN(parsedSeed)) {
         setSeedError('Seed must be a number');
@@ -214,25 +294,49 @@ export default function LogoGenerator() {
     setIsGenerating(true);
     setTimeout(() => {
       try {
-        const result = generateLogo({ 
-          text: inputText.trim(),
-          seed: seed,
-        });
-        setLogoResult(result);
-        addToHistory(result);
-        const nextLimit = {
-          ...todayState,
-          words: [...todayState.words, normalizedText],
-          seedUsed: todayState.seedUsed || !!seed,
-        };
-        setDailyLimit(nextLimit);
-        saveDailyLimit(nextLimit);
+        generateWithText(inputText.trim(), seed, selectedPreset);
+        if (limitCheck.ok) {
+          finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, !!seed);
+        }
         setToast({ message: 'Logo generated successfully!', type: 'success' });
       } catch (error) {
         console.error('Error generating logo:', error);
         setToast({ 
           message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.', 
           type: 'error' 
+        });
+      } finally {
+        setIsGenerating(false);
+      }
+    }, 100);
+  };
+
+  const handleRandomize = () => {
+    const randomText = RANDOM_WORDS[Math.floor(Math.random() * RANDOM_WORDS.length)];
+    setInputText(randomText);
+    setCustomSeed('');
+    setSeedError('');
+    setSelectedPreset(null);
+
+    const limitCheck = checkDailyLimits(randomText, false);
+    if (!limitCheck.ok) {
+      setToast({ message: limitCheck.message, type: 'info' });
+      return;
+    }
+
+    setIsGenerating(true);
+    setTimeout(() => {
+      try {
+        generateWithText(randomText, undefined, null);
+        if (limitCheck.ok) {
+          finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, false);
+        }
+        setToast({ message: 'Logo generated successfully!', type: 'success' });
+      } catch (error) {
+        console.error('Error generating logo:', error);
+        setToast({
+          message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.',
+          type: 'error',
         });
       } finally {
         setIsGenerating(false);
@@ -696,6 +800,9 @@ export default function LogoGenerator() {
         </div>
       )}
       <div className="input-section">
+        <div className="daily-limit">
+          Tries left today: {Math.max(0, TRIES_PER_DAY - dailyLimit.words.length)}/{TRIES_PER_DAY}
+        </div>
         <input
           type="text"
           value={inputText}
@@ -775,6 +882,35 @@ export default function LogoGenerator() {
           >
             {isGenerating ? 'GENERATING...' : 'GENERATE'}
           </button>
+          <button
+            onClick={handleRandomize}
+            disabled={isGenerating}
+            className="arcade-button secondary"
+            aria-label="Randomize logo"
+          >
+            RANDOMIZE
+          </button>
+        </div>
+        <div className="preset-group">
+          <div className="preset-title">Style presets</div>
+          <div className="preset-list">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.key}
+                className={`preset-button${selectedPreset === preset.key ? ' active' : ''}`}
+                onClick={() => {
+                  setSelectedPreset(preset.key);
+                  if (inputText.trim()) {
+                    setTimeout(() => handleGenerate(), 0);
+                  }
+                }}
+                type="button"
+                aria-pressed={selectedPreset === preset.key}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -854,19 +990,20 @@ export default function LogoGenerator() {
               <div className="history-list">
                 {logoHistory.map((item) => (
                   <button
-                    key={`${item.seed}-${item.config.text}`}
+                    key={`${item.result.seed}-${item.result.config.text}`}
                     className="history-item"
                     onClick={() => {
-                      setLogoResult(item);
-                      setInputText(item.config.text);
+                      setLogoResult(item.result);
+                      setInputText(item.result.config.text);
                     }}
-                    aria-label={`Load logo "${item.config.text}" with seed ${item.seed}`}
+                    aria-label={`Load logo "${item.result.config.text}" with seed ${item.result.seed}`}
                   >
                     <img
-                      src={item.dataUrl}
-                      alt={`Recent logo: ${item.config.text}`}
+                      src={item.result.dataUrl}
+                      alt={`Recent logo: ${item.result.config.text}`}
                       className="history-image"
                     />
+                    <span className="history-time">{formatHistoryTime(item.createdAt)}</span>
                   </button>
                 ))}
               </div>

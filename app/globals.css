@@ -143,6 +143,13 @@ body {
   gap: 20px;
 }
 
+.daily-limit {
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
 .seed-input-group {
   display: flex;
   flex-direction: column;
@@ -193,6 +200,49 @@ body {
   display: flex;
   gap: 15px;
   flex-wrap: wrap;
+}
+
+.preset-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-title {
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preset-button {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preset-button:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.preset-button.active {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
 }
 
 .arcade-button.secondary {
@@ -527,6 +577,10 @@ body {
   padding: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
 .history-item:hover {
@@ -542,6 +596,14 @@ body {
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
   display: block;
+}
+
+.history-time {
+  font-size: 8px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .cast-button {
