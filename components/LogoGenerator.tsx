@@ -685,13 +685,21 @@ export default function LogoGenerator() {
       const blob = await response.blob();
       const file = new File([blob], filename, { type: 'image/png' });
 
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `Pixel Logo: ${logoResult.config.text}`,
-          text: 'Save your pixel logo',
-        });
-        setToast({ message: 'Image ready to save. Tap “Save Image” or “Save to Files”.', type: 'success' });
+      if (isMobileDevice) {
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Pixel Logo: ${logoResult.config.text}`,
+            text: 'Save your pixel logo to Photos',
+          });
+          setToast({ message: 'Use the share sheet to save to Photos.', type: 'success' });
+          return;
+        }
+
+        const objectUrl = URL.createObjectURL(blob);
+        window.open(objectUrl, '_blank', 'noopener,noreferrer');
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        setToast({ message: 'Open the image and save it to your camera roll.', type: 'info' });
         return;
       }
 
@@ -713,26 +721,6 @@ export default function LogoGenerator() {
           : 'Download failed. Check your browser download settings or allow automatic downloads, then try again.',
         type: 'error',
       });
-    }
-  };
-
-  const handleCopyImage = async () => {
-    if (!logoResult) return;
-    if (!navigator.clipboard?.write) {
-      handleDownload();
-      return;
-    }
-
-    try {
-      const response = await fetch(logoResult.dataUrl);
-      const blob = await response.blob();
-      const item = new ClipboardItem({ [blob.type]: blob });
-      await navigator.clipboard.write([item]);
-      setToast({ message: 'Image copied to clipboard!', type: 'success' });
-    } catch (error) {
-      console.error('Copy image error:', error);
-      setToast({ message: 'Copy failed, downloading instead.', type: 'info' });
-      handleDownload();
     }
   };
 
@@ -1612,7 +1600,7 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                 </button>
               </div>
               <div className="logo-actions-secondary">
-                <div className="action-row action-row-three">
+                <div className="action-row action-row-two">
                   <button 
                     onClick={handleDownload} 
                     className="action-button" 
@@ -1620,15 +1608,6 @@ ${remixLine ? `${remixLine}\n` : ''}🔗 Recreate: ${shareUrl}
                     aria-label="Download logo as PNG"
                   >
                     DOWNLOAD PNG
-                  </button>
-                  <button 
-                    onClick={handleCopyImage} 
-                    className="action-button" 
-                    disabled={isGenerating}
-                    aria-label="Copy logo image"
-                  >
-                    <span className="action-icon" aria-hidden="true">📋</span>
-                    COPY IMAGE
                   </button>
                   <button 
                     onClick={handleShare} 
