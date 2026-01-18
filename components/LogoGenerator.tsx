@@ -447,9 +447,11 @@ export default function LogoGenerator() {
 
     const todayKey = getTodayKey();
     setLeaderboard((prev) => {
-      const merged = [entry, ...prev].filter(
-        (item) => getDayKeyFromTimestamp(item.createdAt) === todayKey
-      );
+      const merged = [entry, ...prev].filter((item) => {
+        const createdAtValue =
+          typeof item.createdAt === 'string' ? new Date(item.createdAt).getTime() : item.createdAt;
+        return getDayKeyFromTimestamp(createdAtValue) === todayKey;
+      });
       const trimmed = merged.slice(0, 25);
       saveLeaderboard(trimmed);
       return trimmed;
