@@ -216,6 +216,7 @@ export default function LogoGenerator() {
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
   const [castPreviewText, setCastPreviewText] = useState<string>('');
   const [castDraftText, setCastDraftText] = useState<string>('');
+  const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [castTarget, setCastTarget] = useState<LogoResult | null>(null);
   const [castTargetRemixSeed, setCastTargetRemixSeed] = useState<number | undefined>(undefined);
   const [logoHistory, setLogoHistory] = useState<LogoHistoryItem[]>([]);
@@ -223,11 +224,14 @@ export default function LogoGenerator() {
   const [remixMode, setRemixMode] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [leaderboardSort, setLeaderboardSort] = useState<'score' | 'recent' | 'likes'>('score');
+  const [leaderboardPage, setLeaderboardPage] = useState(1);
   const [galleryEntries, setGalleryEntries] = useState<LeaderboardEntry[]>([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [galleryRarityFilter, setGalleryRarityFilter] = useState<string>('all');
   const [galleryPresetFilter, setGalleryPresetFilter] = useState<string>('all');
+  const [galleryPage, setGalleryPage] = useState(1);
+  const [likedEntryIds, setLikedEntryIds] = useState<Set<string>>(new Set());
   const [profileData, setProfileData] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -352,8 +356,48 @@ export default function LogoGenerator() {
     }
   }, []);
 
+  const loadAutoReplySetting = useCallback(() => {
+    try {
+      const stored = localStorage.getItem('plf:autoReply');
+      if (stored) {
+        setAutoReplyEnabled(stored === 'true');
+      }
+    } catch (error) {
+      console.error('Failed to read auto reply setting:', error);
+    }
+  }, []);
+
+  const saveAutoReplySetting = useCallback((value: boolean) => {
+    try {
+      localStorage.setItem('plf:autoReply', value ? 'true' : 'false');
+    } catch (error) {
+      console.error('Failed to store auto reply setting:', error);
+    }
+  }, []);
+
+  const loadLikedEntries = useCallback(() => {
+    try {
+      const stored = localStorage.getItem('plf:likedEntries');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as string[];
+      if (Array.isArray(parsed)) {
+        setLikedEntryIds(new Set(parsed));
+      }
+    } catch (error) {
+      console.error('Failed to read liked entries:', error);
+    }
+  }, []);
+
+  const saveLikedEntries = useCallback((next: Set<string>) => {
+    try {
+      localStorage.setItem('plf:likedEntries', JSON.stringify(Array.from(next)));
+    } catch (error) {
+      console.error('Failed to store liked entries:', error);
+    }
+  }, []);
+
   const normalizeLeaderboardEntries = useCallback((entries: LeaderboardEntry[]) => {
-    return entries.map((item) => {
+    const normalized = entries.map((item) => {
       const castUrl =
         item.castUrl ??
         (item.id && /^0x[a-fA-F0-9]{64}$/.test(item.id)
@@ -368,6 +412,34 @@ export default function LogoGenerator() {
         createdAt: createdAtValue,
       };
     });
+
+    const byKey = new Map<string, LeaderboardEntry>();
+    normalized.forEach((entry) => {
+      const dedupeKey =
+        entry.castUrl ?? entry.id ?? `${entry.username}-${entry.text}-${entry.seed}`;
+      const existing = byKey.get(dedupeKey);
+      if (!existing) {
+        byKey.set(dedupeKey, entry);
+        return;
+      }
+      const existingScore = existing.likes + (existing.recasts ?? 0) * 2;
+      const entryScore = entry.likes + (entry.recasts ?? 0) * 2;
+      if (entryScore > existingScore) {
+        byKey.set(dedupeKey, entry);
+        return;
+      }
+      if (entryScore === existingScore) {
+        const existingCreated =
+          typeof existing.createdAt === 'string' ? new Date(existing.createdAt).getTime() : existing.createdAt;
+        const entryCreated =
+          typeof entry.createdAt === 'string' ? new Date(entry.createdAt).getTime() : entry.createdAt;
+        if (entryCreated > existingCreated) {
+          byKey.set(dedupeKey, entry);
+        }
+      }
+    });
+
+    return Array.from(byKey.values());
   }, []);
 
   const loadLeaderboard = useCallback(async () => {
@@ -675,12 +747,22 @@ export default function LogoGenerator() {
     });
   }, [getDayKeyFromTimestamp, getTodayKey, normalizeLeaderboardEntries, saveLeaderboard]);
 
-  const incrementLeaderboardLike = useCallback(async (entryId: string) => {
+  const toggleLeaderboardLike = useCallback(async (entryId: string) => {
+    const isLiked = likedEntryIds.has(entryId);
+    const delta = isLiked ? -1 : 1;
+    const nextLiked = new Set(likedEntryIds);
+    if (isLiked) {
+      nextLiked.delete(entryId);
+    } else {
+      nextLiked.add(entryId);
+    }
+    setLikedEntryIds(nextLiked);
+    saveLikedEntries(nextLiked);
     try {
       const response = await fetch('/api/leaderboard', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: entryId }),
+        body: JSON.stringify({ id: entryId, delta }),
       });
       if (!response.ok) {
         throw new Error('Failed to update like');
@@ -706,12 +788,12 @@ export default function LogoGenerator() {
 
     setLeaderboard((prev) => {
       const next = prev.map((item) =>
-        item.id === entryId ? { ...item, likes: item.likes + 1 } : item
+        item.id === entryId ? { ...item, likes: Math.max(0, item.likes + delta) } : item
       );
       saveLeaderboard(next);
       return next;
     });
-  }, [normalizeLeaderboardEntries, saveLeaderboard]);
+  }, [likedEntryIds, normalizeLeaderboardEntries, saveLeaderboard, saveLikedEntries]);
 
   const toggleChallengeDone = useCallback((prompt: string) => {
     setChallengeDone((prev) => {
@@ -792,6 +874,8 @@ export default function LogoGenerator() {
     loadLeaderboard();
     loadGallery();
     loadMiniappAdded();
+    loadAutoReplySetting();
+    loadLikedEntries();
     loadChallenge();
     loadChallengeDays();
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
@@ -863,6 +947,8 @@ export default function LogoGenerator() {
     loadGallery,
     loadHistory,
     loadLeaderboard,
+    loadLikedEntries,
+    loadAutoReplySetting,
     loadMiniappAdded,
     runWhenIdle,
     selectedPreset,
@@ -1108,10 +1194,32 @@ export default function LogoGenerator() {
       // Try Farcaster SDK first if available
       if (sdkReady) {
         try {
+          let shareImageUrl: string | null = null;
+          try {
+            const uploadResponse = await fetch('/api/logo-image', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                dataUrl: logoResult.dataUrl,
+                text: logoResult.config.text,
+                seed: logoResult.seed,
+              }),
+            });
+            if (uploadResponse.ok) {
+              const uploadData = await uploadResponse.json();
+              if (uploadData.imageUrl) {
+                shareImageUrl = uploadData.imageUrl;
+              }
+            }
+          } catch (uploadError) {
+            console.error('Share image upload failed:', uploadError);
+          }
           // Use the logo image in the share
           const result = await sdk.actions.composeCast({
             text: `Just generated a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}" 🎮`,
-            embeds: [logoResult.dataUrl], // Include image only
+            embeds: shareImageUrl ? [shareImageUrl] : undefined, // Include image only
           });
           
           if (result && result.cast) {
@@ -1382,7 +1490,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               castUrl,
             });
 
-            if (castHash) {
+            if (castHash && autoReplyEnabled) {
               try {
                 const castShareUrl = 'https://pixel-logo-generator.vercel.app';
                 await sdk.actions.composeCast({
@@ -1665,6 +1773,9 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
 
 
   const leaderboardDate = 'Last 7 days';
+  const leaderboardPageSize = 5;
+  const galleryPageSize = 6;
+
   const sortedLeaderboard = [...leaderboard].sort((a, b) => {
     const bScore = b.score ?? b.likes + (b.recasts ?? 0) * 2;
     const aScore = a.score ?? a.likes + (a.recasts ?? 0) * 2;
@@ -1705,6 +1816,17 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       return bCreated - aCreated;
     });
 
+  const leaderboardTotalPages = Math.max(1, Math.ceil(sortedLeaderboard.length / leaderboardPageSize));
+  const galleryTotalPages = Math.max(1, Math.ceil(filteredGalleryEntries.length / galleryPageSize));
+  const pagedLeaderboard = sortedLeaderboard.slice(
+    (leaderboardPage - 1) * leaderboardPageSize,
+    leaderboardPage * leaderboardPageSize
+  );
+  const pagedGalleryEntries = filteredGalleryEntries.slice(
+    (galleryPage - 1) * galleryPageSize,
+    galleryPage * galleryPageSize
+  );
+
   const castGalleryContent = (
     <div className="cast-gallery">
       <div className="leaderboard-title">Cast Gallery</div>
@@ -1716,7 +1838,10 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
           <span>Rarity</span>
           <select
             value={galleryRarityFilter}
-            onChange={(event) => setGalleryRarityFilter(event.target.value)}
+            onChange={(event) => {
+              setGalleryRarityFilter(event.target.value);
+              setGalleryPage(1);
+            }}
           >
             {galleryRarityOptions.map((option) => (
               <option key={`rarity-${option}`} value={option}>
@@ -1729,7 +1854,10 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
           <span>Preset</span>
           <select
             value={galleryPresetFilter}
-            onChange={(event) => setGalleryPresetFilter(event.target.value)}
+            onChange={(event) => {
+              setGalleryPresetFilter(event.target.value);
+              setGalleryPage(1);
+            }}
           >
             {galleryPresetOptions.map((option) => (
               <option key={`preset-${option}`} value={option}>
@@ -1746,7 +1874,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       )}
       {filteredGalleryEntries.length > 0 && (
         <div className="gallery-grid">
-          {filteredGalleryEntries.map((entry) => {
+          {pagedGalleryEntries.map((entry) => {
             const castUrl =
               entry.castUrl ??
               (entry.id && /^0x[a-fA-F0-9]{64}$/.test(entry.id)
@@ -1812,6 +1940,29 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
           })}
         </div>
       )}
+      {filteredGalleryEntries.length > 0 && galleryTotalPages > 1 && (
+        <div className="pagination-controls">
+          <button
+            type="button"
+            className="pagination-button"
+            onClick={() => setGalleryPage((prev) => Math.max(1, prev - 1))}
+            disabled={galleryPage === 1}
+          >
+            Prev
+          </button>
+          <span className="pagination-status">
+            Page {galleryPage} of {galleryTotalPages}
+          </span>
+          <button
+            type="button"
+            className="pagination-button"
+            onClick={() => setGalleryPage((prev) => Math.min(galleryTotalPages, prev + 1))}
+            disabled={galleryPage === galleryTotalPages}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -1826,7 +1977,10 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
         <button
           type="button"
           className={`leaderboard-filter-button${leaderboardSort === 'score' ? ' active' : ''}`}
-          onClick={() => setLeaderboardSort('score')}
+          onClick={() => {
+            setLeaderboardSort('score');
+            setLeaderboardPage(1);
+          }}
           aria-pressed={leaderboardSort === 'score'}
         >
           Trending
@@ -1834,7 +1988,10 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
         <button
           type="button"
           className={`leaderboard-filter-button${leaderboardSort === 'recent' ? ' active' : ''}`}
-          onClick={() => setLeaderboardSort('recent')}
+          onClick={() => {
+            setLeaderboardSort('recent');
+            setLeaderboardPage(1);
+          }}
           aria-pressed={leaderboardSort === 'recent'}
         >
           Recent
@@ -1842,7 +1999,10 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
         <button
           type="button"
           className={`leaderboard-filter-button${leaderboardSort === 'likes' ? ' active' : ''}`}
-          onClick={() => setLeaderboardSort('likes')}
+          onClick={() => {
+            setLeaderboardSort('likes');
+            setLeaderboardPage(1);
+          }}
           aria-pressed={leaderboardSort === 'likes'}
         >
           Most liked
@@ -1853,14 +2013,14 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       )}
       {leaderboard.length > 0 && (
         <div className="leaderboard-grid">
-          {sortedLeaderboard.map((entry, index) => {
+          {pagedLeaderboard.map((entry, index) => {
             const castUrl =
               entry.castUrl ??
               (entry.id && /^0x[a-fA-F0-9]{64}$/.test(entry.id)
                 ? `https://warpcast.com/~/cast/${entry.id}`
                 : undefined);
             const isCastLink = !!castUrl;
-            const rank = index + 1;
+            const rank = (leaderboardPage - 1) * leaderboardPageSize + index + 1;
             const rarityValue = entry.rarity ? String(entry.rarity).toUpperCase() : 'Unknown';
             const presetValue = entry.presetKey ?? 'Unknown';
             const CardContent = (
@@ -1905,30 +2065,34 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                   <span className="leaderboard-chip">{presetValue}</span>
                 </div>
                 <div className="leaderboard-metrics">
-                  <span>❤️ {entry.likes}</span>
-                  <span>🔁 {entry.recasts ?? 0}</span>
-                  <button
-                    type="button"
-                    className="leaderboard-like"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      incrementLeaderboardLike(entry.id);
-                    }}
-                    aria-label={`Like cast by ${entry.username}`}
-                  >
-                    Like
-                  </button>
-                  <button
-                    type="button"
-                    className="leaderboard-share"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      openWarpcastShare(entry);
-                    }}
-                    aria-label={`Share cast by ${entry.username}`}
-                  >
-                    Share
-                  </button>
+                  <div className="leaderboard-metrics-values">
+                    <span>❤️ {entry.likes}</span>
+                    <span>🔁 {entry.recasts ?? 0}</span>
+                  </div>
+                  <div className="leaderboard-metrics-actions">
+                    <button
+                      type="button"
+                      className="leaderboard-like"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        toggleLeaderboardLike(entry.id);
+                      }}
+                      aria-label={`Like cast by ${entry.username}`}
+                    >
+                      {likedEntryIds.has(entry.id) ? '💔 Unlike' : '❤️ Like'}
+                    </button>
+                    <button
+                      type="button"
+                      className="leaderboard-share"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        openWarpcastShare(entry);
+                      }}
+                      aria-label={`Share cast by ${entry.username}`}
+                    >
+                      🔗 Share
+                    </button>
+                  </div>
                 </div>
               </>
             );
@@ -1950,6 +2114,29 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               </div>
             );
           })}
+        </div>
+      )}
+      {leaderboard.length > 0 && leaderboardTotalPages > 1 && (
+        <div className="pagination-controls">
+          <button
+            type="button"
+            className="pagination-button"
+            onClick={() => setLeaderboardPage((prev) => Math.max(1, prev - 1))}
+            disabled={leaderboardPage === 1}
+          >
+            Prev
+          </button>
+          <span className="pagination-status">
+            Page {leaderboardPage} of {leaderboardTotalPages}
+          </span>
+          <button
+            type="button"
+            className="pagination-button"
+            onClick={() => setLeaderboardPage((prev) => Math.min(leaderboardTotalPages, prev + 1))}
+            disabled={leaderboardPage === leaderboardTotalPages}
+          >
+            Next
+          </button>
         </div>
       )}
       {leaderboard.length > 0 && (
@@ -2321,6 +2508,20 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               </div>
             </div>
             <div className="actions-divider">Actions</div>
+            <div className="auto-reply-toggle">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={autoReplyEnabled}
+                  onChange={(event) => {
+                    const nextValue = event.target.checked;
+                    setAutoReplyEnabled(nextValue);
+                    saveAutoReplySetting(nextValue);
+                  }}
+                />
+                Auto-reply with app link
+              </label>
+            </div>
             <div className="logo-actions">
               <div className="logo-actions-primary">
                 <button 

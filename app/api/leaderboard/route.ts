@@ -354,7 +354,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  let body: { id?: string } | null = null;
+  let body: { id?: string; delta?: number } | null = null;
   try {
     // #region agent log
     logDebug('H1', 'PATCH start', {
@@ -362,7 +362,7 @@ export async function PATCH(request: Request) {
       databaseUrlPrefix: process.env.DATABASE_URL?.split(':')[0] ?? 'missing',
     });
     // #endregion agent log
-    body = (await request.json()) as { id?: string };
+    body = (await request.json()) as { id?: string; delta?: number };
 
     if (!body?.id) {
       // #region agent log
@@ -370,13 +370,25 @@ export async function PATCH(request: Request) {
       // #endregion agent log
       return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
     }
+    const delta = typeof body.delta === 'number' ? body.delta : 1;
+    if (![1, -1].includes(delta)) {
+      return NextResponse.json({ error: 'Invalid delta.' }, { status: 400 });
+    }
 
-    const updatedEntry = await prisma.leaderboardEntry.update({
+    let updatedEntry = await prisma.leaderboardEntry.update({
       where: { id: body.id },
       data: {
-        likes: { increment: 1 },
+        likes: { increment: delta },
       },
     });
+    if (updatedEntry.likes < 0) {
+      updatedEntry = await prisma.leaderboardEntry.update({
+        where: { id: body.id },
+        data: {
+          likes: 0,
+        },
+      });
+    }
     // #region agent log
     logDebug('H3', 'PATCH update success', { id: updatedEntry.id, likes: updatedEntry.likes });
     // #endregion agent log
@@ -412,12 +424,24 @@ export async function PATCH(request: Request) {
       // #endregion agent log
       await ensureLeaderboardTable();
       try {
-        const updatedEntry = await prisma.leaderboardEntry.update({
+        const delta = typeof body.delta === 'number' ? body.delta : 1;
+        if (![1, -1].includes(delta)) {
+          return NextResponse.json({ error: 'Invalid delta.' }, { status: 400 });
+        }
+        let updatedEntry = await prisma.leaderboardEntry.update({
           where: { id: body.id },
           data: {
-            likes: { increment: 1 },
+            likes: { increment: delta },
           },
         });
+        if (updatedEntry.likes < 0) {
+          updatedEntry = await prisma.leaderboardEntry.update({
+            where: { id: body.id },
+            data: {
+              likes: 0,
+            },
+          });
+        }
         const range = getRecentRange(7);
         const entries = await prisma.leaderboardEntry.findMany({
           where: {

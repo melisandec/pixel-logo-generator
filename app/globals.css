@@ -340,6 +340,12 @@ body {
   flex-wrap: wrap;
 }
 
+.button-group .arcade-button.secondary {
+  flex: 0 0 auto;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
 .bottom-nav-icon {
   display: inline-flex;
   align-items: center;
@@ -619,6 +625,27 @@ body {
   opacity: 0.6;
   border-top: 1px solid var(--border-color);
   padding-top: 8px;
+}
+
+.auto-reply-toggle {
+  display: flex;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin: 6px 0 10px;
+}
+
+.auto-reply-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.auto-reply-toggle input {
+  accent-color: var(--text-primary);
 }
 
 
@@ -1190,6 +1217,12 @@ body {
   gap: 10px;
 }
 
+@media (max-width: 640px) {
+  .gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .gallery-card {
   border: 1px solid var(--border-color);
   background: var(--bg-darker);
@@ -1262,6 +1295,37 @@ body {
 .gallery-share-button:hover {
   border-color: var(--text-primary);
   color: var(--text-primary);
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.pagination-button {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 9px;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.pagination-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-status {
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .profile-tab {
@@ -1648,8 +1712,23 @@ body {
 .leaderboard-metrics {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   font-size: 9px;
   color: var(--text-secondary);
+}
+
+.leaderboard-metrics-values {
+  display: flex;
+  gap: 8px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.leaderboard-metrics-actions {
+  display: flex;
+  gap: 6px;
 }
 
 .recent-casts {
@@ -1685,7 +1764,7 @@ body {
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   font-size: 9px;
-  padding: 2px 6px;
+  padding: 3px 8px;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -1701,7 +1780,7 @@ body {
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   font-size: 9px;
-  padding: 2px 6px;
+  padding: 3px 8px;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -1806,6 +1885,12 @@ body {
 
   .button-group .arcade-button {
     flex: 1;
+  }
+
+  .button-group .arcade-button.secondary {
+    flex: 0 0 auto;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .bottom-nav {
