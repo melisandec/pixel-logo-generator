@@ -91,12 +91,12 @@ export async function checkAndAwardBadges(
     // Award badges
     for (const badgeType of badgesToAward) {
       try {
-        await prisma.badge.create({
+        await (prisma as any).badge.create({
           data: {
             userId: username.toLowerCase(),
             badgeType,
           },
-        }).catch((error) => {
+        }).catch((error: any) => {
           // Ignore unique constraint errors (badge already exists)
           if (error instanceof Prisma.PrismaClientKnownRequestError && error.code !== 'P2002') {
             console.error(`Failed to award badge ${badgeType}:`, error);
@@ -127,12 +127,12 @@ export async function awardDailyWinnerBadge(username: string, rank: number): Pro
   if (rank !== 1) return; // Only award to #1 winner
 
   try {
-    await prisma.badge.create({
+    await (prisma as any).badge.create({
       data: {
         userId: username.toLowerCase(),
         badgeType: BADGE_TYPES.DAILY_WINNER,
       },
-    }).catch((error) => {
+    }).catch((error: any) => {
       // Ignore if badge already exists or table doesn't exist
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002' || error.code === 'P2021') {

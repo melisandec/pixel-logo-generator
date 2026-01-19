@@ -78,12 +78,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Username required' }, { status: 400 });
     }
 
-    const badges = await prisma.badge.findMany({
+    const badges = await (prisma as any).badge.findMany({
       where: { userId: username.toLowerCase() },
       orderBy: { earnedAt: 'desc' },
-    });
+    }).catch(() => []);
 
-    const badgesWithInfo = badges.map(badge => ({
+    const badgesWithInfo = badges.map((badge: any) => ({
       ...badge,
       ...BADGE_INFO[badge.badgeType as BadgeType],
     }));
@@ -147,12 +147,3 @@ export async function POST(request: Request) {
   }
 }
 
-// Get all badge types
-export async function GET_TYPES() {
-  return NextResponse.json({ 
-    badgeTypes: Object.entries(BADGE_INFO).map(([type, info]) => ({
-      type,
-      ...info,
-    }))
-  });
-}

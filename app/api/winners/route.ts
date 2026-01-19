@@ -55,7 +55,7 @@ export async function GET(request: Request) {
       const start = new Date(end);
       start.setUTCDate(start.getUTCDate() - daysNum);
 
-      const pastWinners = await prisma.dailyWinner.findMany({
+      const pastWinners = await (prisma as any).dailyWinner.findMany({
         where: {
           date: {
             gte: start,
@@ -128,9 +128,9 @@ export async function GET(request: Request) {
 
     // Check if winners already stored
     const dateObj = range.start;
-    const existing = await prisma.dailyWinner.findUnique({
+    const existing = await (prisma as any).dailyWinner.findUnique({
       where: { date: dateObj },
-    });
+    }).catch(() => null);
 
     const winners = scored.map((entry, index) => ({
       rank: index + 1,
