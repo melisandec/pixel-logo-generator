@@ -2880,17 +2880,15 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 </button>
               </div>
               <div className="logo-actions-secondary">
-                <div className={`action-row ${!isMobile ? 'action-row-two' : ''}`}>
-                  {!isMobile && (
-                    <button 
-                      onClick={handleDownload} 
-                      className="action-button" 
-                      disabled={isGenerating}
-                      aria-label="Download logo as PNG"
-                    >
-                      DOWNLOAD PNG
-                    </button>
-                  )}
+                <div className="action-row action-row-two">
+                  <button 
+                    onClick={handleDownload} 
+                    className="action-button" 
+                    disabled={isGenerating}
+                    aria-label={isMobile ? "Save image to Photos or Files" : "Download image as PNG"}
+                  >
+                    DOWNLOAD IMAGE
+                  </button>
                   <button 
                     onClick={handleShare} 
                     className="action-button"
