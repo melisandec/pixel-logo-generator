@@ -740,18 +740,67 @@ body {
   opacity: 0.9;
 }
 
+.seed-crack-icon.stage-fissure .seed-crack-highlight {
+  animation: seedCrackFlash 0.08s ease-out;
+}
+
+.seed-crack-icon.stage-fissure .seed-crack-glow {
+  opacity: 0.35;
+  animation: seedGlowFlash 0.08s ease-out;
+}
+
 .seed-crack-icon.stage-dormant .seed-crack-body {
   animation: seedPulse 0.6s ease-in-out infinite;
 }
 
 .seed-crack-icon.stage-swell .seed-crack-body {
-  transform: scale(1.05, 1.02);
+  transform: scale(1.06, 1.015);
   box-shadow: 0 0 18px rgba(61, 240, 102, 0.7);
+  filter: brightness(1.05);
 }
 
 .seed-crack-icon.stage-bloom .seed-crack-glow {
-  opacity: 0.8;
-  animation: seedInnerGlow 0.4s ease-out;
+  opacity: 0.6;
+  animation: seedBloomBurst 0.45s ease-out;
+}
+
+.seed-crack-icon.stage-bloom .seed-crack-highlight {
+  width: 2px;
+  box-shadow: 0 0 10px rgba(220, 255, 220, 0.9);
+}
+
+.seed-crack-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.seed-sparkle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: rgba(220, 255, 220, 0.9);
+  opacity: 0;
+  box-shadow: 0 0 6px rgba(200, 255, 220, 0.9);
+}
+
+.seed-sparkle.sparkle-1 {
+  left: 38%;
+  top: 18%;
+}
+
+.seed-sparkle.sparkle-2 {
+  left: 54%;
+  top: 22%;
+}
+
+.seed-sparkle.sparkle-3 {
+  left: 48%;
+  top: 10%;
+}
+
+.seed-crack-icon.stage-bloom .seed-sparkle {
+  animation: seedSparkleRise 0.55s ease-out;
 }
 
 .seed-crack-stage {
@@ -892,6 +941,55 @@ body {
   }
 }
 
+@keyframes seedBloomBurst {
+  0% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+}
+
+@keyframes seedSparkleRise {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  40% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes seedCrackFlash {
+  0% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes seedGlowFlash {
+  0% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
 @keyframes seedGrow {
   0% {
     transform: scale(0.6);
@@ -903,22 +1001,25 @@ body {
 
 @keyframes seedShake {
   0% {
-    transform: translateX(0);
+    transform: translateX(0) translateY(0) rotate(0deg);
   }
-  20% {
-    transform: translateX(calc(var(--seed-shake) * -1));
+  25% {
+    transform: translateX(calc(var(--seed-shake) * -1))
+      translateY(calc(var(--seed-shake) * 0.25))
+      rotate(-0.5deg);
   }
-  40% {
-    transform: translateX(var(--seed-shake));
+  50% {
+    transform: translateX(var(--seed-shake))
+      translateY(calc(var(--seed-shake) * -0.2))
+      rotate(0.5deg);
   }
-  60% {
-    transform: translateX(calc(var(--seed-shake) * -1));
-  }
-  80% {
-    transform: translateX(var(--seed-shake));
+  75% {
+    transform: translateX(calc(var(--seed-shake) * -0.6))
+      translateY(calc(var(--seed-shake) * 0.15))
+      rotate(-0.3deg);
   }
   100% {
-    transform: translateX(0);
+    transform: translateX(0) translateY(0) rotate(0deg);
   }
 }
 .rarity-sparkle {

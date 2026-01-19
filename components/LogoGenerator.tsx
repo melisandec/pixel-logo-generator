@@ -2964,6 +2964,11 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                         <div className="seed-crack-line" />
                         <div className="seed-crack-highlight" />
                         <div className="seed-crack-glow" />
+                        <div className="seed-crack-sparkles" aria-hidden="true">
+                          <span className="seed-sparkle sparkle-1" />
+                          <span className="seed-sparkle sparkle-2" />
+                          <span className="seed-sparkle sparkle-3" />
+                        </div>
                       </div>
                     </div>
                     <span className="seed-crack-stage">
