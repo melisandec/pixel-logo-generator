@@ -1247,7 +1247,7 @@ export default function LogoGenerator() {
 
   const shareMoment = useCallback(async () => {
     if (!activeMoment) return;
-    const shareUrl = "https://warpcast.com/~/channel/pixellogoforge";
+    const shareUrl = "https://farcaster.xyz/miniapps/upKwjayith2r/pixel-logo-forge";
     const text = `${activeMoment.title}\n${activeMoment.subtitle}\n${shareUrl}\n\n#PixelLogoForge`;
     try {
       if (sdkReady) {
