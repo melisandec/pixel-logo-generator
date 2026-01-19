@@ -221,6 +221,7 @@ export default function LogoGenerator() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [userInfo, setUserInfo] = useState<{ fid?: number; username?: string } | null>(null);
   const [showCastPreview, setShowCastPreview] = useState(false);
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
   const [castPreviewText, setCastPreviewText] = useState<string>('');
   const [castDraftText, setCastDraftText] = useState<string>('');
@@ -1423,6 +1424,63 @@ export default function LogoGenerator() {
           type: 'info' 
         });
       }
+    }
+  };
+
+  const openImageForSave = async (target: 'photos' | 'files' | 'download') => {
+    if (!logoResult) return;
+    setShowDownloadOptions(false);
+
+    try {
+      if (sdkReady) {
+        const uploadResponse = await fetch('/api/logo-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            dataUrl: logoResult.dataUrl,
+            text: logoResult.config.text,
+            seed: logoResult.seed,
+          }),
+        });
+
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          if (uploadData.imageUrl) {
+            await sdk.actions.openUrl(uploadData.imageUrl);
+            if (target === 'photos') {
+              setToast({
+                message: 'Image opened. Long-press and choose "Save Image" to save to Photos.',
+                type: 'info',
+              });
+            } else if (target === 'files') {
+              setToast({
+                message: 'Image opened. Long-press and choose "Save to Files".',
+                type: 'info',
+              });
+            } else {
+              setToast({
+                message: 'Image opened. Right-click and choose "Save Image As" to download.',
+                type: 'info',
+              });
+            }
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Open image failed:', error);
+    }
+
+    // Fallback if SDK not available
+    const objectUrl = logoResult.dataUrl;
+    const newWindow = window.open(objectUrl, '_blank', 'noopener,noreferrer');
+    if (!newWindow) {
+      setToast({
+        message: 'Popup blocked. Please save the image from the preview above.',
+        type: 'info',
+      });
     }
   };
 
@@ -2817,12 +2875,37 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               <button
                 type="button"
                 className="logo-download-button"
-                onClick={handleDownload}
-                aria-label="Open image to save"
+                onClick={() => setShowDownloadOptions(true)}
+                aria-label="Download options"
               >
                 ⬇
               </button>
             </div>
+            {showDownloadOptions && (
+              <div className="download-modal">
+                <div className="download-modal-card" role="dialog" aria-label="Download options">
+                  <div className="download-modal-title">Save image</div>
+                  <div className="download-modal-actions">
+                    <button type="button" onClick={() => openImageForSave('photos')}>
+                      Save to Photos
+                    </button>
+                    <button type="button" onClick={() => openImageForSave('files')}>
+                      Save to Files
+                    </button>
+                    <button type="button" onClick={() => openImageForSave('download')}>
+                      Download image
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="download-modal-cancel"
+                    onClick={() => setShowDownloadOptions(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="logo-info">
               <button
                 className="how-it-works"
