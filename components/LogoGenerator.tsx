@@ -1352,126 +1352,38 @@ export default function LogoGenerator() {
       const file = new File([blob], filename, { type: 'image/png' });
 
       if (isMobileDevice) {
-        // Mobile: Web Share API is blocked in sandboxed iframes
-        // Use direct download link approach instead
-        try {
-          const objectUrl = URL.createObjectURL(blob);
-          
-          // Try to open in new window first (works better on mobile)
-          try {
-            const newWindow = window.open(objectUrl, '_blank');
-            if (newWindow) {
-              setToast({ 
-                message: 'Image opened. Long-press the image and select "Save Image" to save to Photos.', 
-                type: 'info' 
-              });
-              // Clean up after delay
-              setTimeout(() => {
-                URL.revokeObjectURL(objectUrl);
-              }, 2000);
-              return;
-            }
-          } catch (openError) {
-            // Popup blocked or failed, continue to download link
-          }
-          
-          // Fallback: Create download link
-          const link = document.createElement('a');
-          link.href = objectUrl;
-          link.download = filename;
-          link.style.cssText = 'position: fixed; top: -9999px; opacity: 0; pointer-events: none;';
-          document.body.appendChild(link);
-          
-          // Trigger click immediately (must be synchronous with user gesture)
-          link.click();
-          
-          // Clean up
-          setTimeout(() => {
-            if (document.body.contains(link)) {
-              document.body.removeChild(link);
-            }
-            URL.revokeObjectURL(objectUrl);
-          }, 1000);
-          
-          setToast({ 
-            message: 'If save dialog didn\'t appear, long-press the logo image above and select "Save Image"', 
-            type: 'info' 
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Pixel Logo: ${logoResult.config.text}`,
+            text: 'Save your pixel logo to Photos',
           });
-        } catch (linkError) {
-          setToast({ 
-            message: 'Long-press the logo image above and select "Save Image" or "Add to Photos"', 
-            type: 'info' 
-          });
+          setToast({ message: 'Use the share sheet to save to Photos.', type: 'success' });
+          return;
         }
+
+        const objectUrl = URL.createObjectURL(blob);
+        window.open(objectUrl, '_blank', 'noopener,noreferrer');
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        setToast({ message: 'Open the image and save it to your camera roll.', type: 'info' });
         return;
       }
 
-      // Desktop: Handle sandboxed iframe (Farcaster mini-app)
-      // Try to open in new window/tab if in sandboxed context
-      try {
-        const objectUrl = URL.createObjectURL(blob);
-        
-        // First, try standard download
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = objectUrl;
-        link.rel = 'noopener';
-        link.style.cssText = 'position: fixed; top: -9999px; opacity: 0; pointer-events: none;';
-        document.body.appendChild(link);
-        
-        try {
-          link.click();
-          // If we get here without error, download might work
-          setTimeout(() => {
-            if (document.body.contains(link)) {
-              document.body.removeChild(link);
-            }
-            URL.revokeObjectURL(objectUrl);
-            setToast({ message: 'Image downloaded!', type: 'success' });
-          }, 300);
-          return;
-        } catch (clickError: any) {
-          // If click fails due to sandbox, try opening in new window
-          if (clickError.message?.includes('sandbox') || clickError.message?.includes('download')) {
-            // Open image in new window where user can right-click to save
-            const newWindow = window.open(objectUrl, '_blank');
-            if (newWindow) {
-              setToast({ 
-                message: 'Image opened in new tab. Right-click and select "Save Image As" to download.', 
-                type: 'info' 
-              });
-              // Clean up after a delay
-              setTimeout(() => {
-                URL.revokeObjectURL(objectUrl);
-              }, 1000);
-            } else {
-              // Popup blocked, show instructions
-              setToast({ 
-                message: 'Right-click the logo image above and select "Save Image As" to download.', 
-                type: 'info' 
-              });
-              URL.revokeObjectURL(objectUrl);
-            }
-            if (document.body.contains(link)) {
-              document.body.removeChild(link);
-            }
-            return;
-          }
-          throw clickError;
-        }
-      } catch (error: any) {
-        // If all else fails, show instructions
-        console.error('Download error:', error);
-        setToast({ 
-          message: 'Right-click the logo image above and select "Save Image As" to download.', 
-          type: 'info' 
-        });
-      }
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = objectUrl;
+      link.rel = 'noopener';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (error) {
       console.error('Download error:', error);
       setToast({
         message: isMobileDevice
-          ? 'Failed to save image. Try long-pressing the logo image and selecting "Save Image".'
+          ? 'Failed to save image. Please try again.'
           : 'Download failed. Check your browser download settings or allow automatic downloads, then try again.',
         type: 'error',
       });
