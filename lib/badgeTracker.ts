@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { BADGE_TYPES, BadgeType } from '@/app/api/badges/route';
+import { BADGE_TYPES, BadgeType } from '@/lib/badgeTypes';
 import { Prisma } from '@prisma/client';
 
 type LeaderboardEntry = {

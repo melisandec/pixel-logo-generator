@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { BADGE_INFO, BADGE_TYPES } from '../route';
+import { BADGE_INFO } from '@/lib/badgeTypes';
 
 export async function GET() {
   return NextResponse.json({ 
