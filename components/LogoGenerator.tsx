@@ -223,7 +223,16 @@ export default function LogoGenerator() {
   const [showCastPreview, setShowCastPreview] = useState(false);
   const [seedCrackValue, setSeedCrackValue] = useState<string | null>(null);
   const [seedCrackStage, setSeedCrackStage] = useState<
-    'crack-1' | 'crack-2' | 'crack-3' | 'shake' | 'split' | 'ticket' | null
+    | 'dormant'
+    | 'stress'
+    | 'crawl-1'
+    | 'crawl-2'
+    | 'fissure'
+    | 'swell'
+    | 'shake'
+    | 'bloom'
+    | 'ticket'
+    | null
   >(null);
   const [seedCrackRarity, setSeedCrackRarity] = useState<Rarity | null>(null);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
@@ -411,7 +420,7 @@ export default function LogoGenerator() {
 
   const startSeedCrackSequence = useCallback((result: LogoResult, onComplete: () => void) => {
     clearSeedCrackSequence();
-    setSeedCrackStage('crack-1');
+    setSeedCrackStage('dormant');
     setSeedCrackRarity(result.rarity);
     setSeedCrackValue('—');
     if (seedCrackTimerRef.current) {
@@ -420,20 +429,32 @@ export default function LogoGenerator() {
     }
 
     seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('crack-2');
-    }, 500));
+      setSeedCrackStage('stress');
+    }, 250));
 
     seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('crack-3');
-    }, 1000));
+      setSeedCrackStage('crawl-1');
+    }, 550));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      setSeedCrackStage('crawl-2');
+    }, 900));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      setSeedCrackStage('fissure');
+    }, 1250));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      setSeedCrackStage('swell');
+    }, 1550));
 
     seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
       setSeedCrackStage('shake');
-    }, 1500));
+    }, 1800));
 
     seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('split');
-    }, 2000));
+      setSeedCrackStage('bloom');
+    }, 2050));
 
     seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
       setSeedCrackStage('ticket');
@@ -2893,15 +2914,20 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
             </div>
             {isGenerating && seedCrackStage && (
               <div className="seed-crack" aria-live="polite">
-                {(seedCrackStage === 'crack-1' ||
-                  seedCrackStage === 'crack-2' ||
-                  seedCrackStage === 'crack-3' ||
+                {(seedCrackStage === 'dormant' ||
+                  seedCrackStage === 'stress' ||
+                  seedCrackStage === 'crawl-1' ||
+                  seedCrackStage === 'crawl-2' ||
+                  seedCrackStage === 'fissure' ||
+                  seedCrackStage === 'swell' ||
                   seedCrackStage === 'shake' ||
-                  seedCrackStage === 'split') && (
+                  seedCrackStage === 'bloom') && (
                   <>
                     <span className="seed-crack-label">Cracking seed</span>
                     <div
-                      className={`seed-crack-icon stage-${seedCrackStage}${seedCrackStage === 'split' ? ' is-split' : ''}`}
+                      className={`seed-crack-icon stage-${seedCrackStage}${
+                        seedCrackStage === 'bloom' ? ' is-split' : ''
+                      }`}
                       aria-hidden="true"
                     >
                       <div className={`seed-crack-shake${seedCrackStage === 'shake' ? ' is-active' : ''}`}>
@@ -2910,14 +2936,18 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                         <div className="seed-crack-flap right" />
                         <div className="seed-crack-line" />
                         <div className="seed-crack-highlight" />
+                        <div className="seed-crack-glow" />
                       </div>
                     </div>
                     <span className="seed-crack-stage">
-                      {seedCrackStage === 'crack-1' && 'Stage 1/6'}
-                      {seedCrackStage === 'crack-2' && 'Stage 2/6'}
-                      {seedCrackStage === 'crack-3' && 'Stage 3/6'}
-                      {seedCrackStage === 'shake' && 'Stage 4/6'}
-                      {seedCrackStage === 'split' && 'Stage 5/6'}
+                      {seedCrackStage === 'dormant' && 'Stage 1/9'}
+                      {seedCrackStage === 'stress' && 'Stage 2/9'}
+                      {seedCrackStage === 'crawl-1' && 'Stage 3/9'}
+                      {seedCrackStage === 'crawl-2' && 'Stage 4/9'}
+                      {seedCrackStage === 'fissure' && 'Stage 5/9'}
+                      {seedCrackStage === 'swell' && 'Stage 6/9'}
+                      {seedCrackStage === 'shake' && 'Stage 7/9'}
+                      {seedCrackStage === 'bloom' && 'Stage 8/9'}
                     </span>
                   </>
                 )}
@@ -2927,7 +2957,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                       <span className="seed-ticket-label">Seed ticket</span>
                       <span className="seed-ticket-value">{seedCrackValue}</span>
                     </div>
-                    <span className="seed-crack-stage">Stage 6/6</span>
+                    <span className="seed-crack-stage">Stage 9/9</span>
                   </>
                 )}
               </div>
