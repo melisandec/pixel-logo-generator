@@ -222,6 +222,8 @@ export default function LogoGenerator() {
   const [userInfo, setUserInfo] = useState<{ fid?: number; username?: string } | null>(null);
   const [showCastPreview, setShowCastPreview] = useState(false);
   const [seedCrackValue, setSeedCrackValue] = useState<string | null>(null);
+  const [seedCrackStage, setSeedCrackStage] = useState<'rolling' | 'ticket' | null>(null);
+  const [seedCrackRarity, setSeedCrackRarity] = useState<Rarity | null>(null);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
   const [castPreviewText, setCastPreviewText] = useState<string>('');
@@ -391,30 +393,46 @@ export default function LogoGenerator() {
   }, []);
 
   const seedCrackTimerRef = useRef<number | null>(null);
+  const seedCrackTimeoutsRef = useRef<number[]>([]);
 
-  const clearSeedCrackTimer = useCallback(() => {
+  const clearSeedCrackSequence = useCallback(() => {
     if (seedCrackTimerRef.current) {
       window.clearInterval(seedCrackTimerRef.current);
       seedCrackTimerRef.current = null;
     }
+    seedCrackTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    seedCrackTimeoutsRef.current = [];
+    setSeedCrackStage(null);
+    setSeedCrackValue(null);
+    setSeedCrackRarity(null);
   }, []);
 
-  const startSeedCrack = useCallback((finalSeed: number) => {
-    clearSeedCrackTimer();
+  const startSeedCrackSequence = useCallback((result: LogoResult, onComplete: () => void) => {
+    clearSeedCrackSequence();
+    setSeedCrackStage('rolling');
+    setSeedCrackRarity(result.rarity);
     setSeedCrackValue('—');
-    const steps = 14;
-    let tick = 0;
     seedCrackTimerRef.current = window.setInterval(() => {
-      tick += 1;
-      if (tick < steps) {
-        const nextValue = Math.floor(Math.random() * 2147483647);
-        setSeedCrackValue(String(nextValue));
-        return;
+      const nextValue = Math.floor(Math.random() * 2147483647);
+      setSeedCrackValue(String(nextValue));
+    }, 70);
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      if (seedCrackTimerRef.current) {
+        window.clearInterval(seedCrackTimerRef.current);
+        seedCrackTimerRef.current = null;
       }
-      setSeedCrackValue(String(finalSeed));
-      clearSeedCrackTimer();
-    }, 80);
-  }, [clearSeedCrackTimer]);
+      setSeedCrackStage('ticket');
+      setSeedCrackValue(String(result.seed));
+    }, 850));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      setSeedCrackStage(null);
+      setSeedCrackValue(null);
+      setSeedCrackRarity(null);
+      onComplete();
+    }, 1550));
+  }, [clearSeedCrackSequence]);
 
   const saveLeaderboard = useCallback((items: LeaderboardEntry[]) => {
     try {
@@ -1027,17 +1045,25 @@ export default function LogoGenerator() {
     saveDailyLimit(nextLimit);
   }, [saveDailyLimit, userInfo?.username]);
 
-  const generateWithText = useCallback((text: string, seed?: number, presetKey?: string | null) => {
+  const createLogoResult = useCallback((text: string, seed?: number, presetKey?: string | null) => {
     const presetConfig = getPresetConfig(presetKey);
-    const result = generateLogo({
+    return generateLogo({
       text,
       seed,
       ...presetConfig,
     });
+  }, [getPresetConfig]);
+
+  const commitLogoResult = useCallback((result: LogoResult) => {
     setLogoResult(result);
     addToHistory(result);
-    return result;
-  }, [addToHistory, getPresetConfig]);
+  }, [addToHistory]);
+
+  useEffect(() => {
+    return () => {
+      clearSeedCrackSequence();
+    };
+  }, [clearSeedCrackSequence]);
 
   useEffect(() => {
     if (initRef.current) return;
@@ -1099,7 +1125,6 @@ export default function LogoGenerator() {
     checkDailyLimits,
     ensureDailyLimit,
     finalizeDailyLimit,
-    generateWithText,
     loadChallenge,
     loadChallengeDays,
     loadChallengeHistory,
@@ -1166,32 +1191,32 @@ export default function LogoGenerator() {
       
       // Auto-generate if we have text
       const seedToUse = seed ?? Math.floor(Math.random() * 2147483647);
-      setIsGenerating(true);
-      startSeedCrack(seedToUse);
-      setTimeout(() => {
-        try {
-          generateWithText(textParam, seedToUse, selectedPreset);
+      try {
+        const result = createLogoResult(textParam, seedToUse, selectedPreset);
+        setIsGenerating(true);
+        startSeedCrackSequence(result, () => {
+          commitLogoResult(result);
           if (limitCheck.ok) {
             finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, !!seedParam);
           }
-          setSeedCrackValue(null);
-        } catch (error) {
-          console.error('Error loading logo from URL:', error);
-          setToast({ 
-            message: 'Failed to load logo from URL. Please try generating manually.', 
-            type: 'error' 
-          });
-        } finally {
           setIsGenerating(false);
-        }
-      }, 1400);
+        });
+      } catch (error) {
+        console.error('Error loading logo from URL:', error);
+        setToast({ 
+          message: 'Failed to load logo from URL. Please try generating manually.', 
+          type: 'error' 
+        });
+        setIsGenerating(false);
+      }
     }
   }, [
     checkDailyLimits,
     finalizeDailyLimit,
-    generateWithText,
+    createLogoResult,
+    commitLogoResult,
     selectedPreset,
-    startSeedCrack,
+    startSeedCrackSequence,
   ]);
 
   useEffect(() => {
@@ -1275,26 +1300,25 @@ export default function LogoGenerator() {
     }
 
     const seedToUse = seed ?? Math.floor(Math.random() * 2147483647);
-    setIsGenerating(true);
-    startSeedCrack(seedToUse);
-    setTimeout(() => {
-      try {
-        generateWithText(inputText.trim(), seedToUse, selectedPreset);
+    try {
+      const result = createLogoResult(inputText.trim(), seedToUse, selectedPreset);
+      setIsGenerating(true);
+      startSeedCrackSequence(result, () => {
+        commitLogoResult(result);
         if (limitCheck.ok) {
           finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, !!seed);
         }
         setToast({ message: 'Logo generated successfully!', type: 'success' });
-        setSeedCrackValue(null);
-      } catch (error) {
-        console.error('Error generating logo:', error);
-        setToast({ 
-          message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.', 
-          type: 'error' 
-        });
-      } finally {
         setIsGenerating(false);
-      }
-    }, 1400);
+      });
+    } catch (error) {
+      console.error('Error generating logo:', error);
+      setToast({ 
+        message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.', 
+        type: 'error' 
+      });
+      setIsGenerating(false);
+    }
   };
 
   const handleRandomize = () => {
@@ -1312,26 +1336,25 @@ export default function LogoGenerator() {
     }
 
     const seedToUse = Math.floor(Math.random() * 2147483647);
-    setIsGenerating(true);
-    startSeedCrack(seedToUse);
-    setTimeout(() => {
-      try {
-        generateWithText(randomText, seedToUse, null);
+    try {
+      const result = createLogoResult(randomText, seedToUse, null);
+      setIsGenerating(true);
+      startSeedCrackSequence(result, () => {
+        commitLogoResult(result);
         if (limitCheck.ok) {
           finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, false);
         }
         setToast({ message: 'Logo generated successfully!', type: 'success' });
-        setSeedCrackValue(null);
-      } catch (error) {
-        console.error('Error generating logo:', error);
-        setToast({
-          message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.',
-          type: 'error',
-        });
-      } finally {
         setIsGenerating(false);
-      }
-    }, 1400);
+      });
+    } catch (error) {
+      console.error('Error generating logo:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.',
+        type: 'error',
+      });
+      setIsGenerating(false);
+    }
   };
 
   const handleRemixCast = () => {
@@ -1362,26 +1385,26 @@ export default function LogoGenerator() {
       return;
     }
 
-    setIsGenerating(true);
-    startSeedCrack(parsedSeed);
-    setTimeout(() => {
-      try {
-        const result = generateWithText(inputText.trim(), parsedSeed, selectedPreset);
+    try {
+      const result = createLogoResult(inputText.trim(), parsedSeed, selectedPreset);
+      setIsGenerating(true);
+      startSeedCrackSequence(result, () => {
+        commitLogoResult(result);
         finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, true);
         setToast({ message: 'Remix ready! Opening cast...', type: 'success' });
-        setSeedCrackValue(null);
         handleCastClick(result, parsedSeed);
-      } catch (error) {
-        console.error('Remix error:', error);
-        setToast({
-          message: error instanceof Error ? error.message : 'Failed to remix logo. Please try again.',
-          type: 'error',
-        });
-      } finally {
         setIsGenerating(false);
         setRemixMode(false);
-      }
-    }, 1400);
+      });
+    } catch (error) {
+      console.error('Remix error:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Failed to remix logo. Please try again.',
+        type: 'error',
+      });
+      setIsGenerating(false);
+      setRemixMode(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -2854,10 +2877,28 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 RANDOMIZE
               </button>
             </div>
-            {isGenerating && seedCrackValue && (
+            {isGenerating && seedCrackStage && (
               <div className="seed-crack" aria-live="polite">
-                <span className="seed-crack-label">Cracking seed</span>
-                <span className="seed-crack-value">{seedCrackValue}</span>
+                {seedCrackStage === 'rolling' && (
+                  <>
+                    <span className="seed-crack-label">Cracking seed</span>
+                    <div className="seed-icon" aria-hidden="true">
+                      <div className="seed-icon-half left" />
+                      <div className="seed-icon-half right" />
+                      <div className="seed-crack-line" />
+                    </div>
+                    <span className="seed-crack-stage">Stage 1/2</span>
+                  </>
+                )}
+                {seedCrackStage === 'ticket' && (
+                  <>
+                    <div className={`seed-ticket rarity-${(seedCrackRarity || 'COMMON').toLowerCase()}`}>
+                      <span className="seed-ticket-label">Seed ticket</span>
+                      <span className="seed-ticket-value">{seedCrackValue}</span>
+                    </div>
+                    <span className="seed-crack-stage">Stage 2/2</span>
+                  </>
+                )}
               </div>
             )}
             <div className="preset-group">
