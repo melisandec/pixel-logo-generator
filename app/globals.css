@@ -533,6 +533,12 @@ body {
   max-width: 100%;
 }
 
+.logo-image-wrapper {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
 .logo-image {
   -webkit-touch-callout: default;
   -webkit-user-select: none;
@@ -543,6 +549,29 @@ body {
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
   border: 2px solid var(--border-color);
+}
+
+.logo-download-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 2px solid var(--text-primary);
+  background: rgba(0, 0, 0, 0.7);
+  color: var(--text-primary);
+  font-size: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.25);
+}
+
+.logo-download-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .logo-image-reveal {

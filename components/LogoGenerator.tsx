@@ -1343,50 +1343,86 @@ export default function LogoGenerator() {
   const handleDownload = async () => {
     if (!logoResult) return;
     
-    const filename = `pixel-logo-${logoResult.config.text.replace(/\s+/g, '-')}-${logoResult.rarity.toLowerCase()}.png`;
     const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     try {
-      const response = await fetch(logoResult.dataUrl);
-      const blob = await response.blob();
-      const file = new File([blob], filename, { type: 'image/png' });
-
-      if (isMobileDevice) {
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `Pixel Logo: ${logoResult.config.text}`,
-            text: 'Save your pixel logo to Photos',
+      // In Farcaster mini-apps, downloads/web-share are blocked by sandbox.
+      // Use the SDK to open a safe, shareable image URL.
+      if (sdkReady) {
+        try {
+          const uploadResponse = await fetch('/api/logo-image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              dataUrl: logoResult.dataUrl,
+              text: logoResult.config.text,
+              seed: logoResult.seed,
+            }),
           });
-          setToast({ message: 'Use the share sheet to save to Photos.', type: 'success' });
-          return;
-        }
 
-        const objectUrl = URL.createObjectURL(blob);
-        window.open(objectUrl, '_blank', 'noopener,noreferrer');
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-        setToast({ message: 'Open the image and save it to your camera roll.', type: 'info' });
-        return;
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json();
+            if (uploadData.imageUrl) {
+              await sdk.actions.openUrl(uploadData.imageUrl);
+              setToast({
+                message: isMobileDevice
+                  ? 'Image opened. Long-press and select "Save Image" to save to Photos.'
+                  : 'Image opened. Right-click and select "Save Image As" to download.',
+                type: 'info',
+              });
+              return;
+            }
+          }
+        } catch (sdkError) {
+          console.log('SDK openUrl failed, falling back:', sdkError);
+        }
       }
 
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = objectUrl;
-      link.rel = 'noopener';
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      // Fallback: open data URL in a new window/tab
+      const objectUrl = logoResult.dataUrl;
+      const newWindow = window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      
+      if (newWindow) {
+        if (isMobileDevice) {
+          setToast({ 
+            message: 'Image opened. Long-press the image and select "Save Image" to save to Photos.', 
+            type: 'info' 
+          });
+        } else {
+          setToast({ 
+            message: 'Image opened. Right-click the image and select "Save Image As" to download.', 
+            type: 'info' 
+          });
+        }
+      } else {
+        // Popup blocked - show instructions
+        if (isMobileDevice) {
+          setToast({ 
+            message: 'Popup blocked. Long-press the logo image above and select "Save Image" or "Add to Photos".', 
+            type: 'info' 
+          });
+        } else {
+          setToast({ 
+            message: 'Popup blocked. Right-click the logo image above and select "Save Image As" to download.', 
+            type: 'info' 
+          });
+        }
+      }
     } catch (error) {
       console.error('Download error:', error);
-      setToast({
-        message: isMobileDevice
-          ? 'Failed to save image. Please try again.'
-          : 'Download failed. Check your browser download settings or allow automatic downloads, then try again.',
-        type: 'error',
-      });
+      if (isMobileDevice) {
+        setToast({ 
+          message: 'Long-press the logo image above and select "Save Image" or "Add to Photos".', 
+          type: 'info' 
+        });
+      } else {
+        setToast({ 
+          message: 'Right-click the logo image above and select "Save Image As" to download.', 
+          type: 'info' 
+        });
+      }
     }
   };
 
@@ -2766,17 +2802,27 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 </span>
               </button>
             </div>
-            <NextImage
-              key={`${logoResult.seed}-${logoResult.config.text}`}
-              src={logoResult.dataUrl}
-              alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
-              className="logo-image logo-image-reveal"
-              role="img"
-              aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity.${isMobile ? ' Long-press to save to camera roll.' : ''}`}
-              width={512}
-              height={512}
-              unoptimized
-            />
+            <div className="logo-image-wrapper">
+              <NextImage
+                key={`${logoResult.seed}-${logoResult.config.text}`}
+                src={logoResult.dataUrl}
+                alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
+                className="logo-image logo-image-reveal"
+                role="img"
+                aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity.${isMobile ? ' Long-press to save to camera roll.' : ''}`}
+                width={512}
+                height={512}
+                unoptimized
+              />
+              <button
+                type="button"
+                className="logo-download-button"
+                onClick={handleDownload}
+                aria-label="Open image to save"
+              >
+                ⬇
+              </button>
+            </div>
             <div className="logo-info">
               <button
                 className="how-it-works"
