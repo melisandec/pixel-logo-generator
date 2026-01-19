@@ -606,6 +606,10 @@ body {
   margin: 4px 0 2px;
   transform: scale(0.6);
   animation: seedGrow 0.65s ease-out forwards;
+  --seed-shake: 2px;
+  --seed-crack-offset: 0px;
+  --seed-glow-hue: 0deg;
+  --seed-bloom-angle: 28deg;
 }
 
 .seed-crack-shake {
@@ -650,28 +654,28 @@ body {
 .seed-crack-line {
   position: absolute;
   top: 6px;
-  left: 50%;
+  left: calc(50% + var(--seed-crack-offset));
   width: 2px;
-  transform: translateX(-50%);
+  height: calc(100% - 12px);
+  transform: translateX(-50%) scaleY(var(--seed-crack-scale, 0));
   background: rgba(0, 0, 0, 0.45);
   opacity: 1;
-  height: 0;
   transform-origin: top;
-  transition: height 0.35s ease-in;
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);
   border-radius: 2px;
 }
 
 .seed-crack-highlight {
   position: absolute;
   top: 6px;
-  left: 50%;
+  left: calc(50% + var(--seed-crack-offset));
   width: 1px;
-  transform: translateX(-50%);
+  height: calc(100% - 12px);
+  transform: translateX(-50%) scaleY(var(--seed-crack-scale, 0));
   background: rgba(200, 255, 200, 0.9);
   opacity: 0;
-  height: 0;
   transform-origin: top;
-  transition: height 0.35s ease-in, opacity 0.2s ease-in;
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.2s ease-in;
   box-shadow: 0 0 6px rgba(180, 255, 200, 0.8);
 }
 
@@ -683,47 +687,48 @@ body {
   opacity: 0;
   transition: opacity 0.2s ease-in;
   pointer-events: none;
+  filter: hue-rotate(var(--seed-glow-hue));
 }
 
 .seed-crack-icon.is-split .seed-crack-flap.left {
-  transform: rotate(-28deg) translateX(-4px);
+  transform: rotate(calc(var(--seed-bloom-angle) * -1)) translateX(-4px);
 }
 
 .seed-crack-icon.is-split .seed-crack-flap.right {
-  transform: rotate(28deg) translateX(4px);
+  transform: rotate(var(--seed-bloom-angle)) translateX(4px);
 }
 
 .seed-crack-icon.stage-stress .seed-crack-line {
-  height: 10%;
+  --seed-crack-scale: 0.1;
 }
 
 .seed-crack-icon.stage-crawl-1 .seed-crack-line {
-  height: 22%;
+  --seed-crack-scale: 0.22;
 }
 
 .seed-crack-icon.stage-crawl-2 .seed-crack-line {
-  height: 48%;
+  --seed-crack-scale: 0.48;
 }
 
 .seed-crack-icon.stage-fissure .seed-crack-line,
 .seed-crack-icon.stage-swell .seed-crack-line,
 .seed-crack-icon.stage-shake .seed-crack-line,
 .seed-crack-icon.stage-bloom .seed-crack-line {
-  height: calc(100% - 12px);
+  --seed-crack-scale: 1;
 }
 
 .seed-crack-icon.stage-stress .seed-crack-highlight {
-  height: 10%;
+  --seed-crack-scale: 0.1;
   opacity: 0.9;
 }
 
 .seed-crack-icon.stage-crawl-1 .seed-crack-highlight {
-  height: 22%;
+  --seed-crack-scale: 0.22;
   opacity: 0.9;
 }
 
 .seed-crack-icon.stage-crawl-2 .seed-crack-highlight {
-  height: 48%;
+  --seed-crack-scale: 0.48;
   opacity: 0.9;
 }
 
@@ -731,7 +736,7 @@ body {
 .seed-crack-icon.stage-swell .seed-crack-highlight,
 .seed-crack-icon.stage-shake .seed-crack-highlight,
 .seed-crack-icon.stage-bloom .seed-crack-highlight {
-  height: calc(100% - 12px);
+  --seed-crack-scale: 1;
   opacity: 0.9;
 }
 
@@ -795,7 +800,7 @@ body {
 }
 
 .seed-ticket.from-seed {
-  animation: seedTicketReveal 0.9s ease-out forwards;
+  animation: seedTicketReveal 1.2s ease-out forwards;
   opacity: 0;
   transform-origin: top center;
   overflow: hidden;
@@ -803,12 +808,12 @@ body {
 
 .seed-ticket.from-seed .seed-ticket-label {
   opacity: 0;
-  animation: seedTicketNumber 0.35s ease-out 0.4s forwards;
+  animation: seedTicketNumber 0.45s ease-out 0.6s forwards;
 }
 
 .seed-ticket.from-seed .seed-ticket-value {
   opacity: 0;
-  animation: seedTicketNumber 0.35s ease-out 0.55s forwards;
+  animation: seedTicketNumber 0.45s ease-out 0.75s forwards;
 }
 
 .seed-ticket.rarity-common {
@@ -901,16 +906,16 @@ body {
     transform: translateX(0);
   }
   20% {
-    transform: translateX(-2px);
+    transform: translateX(calc(var(--seed-shake) * -1));
   }
   40% {
-    transform: translateX(2px);
+    transform: translateX(var(--seed-shake));
   }
   60% {
-    transform: translateX(-2px);
+    transform: translateX(calc(var(--seed-shake) * -1));
   }
   80% {
-    transform: translateX(2px);
+    transform: translateX(var(--seed-shake));
   }
   100% {
     transform: translateX(0);

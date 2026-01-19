@@ -235,6 +235,12 @@ export default function LogoGenerator() {
     | null
   >(null);
   const [seedCrackRarity, setSeedCrackRarity] = useState<Rarity | null>(null);
+  const [seedCrackVariance, setSeedCrackVariance] = useState<{
+    shakeAmp: number;
+    crackOffset: number;
+    glowHue: number;
+    bloomAngle: number;
+  } | null>(null);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
   const [castPreviewText, setCastPreviewText] = useState<string>('');
@@ -423,6 +429,12 @@ export default function LogoGenerator() {
     setSeedCrackStage('dormant');
     setSeedCrackRarity(result.rarity);
     setSeedCrackValue('—');
+    setSeedCrackVariance({
+      shakeAmp: 2 * (1 + (Math.random() * 0.2 - 0.1)),
+      crackOffset: (Math.random() * 2 - 1),
+      glowHue: Math.random() * 10 - 5,
+      bloomAngle: 28 + (Math.random() * 6 - 3),
+    });
     if (seedCrackTimerRef.current) {
       window.clearInterval(seedCrackTimerRef.current);
       seedCrackTimerRef.current = null;
@@ -465,8 +477,9 @@ export default function LogoGenerator() {
       setSeedCrackStage(null);
       setSeedCrackValue(null);
       setSeedCrackRarity(null);
+      setSeedCrackVariance(null);
       onComplete();
-    }, 3000));
+    }, 3800));
   }, [clearSeedCrackSequence]);
 
   const saveLeaderboard = useCallback((items: LeaderboardEntry[]) => {
@@ -2928,6 +2941,20 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                       className={`seed-crack-icon stage-${seedCrackStage}${
                         seedCrackStage === 'bloom' ? ' is-split' : ''
                       }`}
+                      style={{
+                        ['--seed-shake' as any]: seedCrackVariance
+                          ? `${seedCrackVariance.shakeAmp.toFixed(2)}px`
+                          : undefined,
+                        ['--seed-crack-offset' as any]: seedCrackVariance
+                          ? `${seedCrackVariance.crackOffset.toFixed(2)}px`
+                          : undefined,
+                        ['--seed-glow-hue' as any]: seedCrackVariance
+                          ? `${seedCrackVariance.glowHue.toFixed(2)}deg`
+                          : undefined,
+                        ['--seed-bloom-angle' as any]: seedCrackVariance
+                          ? `${seedCrackVariance.bloomAngle.toFixed(2)}deg`
+                          : undefined,
+                      }}
                       aria-hidden="true"
                     >
                       <div className={`seed-crack-shake${seedCrackStage === 'shake' ? ' is-active' : ''}`}>
