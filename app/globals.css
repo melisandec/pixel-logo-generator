@@ -345,6 +345,23 @@ body {
   cursor: pointer;
 }
 
+.sound-toggle {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 8px;
+  padding: 2px 5px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.sound-toggle[aria-pressed="true"] {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
 .how-link:hover {
   border-color: var(--text-primary);
   color: var(--text-primary);

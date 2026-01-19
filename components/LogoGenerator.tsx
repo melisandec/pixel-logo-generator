@@ -228,6 +228,7 @@ export default function LogoGenerator() {
     title: string;
     subtitle: string;
   } | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [seedCrackValue, setSeedCrackValue] = useState<string | null>(null);
   const [seedCrackStage, setSeedCrackStage] = useState<
     | 'dormant'
@@ -432,88 +433,6 @@ export default function LogoGenerator() {
     setSeedCrackRarity(null);
   }, []);
 
-  const startSeedCrackSequence = useCallback((result: LogoResult, onComplete: () => void) => {
-    clearSeedCrackSequence();
-    setSeedCrackStage('dormant');
-    setSeedCrackRarity(result.rarity);
-    setSeedCrackValue('—');
-    const rarityMultiplier =
-      result.rarity === 'LEGENDARY' ? 1.6 : result.rarity === 'EPIC' ? 1.35 : result.rarity === 'RARE' ? 1.2 : 1;
-    setSeedCrackVariance({
-      shakeAmp: 2 * (1 + (Math.random() * 0.2 - 0.1)) * rarityMultiplier,
-      crackOffset: (Math.random() * 2 - 1),
-      glowHue: Math.random() * 10 - 5,
-      bloomAngle: 28 + (Math.random() * 6 - 3) + (result.rarity === 'LEGENDARY' ? 4 : 0),
-    });
-    if (seedCrackTimerRef.current) {
-      window.clearInterval(seedCrackTimerRef.current);
-      seedCrackTimerRef.current = null;
-    }
-
-    const pacingMultiplier =
-      result.rarity === 'LEGENDARY' ? 1.35 : result.rarity === 'EPIC' ? 1.15 : 1;
-    const scheduleStage = (delay: number, stage: typeof seedCrackStage) => {
-      seedCrackTimeoutsRef.current.push(window.setTimeout(() => setSeedCrackStage(stage), delay * pacingMultiplier));
-    };
-    scheduleStage(250, 'stress');
-    scheduleStage(550, 'crawl-1');
-    scheduleStage(900, 'crawl-2');
-    scheduleStage(1250, 'fissure');
-    scheduleStage(1550, 'swell');
-    scheduleStage(1800, 'shake');
-    scheduleStage(1900, 'pause');
-    scheduleStage(1980, 'bloom');
-
-    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('ticket');
-      setSeedCrackValue(String(result.seed));
-    }, 2400 * pacingMultiplier));
-
-    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage(null);
-      setSeedCrackValue(null);
-      setSeedCrackRarity(null);
-      setSeedCrackVariance(null);
-      onComplete();
-    }, 3800 * pacingMultiplier));
-
-    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('crawl-1');
-    }, 550));
-
-    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('crawl-2');
-    }, 900));
-
-    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('fissure');
-    }, 1250));
-
-    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('swell');
-    }, 1550));
-
-    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('shake');
-    }, 1800));
-
-    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('bloom');
-    }, 2050));
-
-    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('ticket');
-      setSeedCrackValue(String(result.seed));
-    }, 2400));
-
-    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage(null);
-      setSeedCrackValue(null);
-      setSeedCrackRarity(null);
-      setSeedCrackVariance(null);
-      onComplete();
-    }, 3800));
-  }, [clearSeedCrackSequence]);
 
   const saveLeaderboard = useCallback((items: LeaderboardEntry[]) => {
     try {
@@ -1150,6 +1069,141 @@ export default function LogoGenerator() {
     }
   }, [getTodayKey]);
 
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const getAudioContext = useCallback(() => {
+    if (audioContextRef.current) return audioContextRef.current;
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return null;
+    audioContextRef.current = new AudioContextClass();
+    return audioContextRef.current;
+  }, []);
+
+  const playCrackSound = useCallback(() => {
+    if (!soundEnabled) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 900;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.06;
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start();
+  }, [getAudioContext, soundEnabled]);
+
+  const playBloomSound = useCallback(() => {
+    if (!soundEnabled) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    const gain = ctx.createGain();
+    gain.gain.value = 0.0001;
+    osc.frequency.setValueAtTime(320, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.35);
+    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.45);
+  }, [getAudioContext, soundEnabled]);
+
+  const playTicketSound = useCallback(() => {
+    if (!soundEnabled) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(740, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.08);
+    gain.gain.value = 0.0001;
+    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  }, [getAudioContext, soundEnabled]);
+
+  const toggleSound = useCallback(() => {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('plf:sound', next ? 'on' : 'off');
+      } catch (error) {
+        console.error('Failed to store sound preference:', error);
+      }
+      return next;
+    });
+  }, []);
+
+  const startSeedCrackSequence = useCallback((result: LogoResult, onComplete: () => void) => {
+    clearSeedCrackSequence();
+    setSeedCrackStage('dormant');
+    setSeedCrackRarity(result.rarity);
+    setSeedCrackValue('—');
+    const rarityMultiplier =
+      result.rarity === 'LEGENDARY' ? 1.6 : result.rarity === 'EPIC' ? 1.35 : result.rarity === 'RARE' ? 1.2 : 1;
+    setSeedCrackVariance({
+      shakeAmp: 2 * (1 + (Math.random() * 0.2 - 0.1)) * rarityMultiplier,
+      crackOffset: (Math.random() * 2 - 1),
+      glowHue: Math.random() * 10 - 5,
+      bloomAngle: 28 + (Math.random() * 6 - 3) + (result.rarity === 'LEGENDARY' ? 4 : 0),
+    });
+    if (seedCrackTimerRef.current) {
+      window.clearInterval(seedCrackTimerRef.current);
+      seedCrackTimerRef.current = null;
+    }
+
+    const pacingMultiplier =
+      (result.rarity === 'LEGENDARY' ? 1.35 : result.rarity === 'EPIC' ? 1.15 : 1) * 1.15;
+    const scheduleStage = (delay: number, stage: typeof seedCrackStage) => {
+      seedCrackTimeoutsRef.current.push(window.setTimeout(() => setSeedCrackStage(stage), delay * pacingMultiplier));
+    };
+    scheduleStage(250, 'stress');
+    scheduleStage(550, 'crawl-1');
+    scheduleStage(900, 'crawl-2');
+    scheduleStage(1250, 'fissure');
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      playCrackSound();
+    }, 1250 * pacingMultiplier));
+    scheduleStage(1550, 'swell');
+    scheduleStage(1800, 'shake');
+    scheduleStage(1900, 'pause');
+    scheduleStage(1980, 'bloom');
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      playBloomSound();
+    }, 1980 * pacingMultiplier));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      setSeedCrackStage('ticket');
+      setSeedCrackValue(String(result.seed));
+    }, 2400 * pacingMultiplier));
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      playTicketSound();
+    }, 2400 * pacingMultiplier));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      setSeedCrackStage(null);
+      setSeedCrackValue(null);
+      setSeedCrackRarity(null);
+      setSeedCrackVariance(null);
+      onComplete();
+    }, 3800 * pacingMultiplier));
+  }, [clearSeedCrackSequence, playBloomSound, playCrackSound, playTicketSound]);
+
   const readMoments = useCallback(() => {
     try {
       const stored = localStorage.getItem('plf:moments');
@@ -1281,6 +1335,18 @@ export default function LogoGenerator() {
       }
     } catch (error) {
       console.error('Failed to read boot state:', error);
+    }
+
+    // Load sound preference (default on for first-time)
+    try {
+      const storedSound = localStorage.getItem('plf:sound');
+      if (storedSound === 'off') {
+        setSoundEnabled(false);
+      } else if (!storedSound) {
+        localStorage.setItem('plf:sound', 'on');
+      }
+    } catch (error) {
+      console.error('Failed to read sound preference:', error);
     }
     
     // Update time until reset every minute
@@ -3218,6 +3284,15 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               aria-label="How it works"
             >
               How it works
+            </button>
+            <button
+              type="button"
+              className="sound-toggle"
+              onClick={toggleSound}
+              aria-pressed={soundEnabled}
+              aria-label={`Sound ${soundEnabled ? 'on' : 'off'}`}
+            >
+              Sound: {soundEnabled ? 'On' : 'Off'}
             </button>
             <div className="button-group">
               <button
