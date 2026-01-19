@@ -534,6 +534,9 @@ body {
 }
 
 .logo-image {
+  -webkit-touch-callout: default;
+  -webkit-user-select: none;
+  user-select: none;
   max-width: 100%;
   height: auto;
   image-rendering: pixelated;

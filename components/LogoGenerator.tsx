@@ -2823,7 +2823,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
               className="logo-image logo-image-reveal"
               role="img"
-              aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity. Long-press to save on mobile.`}
+              aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity.${isMobile ? ' Long-press to save to camera roll.' : ''}`}
               width={512}
               height={512}
               unoptimized
@@ -2880,15 +2880,17 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 </button>
               </div>
               <div className="logo-actions-secondary">
-                <div className="action-row action-row-two">
-                  <button 
-                    onClick={handleDownload} 
-                    className="action-button" 
-                    disabled={isGenerating}
-                    aria-label={isMobile ? "Save logo to camera roll" : "Download logo as PNG"}
-                  >
-                    {isMobile ? 'SAVE TO CAMERA' : 'DOWNLOAD PNG'}
-                  </button>
+                <div className={`action-row ${!isMobile ? 'action-row-two' : ''}`}>
+                  {!isMobile && (
+                    <button 
+                      onClick={handleDownload} 
+                      className="action-button" 
+                      disabled={isGenerating}
+                      aria-label="Download logo as PNG"
+                    >
+                      DOWNLOAD PNG
+                    </button>
+                  )}
                   <button 
                     onClick={handleShare} 
                     className="action-button"
