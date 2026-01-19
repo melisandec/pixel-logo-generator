@@ -183,14 +183,22 @@ const PRESET_SWATCHES: Record<string, string[]> = {
   vaporwave: ['#ff006e', '#8338ec', '#3a86ff'],
   gameboy: ['#0f380f', '#306230', '#9bbc0f'],
 };
-const CHALLENGE_PROMPTS = [
-  'Nike',
-  'Adidas',
-  'Apple',
-  'Tesla',
-  'Gucci',
-  'Spotify',
+const ALL_CHALLENGE_PROMPTS = [
+  { name: 'Nike', description: 'Generate a logo for Nike' },
+  { name: 'Adidas', description: 'Generate a logo for Adidas' },
+  { name: 'Apple', description: 'Generate a logo for Apple' },
+  { name: 'Tesla', description: 'Generate a logo for Tesla' },
+  { name: 'Gucci', description: 'Generate a logo for Gucci' },
+  { name: 'Spotify', description: 'Generate a logo for Spotify' },
+  { name: 'Meta', description: 'Generate a logo for Meta' },
+  { name: 'Sony', description: 'Generate a logo for Sony' },
+  { name: 'Uber', description: 'Generate a logo for Uber' },
+  { name: 'BMW', description: 'Generate a logo for BMW' },
+  { name: 'Dior', description: 'Generate a logo for Dior' },
+  { name: 'Amazon', description: 'Generate a logo for Amazon' },
+  { name: 'Nintendo', description: 'Generate a logo for Nintendo' },
 ] as const;
+
 const DAILY_PROMPTS = [
   'Meta',
   'Sony',
@@ -251,6 +259,7 @@ export default function LogoGenerator() {
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [challengeDone, setChallengeDone] = useState<Record<string, boolean>>({});
   const [challengeDays, setChallengeDays] = useState<string[]>([]);
+  const [dailyChallenges, setDailyChallenges] = useState<typeof ALL_CHALLENGE_PROMPTS[number][]>([]);
   const [timeUntilReset, setTimeUntilReset] = useState<string>('');
   const [challengeHistory, setChallengeHistory] = useState<Array<{ date: string; completed: boolean }>>([]);
   const [userBadges, setUserBadges] = useState<Array<{ badgeType: string; name: string; description: string; icon: string; rarity: string; earnedAt: string }>>([]);
@@ -282,6 +291,24 @@ export default function LogoGenerator() {
       hash = (hash * 31 + dayKey.charCodeAt(i)) % DAILY_PROMPTS.length;
     }
     return DAILY_PROMPTS[hash];
+  }, [getTodayKey]);
+
+  const getDailyChallenges = useCallback(() => {
+    const dayKey = getTodayKey();
+    // Use day key to deterministically select 6 challenges for today
+    let hash = 0;
+    for (let i = 0; i < dayKey.length; i += 1) {
+      hash = (hash * 31 + dayKey.charCodeAt(i)) % ALL_CHALLENGE_PROMPTS.length;
+    }
+    
+    // Select 6 challenges starting from the hash position, wrapping around if needed
+    const challenges: typeof ALL_CHALLENGE_PROMPTS[number][] = [];
+    for (let i = 0; i < 6; i += 1) {
+      const index = (hash + i) % ALL_CHALLENGE_PROMPTS.length;
+      challenges.push(ALL_CHALLENGE_PROMPTS[index]);
+    }
+    
+    return challenges;
   }, [getTodayKey]);
 
   const getChallengeStreak = useCallback((days: string[]) => {
@@ -889,19 +916,47 @@ export default function LogoGenerator() {
     setChallengeDone((prev) => {
       const next = { ...prev, [prompt]: !prev[prompt] };
       saveChallenge(next);
-      const allDone = CHALLENGE_PROMPTS.every((item) => next[item]);
+      // Get current daily challenges to check completion
+      const todayChallenges = getDailyChallenges();
+      const allDone = todayChallenges.length > 0 && todayChallenges.every((item: typeof ALL_CHALLENGE_PROMPTS[number]) => next[item.name]);
       if (allDone) {
         const todayKey = getTodayKey();
         setChallengeDays((daysPrev) => {
           if (daysPrev.includes(todayKey)) return daysPrev;
           const updated = [...daysPrev, todayKey];
           saveChallengeDays(updated);
+          
+          // Award daily champion badge
+          if (userInfo?.username) {
+            try {
+              fetch('/api/badges', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: userInfo.username,
+                  badgeType: 'daily_champion',
+                }),
+              }).catch(() => {});
+            } catch (error) {
+              console.error('Failed to award badge:', error);
+            }
+          }
+          
+          // Save to challenge history
+          saveChallengeHistory(todayKey, true);
+          
           return updated;
         });
+      } else {
+        // Update history even if not complete
+        const todayKey = getTodayKey();
+        const completedCount = Object.values(next).filter(Boolean).length;
+        const todayChallenges = getDailyChallenges();
+        saveChallengeHistory(todayKey, completedCount === todayChallenges.length);
       }
       return next;
     });
-  }, [getTodayKey, saveChallenge, saveChallengeDays]);
+  }, [getTodayKey, getDailyChallenges, saveChallenge, saveChallengeDays, saveChallengeHistory, userInfo?.username]);
 
   const getPresetConfig = useCallback((presetKey?: string | null) => {
     if (!presetKey) return undefined;
@@ -971,6 +1026,10 @@ export default function LogoGenerator() {
     loadChallengeDays();
     loadChallengeHistory();
     
+    // Set daily challenges based on today's date
+    const challenges = getDailyChallenges();
+    setDailyChallenges(challenges);
+    
     // Update time until reset every minute
     const updateTimeUntilReset = () => {
       setTimeUntilReset(calculateTimeUntilReset());
@@ -981,18 +1040,24 @@ export default function LogoGenerator() {
     // Check if challenge should reset (new day)
     const todayKey = getTodayKey();
     const storedChallenge = localStorage.getItem('plf:challenge');
-    if (storedChallenge) {
+    const lastChallengeDate = localStorage.getItem('plf:challengeDate');
+    
+    if (storedChallenge && lastChallengeDate) {
       try {
         const parsed = JSON.parse(storedChallenge) as Record<string, boolean>;
-        const lastChallengeDate = localStorage.getItem('plf:challengeDate');
         if (lastChallengeDate !== todayKey) {
           // New day - reset challenge
           setChallengeDone({});
           saveChallenge({});
           localStorage.setItem('plf:challengeDate', todayKey);
+        } else {
+          // Same day - load existing progress
+          setChallengeDone(parsed);
         }
       } catch (error) {
         console.error('Failed to check challenge reset:', error);
+        setChallengeDone({});
+        localStorage.setItem('plf:challengeDate', todayKey);
       }
     } else {
       localStorage.setItem('plf:challengeDate', todayKey);
@@ -1014,6 +1079,7 @@ export default function LogoGenerator() {
     loadFavorites,
     calculateTimeUntilReset,
     getTodayKey,
+    getDailyChallenges,
     saveChallenge,
     saveChallengeHistory,
     loadGallery,
@@ -2413,14 +2479,14 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
     <div className="challenge">
       <div className="leaderboard-title">Mini‑Series Challenge</div>
       <div className="leaderboard-status">
-        Generate logos for each prompt, then cast your favorites.
+        Complete all 6 prompts: Generate a logo for each brand below, then cast your favorites to earn the Daily Champion badge!
       </div>
       <div className="challenge-stats">
         <div className="challenge-streak">
           🔥 Streak: {getChallengeStreak(challengeDays)} day{getChallengeStreak(challengeDays) === 1 ? '' : 's'}
         </div>
         <div className="challenge-progress">
-          Progress: {Object.values(challengeDone).filter(Boolean).length} / {CHALLENGE_PROMPTS.length}
+          Progress: {Object.values(challengeDone).filter(Boolean).length} / {dailyChallenges.length} prompts
         </div>
       </div>
       {timeUntilReset && (
@@ -2432,36 +2498,48 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
         <div 
           className="challenge-progress-fill"
           style={{ 
-            width: `${(Object.values(challengeDone).filter(Boolean).length / CHALLENGE_PROMPTS.length) * 100}%` 
+            width: `${dailyChallenges.length > 0 ? (Object.values(challengeDone).filter(Boolean).length / dailyChallenges.length) * 100 : 0}%` 
           }}
         />
       </div>
-      <div className="challenge-list">
-        {CHALLENGE_PROMPTS.map((prompt) => (
-          <div key={prompt} className={`challenge-item ${challengeDone[prompt] ? 'completed' : ''}`}>
-            <label className="challenge-label">
-              <input
-                type="checkbox"
-                checked={!!challengeDone[prompt]}
-                onChange={() => toggleChallengeDone(prompt)}
-              />
-              <span>{prompt}</span>
-              {challengeDone[prompt] && <span className="challenge-check">✓</span>}
-            </label>
-            <button
-              type="button"
-              className="challenge-button"
-              onClick={() => {
-                setInputText(prompt);
-                setActiveTab('home');
-                // Note: Seed field remains available - you can use any seed with prompts
-              }}
-            >
-              Use prompt
-            </button>
-          </div>
-        ))}
-      </div>
+      {dailyChallenges.length > 0 ? (
+        <div className="challenge-list">
+          {dailyChallenges.map((prompt: typeof ALL_CHALLENGE_PROMPTS[number]) => {
+          const promptName = prompt.name;
+          return (
+            <div key={promptName} className={`challenge-item ${challengeDone[promptName] ? 'completed' : ''}`}>
+              <div className="challenge-item-content">
+                <label className="challenge-label">
+                  <input
+                    type="checkbox"
+                    checked={!!challengeDone[promptName]}
+                    onChange={() => toggleChallengeDone(promptName)}
+                  />
+                  <div className="challenge-info">
+                    <span className="challenge-name">{promptName}</span>
+                    <span className="challenge-description">{prompt.description}</span>
+                  </div>
+                  {challengeDone[promptName] && <span className="challenge-check">✓</span>}
+                </label>
+              </div>
+              <button
+                type="button"
+                className="challenge-button"
+                onClick={() => {
+                  setInputText(promptName);
+                  setActiveTab('home');
+                  // Note: Seed field remains available - you can use any seed with prompts
+                }}
+              >
+                Generate
+              </button>
+            </div>
+          );
+          })}
+        </div>
+      ) : (
+        <div className="challenge-loading">Loading today&apos;s challenges...</div>
+      )}
       {Object.values(challengeDone).every(Boolean) && (
         <div className="challenge-complete">
           🎉 Challenge complete! You earned the Daily Champion badge! ✅
