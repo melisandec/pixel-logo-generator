@@ -222,7 +222,9 @@ export default function LogoGenerator() {
   const [userInfo, setUserInfo] = useState<{ fid?: number; username?: string } | null>(null);
   const [showCastPreview, setShowCastPreview] = useState(false);
   const [seedCrackValue, setSeedCrackValue] = useState<string | null>(null);
-  const [seedCrackStage, setSeedCrackStage] = useState<'rolling' | 'ticket' | null>(null);
+  const [seedCrackStage, setSeedCrackStage] = useState<
+    'crack-1' | 'crack-2' | 'crack-3' | 'shake' | 'split' | 'ticket' | null
+  >(null);
   const [seedCrackRarity, setSeedCrackRarity] = useState<Rarity | null>(null);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
@@ -409,29 +411,41 @@ export default function LogoGenerator() {
 
   const startSeedCrackSequence = useCallback((result: LogoResult, onComplete: () => void) => {
     clearSeedCrackSequence();
-    setSeedCrackStage('rolling');
+    setSeedCrackStage('crack-1');
     setSeedCrackRarity(result.rarity);
     setSeedCrackValue('—');
-    seedCrackTimerRef.current = window.setInterval(() => {
-      const nextValue = Math.floor(Math.random() * 2147483647);
-      setSeedCrackValue(String(nextValue));
-    }, 70);
+    if (seedCrackTimerRef.current) {
+      window.clearInterval(seedCrackTimerRef.current);
+      seedCrackTimerRef.current = null;
+    }
 
     seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      if (seedCrackTimerRef.current) {
-        window.clearInterval(seedCrackTimerRef.current);
-        seedCrackTimerRef.current = null;
-      }
+      setSeedCrackStage('crack-2');
+    }, 500));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      setSeedCrackStage('crack-3');
+    }, 1000));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      setSeedCrackStage('shake');
+    }, 1500));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      setSeedCrackStage('split');
+    }, 2000));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
       setSeedCrackStage('ticket');
       setSeedCrackValue(String(result.seed));
-    }, 850));
+    }, 2400));
 
     seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
       setSeedCrackStage(null);
       setSeedCrackValue(null);
       setSeedCrackRarity(null);
       onComplete();
-    }, 1550));
+    }, 3000));
   }, [clearSeedCrackSequence]);
 
   const saveLeaderboard = useCallback((items: LeaderboardEntry[]) => {
@@ -2879,17 +2893,30 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
             </div>
             {isGenerating && seedCrackStage && (
               <div className="seed-crack" aria-live="polite">
-                {seedCrackStage === 'rolling' && (
+                {(seedCrackStage === 'crack-1' ||
+                  seedCrackStage === 'crack-2' ||
+                  seedCrackStage === 'crack-3' ||
+                  seedCrackStage === 'shake' ||
+                  seedCrackStage === 'split') && (
                   <>
                     <span className="seed-crack-label">Cracking seed</span>
-                    <div className="seed-crack-icon" aria-hidden="true">
-                      <div className="seed-crack-shake">
+                    <div
+                      className={`seed-crack-icon stage-${seedCrackStage}${seedCrackStage === 'split' ? ' is-split' : ''}`}
+                      aria-hidden="true"
+                    >
+                      <div className={`seed-crack-shake${seedCrackStage === 'shake' ? ' is-active' : ''}`}>
                         <div className="seed-crack-half left" />
                         <div className="seed-crack-half right" />
                         <div className="seed-crack-line" />
                       </div>
                     </div>
-                    <span className="seed-crack-stage">Stage 1/2</span>
+                    <span className="seed-crack-stage">
+                      {seedCrackStage === 'crack-1' && 'Stage 1/6'}
+                      {seedCrackStage === 'crack-2' && 'Stage 2/6'}
+                      {seedCrackStage === 'crack-3' && 'Stage 3/6'}
+                      {seedCrackStage === 'shake' && 'Stage 4/6'}
+                      {seedCrackStage === 'split' && 'Stage 5/6'}
+                    </span>
                   </>
                 )}
                 {seedCrackStage === 'ticket' && (
@@ -2898,7 +2925,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                       <span className="seed-ticket-label">Seed ticket</span>
                       <span className="seed-ticket-value">{seedCrackValue}</span>
                     </div>
-                    <span className="seed-crack-stage">Stage 2/2</span>
+                    <span className="seed-crack-stage">Stage 6/6</span>
                   </>
                 )}
               </div>
