@@ -69,9 +69,9 @@ export async function GET(request: Request) {
 
       // Fetch entry details for winners
       const winnersWithDetails = await Promise.all(
-        pastWinners.map(async (winner) => {
+        pastWinners.map(async (winner: any) => {
           const dateKey = winner.date.toISOString().split('T')[0];
-          const entries = [];
+          const entries: any[] = [];
           
           if (winner.winner1EntryId) {
             const entry1 = await prisma.leaderboardEntry.findUnique({
