@@ -574,6 +574,27 @@ body {
   color: var(--accent);
 }
 
+.seed-crack {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.seed-crack-label {
+  color: var(--text-secondary);
+}
+
+.seed-crack-value {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
 .rarity-sparkle {
   position: absolute;
   inset: 0;

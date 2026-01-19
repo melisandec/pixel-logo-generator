@@ -221,6 +221,7 @@ export default function LogoGenerator() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [userInfo, setUserInfo] = useState<{ fid?: number; username?: string } | null>(null);
   const [showCastPreview, setShowCastPreview] = useState(false);
+  const [seedCrackValue, setSeedCrackValue] = useState<string | null>(null);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [castPreviewImage, setCastPreviewImage] = useState<string | null>(null);
   const [castPreviewText, setCastPreviewText] = useState<string>('');
@@ -388,6 +389,32 @@ export default function LogoGenerator() {
     }
     setTimeout(() => callback(), 200);
   }, []);
+
+  const seedCrackTimerRef = useRef<number | null>(null);
+
+  const clearSeedCrackTimer = useCallback(() => {
+    if (seedCrackTimerRef.current) {
+      window.clearInterval(seedCrackTimerRef.current);
+      seedCrackTimerRef.current = null;
+    }
+  }, []);
+
+  const startSeedCrack = useCallback((finalSeed: number) => {
+    clearSeedCrackTimer();
+    setSeedCrackValue('—');
+    const steps = 14;
+    let tick = 0;
+    seedCrackTimerRef.current = window.setInterval(() => {
+      tick += 1;
+      if (tick < steps) {
+        const nextValue = Math.floor(Math.random() * 2147483647);
+        setSeedCrackValue(String(nextValue));
+        return;
+      }
+      setSeedCrackValue(String(finalSeed));
+      clearSeedCrackTimer();
+    }, 80);
+  }, [clearSeedCrackTimer]);
 
   const saveLeaderboard = useCallback((items: LeaderboardEntry[]) => {
     try {
@@ -1138,27 +1165,33 @@ export default function LogoGenerator() {
       const seed = seedParam ? parseInt(seedParam, 10) : undefined;
       
       // Auto-generate if we have text
+      const seedToUse = seed ?? Math.floor(Math.random() * 2147483647);
       setIsGenerating(true);
+      startSeedCrack(seedToUse);
       setTimeout(() => {
         try {
-          generateWithText(textParam, seed, selectedPreset);
+          generateWithText(textParam, seedToUse, selectedPreset);
           if (limitCheck.ok) {
             finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, !!seedParam);
           }
+          setSeedCrackValue(null);
         } catch (error) {
           console.error('Error loading logo from URL:', error);
           setToast({ 
             message: 'Failed to load logo from URL. Please try generating manually.', 
             type: 'error' 
           });
+        } finally {
+          setIsGenerating(false);
         }
-      }, 100);
+      }, 1400);
     }
   }, [
     checkDailyLimits,
     finalizeDailyLimit,
     generateWithText,
     selectedPreset,
+    startSeedCrack,
   ]);
 
   useEffect(() => {
@@ -1241,22 +1274,27 @@ export default function LogoGenerator() {
       setSeedError('');
     }
 
+    const seedToUse = seed ?? Math.floor(Math.random() * 2147483647);
     setIsGenerating(true);
+    startSeedCrack(seedToUse);
     setTimeout(() => {
       try {
-        generateWithText(inputText.trim(), seed, selectedPreset);
+        generateWithText(inputText.trim(), seedToUse, selectedPreset);
         if (limitCheck.ok) {
           finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, !!seed);
         }
         setToast({ message: 'Logo generated successfully!', type: 'success' });
+        setSeedCrackValue(null);
       } catch (error) {
         console.error('Error generating logo:', error);
         setToast({ 
           message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.', 
           type: 'error' 
         });
+      } finally {
+        setIsGenerating(false);
       }
-    }, 100);
+    }, 1400);
   };
 
   const handleRandomize = () => {
@@ -1273,22 +1311,27 @@ export default function LogoGenerator() {
       return;
     }
 
+    const seedToUse = Math.floor(Math.random() * 2147483647);
     setIsGenerating(true);
+    startSeedCrack(seedToUse);
     setTimeout(() => {
       try {
-        generateWithText(randomText, undefined, null);
+        generateWithText(randomText, seedToUse, null);
         if (limitCheck.ok) {
           finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, false);
         }
         setToast({ message: 'Logo generated successfully!', type: 'success' });
+        setSeedCrackValue(null);
       } catch (error) {
         console.error('Error generating logo:', error);
         setToast({
           message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.',
           type: 'error',
         });
+      } finally {
+        setIsGenerating(false);
       }
-    }, 100);
+    }, 1400);
   };
 
   const handleRemixCast = () => {
@@ -1320,11 +1363,13 @@ export default function LogoGenerator() {
     }
 
     setIsGenerating(true);
+    startSeedCrack(parsedSeed);
     setTimeout(() => {
       try {
         const result = generateWithText(inputText.trim(), parsedSeed, selectedPreset);
         finalizeDailyLimit(limitCheck.normalizedText, limitCheck.todayState, true);
         setToast({ message: 'Remix ready! Opening cast...', type: 'success' });
+        setSeedCrackValue(null);
         handleCastClick(result, parsedSeed);
       } catch (error) {
         console.error('Remix error:', error);
@@ -1333,9 +1378,10 @@ export default function LogoGenerator() {
           type: 'error',
         });
       } finally {
+        setIsGenerating(false);
         setRemixMode(false);
       }
-    }, 100);
+    }, 1400);
   };
 
   const handleDownload = async () => {
@@ -2808,6 +2854,12 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 RANDOMIZE
               </button>
             </div>
+            {isGenerating && seedCrackValue && (
+              <div className="seed-crack" aria-live="polite">
+                <span className="seed-crack-label">Cracking seed</span>
+                <span className="seed-crack-value">{seedCrackValue}</span>
+              </div>
+            )}
             <div className="preset-group">
               <div className="preset-title">Style presets</div>
               <div className="preset-list">
