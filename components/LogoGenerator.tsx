@@ -1353,21 +1353,34 @@ export default function LogoGenerator() {
 
       if (isMobileDevice) {
         // Mobile: Use Web Share API to open native save dialog
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        if (navigator.share) {
           try {
+            // Check if we can share files
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                files: [file],
+                title: `Pixel Logo: ${logoResult.config.text}`,
+                text: 'Save your pixel logo',
+              });
+              // Only show success if share actually opened
+              setToast({ message: 'Choose where to save the image.', type: 'success' });
+              return;
+            }
+            // If canShare is not available, try sharing without files
             await navigator.share({
-              files: [file],
               title: `Pixel Logo: ${logoResult.config.text}`,
               text: 'Save your pixel logo',
+              url: logoResult.dataUrl,
             });
             setToast({ message: 'Choose where to save the image.', type: 'success' });
             return;
           } catch (shareError: any) {
-            // User cancelled - that's fine, just return
+            // User cancelled - that's fine, just return silently
             if (shareError.name === 'AbortError') {
               return;
             }
             console.log('Share API failed, trying fallback:', shareError);
+            // Continue to fallback below
           }
         }
 
@@ -1409,12 +1422,29 @@ export default function LogoGenerator() {
       link.href = objectUrl;
       link.rel = 'noopener';
       link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       
-      setToast({ message: 'Image downloaded!', type: 'success' });
+      // Ensure the link is in the DOM before clicking
+      document.body.appendChild(link);
+      
+      // Use a more reliable click method
+      const clickEvent = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      });
+      
+      link.dispatchEvent(clickEvent);
+      
+      // Small delay before cleanup to ensure download starts
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+      }, 100);
+      
+      // Only show success after a brief delay to ensure download actually started
+      setTimeout(() => {
+        setToast({ message: 'Image downloaded!', type: 'success' });
+      }, 200);
     } catch (error) {
       console.error('Download error:', error);
       setToast({
