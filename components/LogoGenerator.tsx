@@ -2882,10 +2882,12 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 {seedCrackStage === 'rolling' && (
                   <>
                     <span className="seed-crack-label">Cracking seed</span>
-                    <div className="seed-icon" aria-hidden="true">
-                      <div className="seed-icon-half left" />
-                      <div className="seed-icon-half right" />
-                      <div className="seed-crack-line" />
+                    <div className="seed-crack-icon" aria-hidden="true">
+                      <div className="seed-crack-shake">
+                        <div className="seed-crack-half left" />
+                        <div className="seed-crack-half right" />
+                        <div className="seed-crack-line" />
+                      </div>
                     </div>
                     <span className="seed-crack-stage">Stage 1/2</span>
                   </>
