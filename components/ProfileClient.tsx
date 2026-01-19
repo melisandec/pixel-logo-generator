@@ -28,6 +28,13 @@ type UserProfile = {
   entries: LeaderboardEntry[];
 };
 
+const buildWarpcastComposeUrl = (text: string, embeds?: string[]) => {
+  const params = new URLSearchParams();
+  params.set('text', text);
+  (embeds ?? []).slice(0, 2).forEach((embed) => params.append('embeds[]', embed));
+  return `https://warpcast.com/~/compose?${params.toString()}`;
+};
+
 const PRESETS = [
   { key: 'arcade', label: 'Arcade' },
   { key: 'vaporwave', label: 'Vaporwave' },
@@ -130,10 +137,7 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
   const handleCastBest = () => {
     if (!profile.best) return;
     const text = `My best pixel logo: "${profile.best.text}"`;
-    const base = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`;
-    const url = profile.best.imageUrl
-      ? `${base}&embeds[]=${encodeURIComponent(profile.best.imageUrl)}`
-      : base;
+    const url = buildWarpcastComposeUrl(text, profile.best.imageUrl ? [profile.best.imageUrl] : undefined);
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -158,10 +162,7 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
     } catch (error) {
       console.error('Share collection via SDK failed:', error);
     }
-    let composeUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`;
-    embeds.forEach((embed) => {
-      composeUrl += `&embeds[]=${encodeURIComponent(embed)}`;
-    });
+    const composeUrl = buildWarpcastComposeUrl(text, embeds);
     const opened = window.open(composeUrl, '_blank', 'noopener,noreferrer');
     if (!opened) {
       window.location.href = composeUrl;

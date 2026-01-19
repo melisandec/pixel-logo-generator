@@ -57,6 +57,15 @@ type UserProfile = {
   entries: LeaderboardEntry[];
 };
 
+const buildWarpcastComposeUrl = (text: string, embeds?: string[], channelKey?: string, parentCastHash?: string) => {
+  const params = new URLSearchParams();
+  params.set('text', text);
+  (embeds ?? []).slice(0, 2).forEach((embed) => params.append('embeds[]', embed));
+  if (channelKey) params.set('channelKey', channelKey);
+  if (parentCastHash) params.set('parentCastHash', parentCastHash);
+  return `https://warpcast.com/~/compose?${params.toString()}`;
+};
+
 
 const TRIES_PER_DAY = 3;
 const RANDOM_WORDS = [
@@ -1248,7 +1257,7 @@ export default function LogoGenerator() {
     } catch (error) {
       console.error('Share moment via SDK failed:', error);
     }
-    const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`;
+    const url = buildWarpcastComposeUrl(text);
     window.open(url, '_blank', 'noopener,noreferrer');
   }, [activeMoment, sdkReady]);
 
@@ -1928,10 +1937,7 @@ export default function LogoGenerator() {
         console.error('Warpcast share via SDK failed:', error);
       }
     }
-    let composeUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`;
-    embeds.forEach((embed) => {
-      composeUrl += `&embeds[]=${encodeURIComponent(embed)}`;
-    });
+    const composeUrl = buildWarpcastComposeUrl(shareText, embeds);
     const opened = window.open(composeUrl, '_blank', 'noopener,noreferrer');
     if (!opened) {
       window.location.href = composeUrl;
@@ -2185,9 +2191,10 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
 `;
         const castText = textOverride?.trim() ? textOverride : defaultText;
         
-        const warpcastUrl = castImageUrl
-          ? `https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}&embeds[]=${encodeURIComponent(castImageUrl)}`
-          : `https://warpcast.com/~/compose?text=${encodeURIComponent(castText)}`;
+        const warpcastUrl = buildWarpcastComposeUrl(
+          castText,
+          castImageUrl ? [castImageUrl] : undefined
+        );
         window.open(warpcastUrl, '_blank');
         setToast({ message: 'Opening Warpcast to compose cast...', type: 'info' });
       }
