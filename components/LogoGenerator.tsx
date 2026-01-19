@@ -1353,53 +1353,87 @@ export default function LogoGenerator() {
 
       if (isMobileDevice) {
         // Mobile: Use Web Share API to open native save dialog
+        console.log('Mobile device detected, attempting Web Share API...');
+        console.log('navigator.share available:', !!navigator.share);
+        console.log('navigator.canShare available:', !!navigator.canShare);
+        
         if (navigator.share) {
           try {
-            // First try with files if supported
-            let shareSucceeded = false;
+            // Try file sharing first (most reliable)
+            let shareAttempted = false;
+            
             if (navigator.canShare) {
               try {
-                if (navigator.canShare({ files: [file] })) {
+                const canShareFiles = navigator.canShare({ files: [file] });
+                console.log('canShare files check:', canShareFiles);
+                
+                if (canShareFiles) {
+                  console.log('Attempting to share file...');
+                  shareAttempted = true;
                   await navigator.share({
                     files: [file],
                     title: `Pixel Logo: ${logoResult.config.text}`,
                     text: 'Save your pixel logo',
                   });
-                  shareSucceeded = true;
+                  console.log('File share succeeded!');
+                  setToast({ message: 'Choose where to save the image.', type: 'success' });
+                  return;
                 }
-              } catch (canShareError) {
-                // canShare check failed, try without it
-                console.log('canShare check failed:', canShareError);
+              } catch (canShareError: any) {
+                console.log('canShare check error:', canShareError);
+                // Continue to try sharing anyway
               }
             }
             
-            // If file sharing didn't work, try without files
-            if (!shareSucceeded) {
+            // If canShare check failed or returned false, try sharing file directly
+            if (!shareAttempted) {
               try {
+                console.log('Attempting to share file without canShare check...');
+                shareAttempted = true;
                 await navigator.share({
+                  files: [file],
                   title: `Pixel Logo: ${logoResult.config.text}`,
                   text: 'Save your pixel logo',
-                  url: logoResult.dataUrl,
                 });
-                shareSucceeded = true;
-              } catch (urlShareError) {
-                console.log('URL share failed:', urlShareError);
+                console.log('File share succeeded (no canShare check)!');
+                setToast({ message: 'Choose where to save the image.', type: 'success' });
+                return;
+              } catch (fileShareError: any) {
+                console.log('File share failed:', fileShareError);
+                // Continue to try URL sharing
               }
             }
             
-            // Only show success if share actually opened
-            if (shareSucceeded) {
+            // Fallback: Try sharing with URL (less ideal but might work)
+            try {
+              console.log('Attempting to share URL...');
+              await navigator.share({
+                title: `Pixel Logo: ${logoResult.config.text}`,
+                text: 'Save your pixel logo',
+                url: logoResult.dataUrl,
+              });
+              console.log('URL share succeeded!');
               setToast({ message: 'Choose where to save the image.', type: 'success' });
               return;
+            } catch (urlShareError: any) {
+              console.log('URL share failed:', urlShareError);
+              if (urlShareError.name === 'AbortError') {
+                console.log('User cancelled share dialog');
+                return;
+              }
+              throw urlShareError; // Re-throw to trigger fallback
             }
           } catch (shareError: any) {
             // User cancelled - that's fine, just return silently
             if (shareError.name === 'AbortError') {
+              console.log('User cancelled share');
               return;
             }
-            console.log('Share API failed, trying fallback:', shareError);
+            console.error('Share API completely failed:', shareError);
             // Continue to fallback below
           }
+        } else {
+          console.log('navigator.share not available');
         }
 
         // Fallback: Create download link that opens save dialog
