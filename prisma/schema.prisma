@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  url        = env("POSTGRES_URL")
+  url        = env("DATABASE_URL")
 }
 
 model LeaderboardEntry {
@@ -23,4 +23,42 @@ model LeaderboardEntry {
   castUrl     String?
 
   @@index([createdAt])
+  @@index([username])
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  userId      String
+  badgeType   String
+  earnedAt    DateTime @default(now())
+  metadata    Json?
+
+  @@index([userId])
+  @@index([badgeType])
+  @@unique([userId, badgeType])
+}
+
+model ChallengeCompletion {
+  id          String   @id @default(cuid())
+  userId      String
+  challengeId String
+  date        DateTime
+  prompts     String[]
+  completedAt DateTime @default(now())
+
+  @@unique([userId, challengeId])
+  @@index([userId, date])
+}
+
+model DailyWinner {
+  id            String   @id @default(cuid())
+  date          DateTime  @unique
+  winner1Id     String
+  winner1EntryId String
+  winner2Id     String?
+  winner2EntryId String?
+  winner3Id     String?
+  winner3EntryId String?
+
+  @@index([date])
 }

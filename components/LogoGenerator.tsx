@@ -237,6 +237,7 @@ export default function LogoGenerator() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [hasNewGallery, setHasNewGallery] = useState(false);
   const [hasNewProfile, setHasNewProfile] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [activeTab, setActiveTab] = useState<'home' | 'gallery' | 'leaderboard' | 'challenge' | 'profile'>('home');
   const [miniappAdded, setMiniappAdded] = useState(false);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
@@ -250,6 +251,9 @@ export default function LogoGenerator() {
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [challengeDone, setChallengeDone] = useState<Record<string, boolean>>({});
   const [challengeDays, setChallengeDays] = useState<string[]>([]);
+  const [userBadges, setUserBadges] = useState<Array<{ badgeType: string; name: string; description: string; icon: string; rarity: string; earnedAt: string }>>([]);
+  const [dailyWinners, setDailyWinners] = useState<Array<{ rank: number; username: string; displayName: string; entry: LeaderboardEntry }>>([]);
+  const [pastWinners, setPastWinners] = useState<Array<{ date: string; winners: Array<{ rank: number } & LeaderboardEntry> }>>([]);
 
   const getTodayKey = useCallback(() => {
     const now = new Date();
@@ -582,6 +586,45 @@ export default function LogoGenerator() {
     }
   }, []);
 
+  const loadUserBadges = useCallback(async (username: string) => {
+    try {
+      const response = await fetch(`/api/badges?username=${encodeURIComponent(username)}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      if (Array.isArray(data.badges)) {
+        setUserBadges(data.badges);
+      }
+    } catch (error) {
+      console.error('Failed to load badges:', error);
+    }
+  }, []);
+
+  const loadDailyWinners = useCallback(async () => {
+    try {
+      const response = await fetch('/api/winners');
+      if (!response.ok) return;
+      const data = await response.json();
+      if (Array.isArray(data.winners)) {
+        setDailyWinners(data.winners);
+      }
+    } catch (error) {
+      console.error('Failed to load daily winners:', error);
+    }
+  }, []);
+
+  const loadPastWinners = useCallback(async () => {
+    try {
+      const response = await fetch('/api/winners?days=7');
+      if (!response.ok) return;
+      const data = await response.json();
+      if (Array.isArray(data.pastWinners)) {
+        setPastWinners(data.pastWinners);
+      }
+    } catch (error) {
+      console.error('Failed to load past winners:', error);
+    }
+  }, []);
+
   const saveChallengeDays = useCallback((days: string[]) => {
     try {
       localStorage.setItem('plf:challengeDays', JSON.stringify(days));
@@ -868,6 +911,7 @@ export default function LogoGenerator() {
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
+    setIsMobile(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
     ensureDailyLimit();
     loadHistory();
     loadFavorites();
@@ -943,6 +987,8 @@ export default function LogoGenerator() {
     generateWithText,
     loadChallenge,
     loadChallengeDays,
+    loadDailyWinners,
+    loadPastWinners,
     loadFavorites,
     loadGallery,
     loadHistory,
@@ -1969,6 +2015,36 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
   const leaderboardContent = (
     <div className="leaderboard">
       <div className="leaderboard-title">Global Leaderboard</div>
+      {dailyWinners.length > 0 && (
+        <div className="daily-winners-section">
+          <div className="leaderboard-title">🏆 Today's Winners</div>
+          <div className="daily-winners-grid">
+            {dailyWinners.map((winner) => (
+              <div key={`winner-${winner.rank}`} className={`daily-winner-card rank-${winner.rank}`}>
+                <div className="daily-winner-rank">#{winner.rank}</div>
+                {winner.entry.imageUrl ? (
+                  <NextImage
+                    src={winner.entry.imageUrl}
+                    alt={`Winner ${winner.rank} by ${winner.username}`}
+                    className="daily-winner-image"
+                    width={200}
+                    height={120}
+                    unoptimized
+                  />
+                ) : (
+                  <div className="daily-winner-text">{winner.entry.text}</div>
+                )}
+                <div className="daily-winner-info">
+                  <div className="daily-winner-username">@{winner.username}</div>
+                  <div className="daily-winner-stats">
+                    ❤️ {winner.entry.likes} 🔁 {winner.entry.recasts ?? 0}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="leaderboard-meta">
         <span>{leaderboardDate}</span>
         <span>{leaderboard.length} entries</span>
@@ -2196,12 +2272,25 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       <div className="leaderboard-status">
         Generate logos for each prompt, then cast your favorites.
       </div>
-      <div className="challenge-streak">
-        Streak: {getChallengeStreak(challengeDays)} day{getChallengeStreak(challengeDays) === 1 ? '' : 's'}
+      <div className="challenge-stats">
+        <div className="challenge-streak">
+          🔥 Streak: {getChallengeStreak(challengeDays)} day{getChallengeStreak(challengeDays) === 1 ? '' : 's'}
+        </div>
+        <div className="challenge-progress">
+          Progress: {Object.values(challengeDone).filter(Boolean).length} / {CHALLENGE_PROMPTS.length}
+        </div>
+      </div>
+      <div className="challenge-progress-bar">
+        <div 
+          className="challenge-progress-fill"
+          style={{ 
+            width: `${(Object.values(challengeDone).filter(Boolean).length / CHALLENGE_PROMPTS.length) * 100}%` 
+          }}
+        />
       </div>
       <div className="challenge-list">
         {CHALLENGE_PROMPTS.map((prompt) => (
-          <div key={prompt} className="challenge-item">
+          <div key={prompt} className={`challenge-item ${challengeDone[prompt] ? 'completed' : ''}`}>
             <label className="challenge-label">
               <input
                 type="checkbox"
@@ -2209,6 +2298,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 onChange={() => toggleChallengeDone(prompt)}
               />
               <span>{prompt}</span>
+              {challengeDone[prompt] && <span className="challenge-check">✓</span>}
             </label>
             <button
               type="button"
@@ -2223,6 +2313,11 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
           </div>
         ))}
       </div>
+      {Object.values(challengeDone).every(Boolean) && (
+        <div className="challenge-complete">
+          🎉 Challenge complete! Great job!
+        </div>
+      )}
     </div>
   );
 
@@ -2540,9 +2635,9 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                     onClick={handleDownload} 
                     className="action-button" 
                     disabled={isGenerating}
-                    aria-label="Download logo as PNG"
+                    aria-label={isMobile ? "Save logo to camera roll" : "Download logo as PNG"}
                   >
-                    DOWNLOAD PNG
+                    {isMobile ? 'SAVE TO CAMERA' : 'DOWNLOAD PNG'}
                   </button>
                   <button 
                     onClick={handleShare} 

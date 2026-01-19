@@ -1926,3 +1926,235 @@ body {
     width: 100%;
   }
 }
+
+/* Badges */
+.badges-section {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.badge-card {
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.badge-card:hover {
+  border-color: var(--text-primary);
+  transform: translateY(-2px);
+}
+
+.badge-card.rarity-common {
+  border-color: #aaaaaa;
+}
+
+.badge-card.rarity-rare {
+  border-color: #00aaff;
+  box-shadow: 0 0 8px rgba(0, 170, 255, 0.3);
+}
+
+.badge-card.rarity-epic {
+  border-color: #aa00ff;
+  box-shadow: 0 0 8px rgba(170, 0, 255, 0.3);
+}
+
+.badge-card.rarity-legendary {
+  border-color: #ffaa00;
+  box-shadow: 0 0 12px rgba(255, 170, 0, 0.5);
+}
+
+.badge-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.badge-name {
+  font-size: 10px;
+  color: var(--text-primary);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-date {
+  font-size: 8px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+/* Daily Winners */
+.daily-winners-section {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker);
+}
+
+.daily-winners-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.daily-winner-card {
+  border: 1px solid var(--border-color);
+  background: var(--bg-dark);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.daily-winner-card.rank-1 {
+  border-color: #ffaa00;
+  box-shadow: 0 0 12px rgba(255, 170, 0, 0.4);
+  background: linear-gradient(135deg, var(--bg-dark) 0%, rgba(255, 170, 0, 0.1) 100%);
+}
+
+.daily-winner-card.rank-2 {
+  border-color: #aa00ff;
+  box-shadow: 0 0 8px rgba(170, 0, 255, 0.3);
+}
+
+.daily-winner-card.rank-3 {
+  border-color: #00aaff;
+  box-shadow: 0 0 8px rgba(0, 170, 255, 0.3);
+}
+
+.daily-winner-rank {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--text-primary);
+  background: var(--bg-darker);
+  padding: 2px 6px;
+  border: 1px solid var(--border-color);
+}
+
+.daily-winner-image {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border-color);
+}
+
+.daily-winner-text {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker);
+}
+
+.daily-winner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.daily-winner-username {
+  font-size: 11px;
+  color: var(--text-primary);
+  font-weight: bold;
+}
+
+.daily-winner-stats {
+  font-size: 9px;
+  color: var(--text-secondary);
+}
+
+/* Enhanced Challenge UI */
+.challenge-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.challenge-progress {
+  color: var(--text-primary);
+}
+
+.challenge-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-darker);
+  border: 1px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.challenge-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00ff00 0%, #00aa00 100%);
+  transition: width 0.3s ease;
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+}
+
+.challenge-item.completed {
+  background: rgba(0, 255, 0, 0.1);
+  border-color: #00ff00;
+}
+
+.challenge-check {
+  color: #00ff00;
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+.challenge-complete {
+  padding: 12px;
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid #00ff00;
+  text-align: center;
+  font-size: 11px;
+  color: #00ff00;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+  .badges-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+
+  .badge-card {
+    padding: 10px;
+  }
+
+  .badge-icon {
+    font-size: 24px;
+  }
+
+  .daily-winners-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .challenge-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

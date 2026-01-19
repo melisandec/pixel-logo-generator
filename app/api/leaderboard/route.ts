@@ -222,6 +222,8 @@ export async function POST(request: Request) {
       castUrl: body.castUrl,
     };
 
+    const isNewEntry = !(await prisma.leaderboardEntry.findUnique({ where: { id: entry.id } }));
+    
     await prisma.leaderboardEntry.upsert({
       where: { id: entry.id },
       update: {
@@ -257,6 +259,27 @@ export async function POST(request: Request) {
     // #region agent log
     logDebug('H3', 'POST upsert success', { id: entry.id });
     // #endregion agent log
+
+    // Check and award badges for new casts
+    if (isNewEntry) {
+      try {
+        const { checkAndAwardBadges } = await import('@/lib/badgeTracker');
+        
+        // Check if this is user's first cast
+        const userCastCount = await prisma.leaderboardEntry.count({
+          where: { username: entry.username },
+        });
+        
+        await checkAndAwardBadges(entry.username, 'cast', {
+          isFirstCast: userCastCount === 1,
+          castCount: userCastCount,
+          rarity: entry.rarity,
+        });
+      } catch (badgeError) {
+        // Badge system might not be initialized yet, continue
+        console.log('Badge check skipped:', badgeError);
+      }
+    }
 
     const range = getRecentRange(7);
     const entries = await prisma.leaderboardEntry.findMany({
@@ -392,6 +415,19 @@ export async function PATCH(request: Request) {
     // #region agent log
     logDebug('H3', 'PATCH update success', { id: updatedEntry.id, likes: updatedEntry.likes });
     // #endregion agent log
+
+    // Check for social badges when likes increase
+    if (delta > 0 && updatedEntry.likes > 0) {
+      try {
+        const { checkAndAwardBadges } = await import('@/lib/badgeTracker');
+        await checkAndAwardBadges(updatedEntry.username, 'like', {
+          entry: updatedEntry as LeaderboardEntry,
+        });
+      } catch (badgeError) {
+        // Badge system might not be initialized yet, continue
+        console.log('Badge check skipped:', badgeError);
+      }
+    }
 
     const range = getRecentRange(7);
     const entries = await prisma.leaderboardEntry.findMany({
