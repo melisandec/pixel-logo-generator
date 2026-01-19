@@ -574,6 +574,71 @@ body {
   color: var(--accent);
 }
 
+.rarity-sparkle {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.rarity-common .rarity-sparkle {
+  opacity: 0.35;
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.35);
+  animation: rarityGlow 2.4s ease-in-out infinite;
+}
+
+.rarity-rare .rarity-sparkle {
+  opacity: 0.5;
+  box-shadow: 0 0 14px rgba(0, 200, 255, 0.45);
+  animation: rarityGlow 2s ease-in-out infinite;
+}
+
+.rarity-epic .rarity-sparkle {
+  opacity: 0.7;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 0, 255, 0.4), transparent 45%),
+    radial-gradient(circle at 80% 30%, rgba(0, 255, 255, 0.35), transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(255, 255, 0, 0.35), transparent 45%);
+  animation: raritySparkle 1.6s ease-in-out infinite;
+}
+
+.rarity-legendary .rarity-sparkle {
+  opacity: 0.9;
+  background: radial-gradient(circle at 25% 25%, rgba(255, 215, 0, 0.6), transparent 45%),
+    radial-gradient(circle at 75% 35%, rgba(255, 140, 0, 0.5), transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(255, 255, 255, 0.4), transparent 45%);
+  animation: rarityBurst 1.2s ease-in-out infinite;
+}
+
+@keyframes rarityGlow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(0, 255, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(0, 255, 0, 0.5);
+  }
+}
+
+@keyframes raritySparkle {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes rarityBurst {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
 .download-modal {
   position: fixed;
   inset: 0;

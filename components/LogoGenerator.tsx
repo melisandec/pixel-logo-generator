@@ -388,6 +388,7 @@ export default function LogoGenerator() {
     }
     setTimeout(() => callback(), 200);
   }, []);
+
   const saveLeaderboard = useCallback((items: LeaderboardEntry[]) => {
     try {
       localStorage.setItem('plf:leaderboard', JSON.stringify(items));
@@ -1137,6 +1138,7 @@ export default function LogoGenerator() {
       const seed = seedParam ? parseInt(seedParam, 10) : undefined;
       
       // Auto-generate if we have text
+      setIsGenerating(true);
       setTimeout(() => {
         try {
           generateWithText(textParam, seed, selectedPreset);
@@ -1253,8 +1255,6 @@ export default function LogoGenerator() {
           message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.', 
           type: 'error' 
         });
-      } finally {
-        setIsGenerating(false);
       }
     }, 100);
   };
@@ -1287,8 +1287,6 @@ export default function LogoGenerator() {
           message: error instanceof Error ? error.message : 'Failed to generate logo. Please try again.',
           type: 'error',
         });
-      } finally {
-        setIsGenerating(false);
       }
     }, 100);
   };
@@ -1335,7 +1333,6 @@ export default function LogoGenerator() {
           type: 'error',
         });
       } finally {
-        setIsGenerating(false);
         setRemixMode(false);
       }
     }, 100);
@@ -2863,7 +2860,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 </span>
               </button>
             </div>
-            <div className="logo-image-wrapper">
+            <div className={`logo-image-wrapper rarity-${logoResult.rarity.toLowerCase()}`}>
               <NextImage
                 key={`${logoResult.seed}-${logoResult.config.text}`}
                 src={logoResult.dataUrl}
@@ -2875,6 +2872,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 height={512}
                 unoptimized
               />
+              <div className="rarity-sparkle" aria-hidden="true" />
               <button
                 type="button"
                 className="logo-download-button"
