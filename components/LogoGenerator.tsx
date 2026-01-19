@@ -2909,6 +2909,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                         <div className="seed-crack-flap left" />
                         <div className="seed-crack-flap right" />
                         <div className="seed-crack-line" />
+                        <div className="seed-crack-highlight" />
                       </div>
                     </div>
                     <span className="seed-crack-stage">
@@ -2922,7 +2923,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 )}
                 {seedCrackStage === 'ticket' && (
                   <>
-                    <div className={`seed-ticket rarity-${(seedCrackRarity || 'COMMON').toLowerCase()}`}>
+                    <div className={`seed-ticket from-seed rarity-${(seedCrackRarity || 'COMMON').toLowerCase()}`}>
                       <span className="seed-ticket-label">Seed ticket</span>
                       <span className="seed-ticket-value">{seedCrackValue}</span>
                     </div>
