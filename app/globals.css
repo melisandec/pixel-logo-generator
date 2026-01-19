@@ -697,6 +697,68 @@ body {
   box-shadow: 0 0 8px rgba(50, 255, 90, 0.4);
 }
 
+.moment-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.moment-card {
+  border: 2px solid var(--border-color);
+  background: #000;
+  color: var(--text-primary);
+  padding: 18px 20px;
+  width: min(360px, 90vw);
+  text-align: center;
+  box-shadow: 0 0 18px rgba(0, 255, 120, 0.25);
+}
+
+.moment-icon {
+  font-size: 28px;
+}
+
+.moment-title {
+  margin-top: 8px;
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.moment-subtitle {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.moment-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.moment-share,
+.moment-close {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.moment-share:hover,
+.moment-close:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
 .forge-session {
   margin-top: 12px;
   padding: 12px;
@@ -2095,6 +2157,14 @@ body {
   color: var(--text-secondary);
 }
 
+.leaderboard-narrative {
+  font-size: 10px;
+  color: #ffcf6e;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
 .leaderboard-filters {
   display: flex;
   gap: 6px;
@@ -2335,6 +2405,16 @@ body {
   flex-direction: column;
   gap: 8px;
   align-items: center;
+}
+
+.profile-title-badge {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .profile-tab-name {
@@ -3086,6 +3166,55 @@ body {
   letter-spacing: 1px;
 }
 
+.challenge-streak-icon {
+  margin-right: 6px;
+}
+
+.challenge-progress-ring {
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  margin: 8px auto 6px;
+  position: relative;
+}
+
+.challenge-progress-ring svg {
+  width: 80px;
+  height: 80px;
+  transform: rotate(-90deg);
+}
+
+.challenge-ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 8;
+}
+
+.challenge-ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.challenge-progress-ring span {
+  position: absolute;
+  font-size: 10px;
+  color: var(--text-primary);
+  letter-spacing: 1px;
+}
+
+.challenge-top-percent {
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
 .challenge-progress {
   color: var(--text-primary);
 }
@@ -3127,6 +3256,57 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-top: 10px;
+}
+
+.challenge-confetti {
+  position: relative;
+  height: 30px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.challenge-confetti span {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #00ff9d;
+  opacity: 0;
+  animation: confettiFall 1s ease-out forwards;
+}
+
+.challenge-confetti span:nth-child(2n) {
+  background: #00c8ff;
+}
+
+.challenge-confetti span:nth-child(3n) {
+  background: #ffd86e;
+}
+
+.challenge-confetti span:nth-child(1) { left: 10%; animation-delay: 0.02s; }
+.challenge-confetti span:nth-child(2) { left: 20%; animation-delay: 0.06s; }
+.challenge-confetti span:nth-child(3) { left: 30%; animation-delay: 0.1s; }
+.challenge-confetti span:nth-child(4) { left: 40%; animation-delay: 0.14s; }
+.challenge-confetti span:nth-child(5) { left: 50%; animation-delay: 0.18s; }
+.challenge-confetti span:nth-child(6) { left: 60%; animation-delay: 0.22s; }
+.challenge-confetti span:nth-child(7) { left: 70%; animation-delay: 0.26s; }
+.challenge-confetti span:nth-child(8) { left: 80%; animation-delay: 0.3s; }
+.challenge-confetti span:nth-child(9) { left: 90%; animation-delay: 0.34s; }
+.challenge-confetti span:nth-child(10) { left: 15%; animation-delay: 0.12s; }
+.challenge-confetti span:nth-child(11) { left: 55%; animation-delay: 0.16s; }
+.challenge-confetti span:nth-child(12) { left: 75%; animation-delay: 0.2s; }
+
+@keyframes confettiFall {
+  0% {
+    transform: translateY(-10px) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(24px) rotate(180deg);
+    opacity: 0;
+  }
 }
 
 .challenge-reset-timer {

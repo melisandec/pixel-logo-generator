@@ -222,6 +222,12 @@ export default function LogoGenerator() {
   const [userInfo, setUserInfo] = useState<{ fid?: number; username?: string } | null>(null);
   const [showCastPreview, setShowCastPreview] = useState(false);
   const [showDailyBoot, setShowDailyBoot] = useState(false);
+  const [activeMoment, setActiveMoment] = useState<{
+    id: string;
+    icon: string;
+    title: string;
+    subtitle: string;
+  } | null>(null);
   const [seedCrackValue, setSeedCrackValue] = useState<string | null>(null);
   const [seedCrackStage, setSeedCrackStage] = useState<
     | 'dormant'
@@ -1129,10 +1135,11 @@ export default function LogoGenerator() {
     });
   }, [getPresetConfig]);
 
-  const commitLogoResult = useCallback((result: LogoResult) => {
-    setLogoResult(result);
-    addToHistory(result);
-  }, [addToHistory]);
+  const getProfileTitle = useCallback((casts: number, legendaryCount: number, streak: number) => {
+    if (legendaryCount >= 3) return 'Legend Hunter';
+    if (casts >= 20 || streak >= 5) return 'Master Crafter';
+    return 'Pixel Forger';
+  }, []);
 
   const dismissDailyBoot = useCallback(() => {
     setShowDailyBoot(false);
@@ -1142,6 +1149,101 @@ export default function LogoGenerator() {
       console.error('Failed to store boot state:', error);
     }
   }, [getTodayKey]);
+
+  const readMoments = useCallback(() => {
+    try {
+      const stored = localStorage.getItem('plf:moments');
+      if (!stored) return {};
+      const parsed = JSON.parse(stored) as Record<string, boolean>;
+      return parsed ?? {};
+    } catch (error) {
+      console.error('Failed to read moments:', error);
+      return {};
+    }
+  }, []);
+
+  const writeMoments = useCallback((moments: Record<string, boolean>) => {
+    try {
+      localStorage.setItem('plf:moments', JSON.stringify(moments));
+    } catch (error) {
+      console.error('Failed to store moments:', error);
+    }
+  }, []);
+
+  const triggerMoment = useCallback((moment: { id: string; icon: string; title: string; subtitle: string }) => {
+    const moments = readMoments();
+    if (moments[moment.id]) return;
+    moments[moment.id] = true;
+    writeMoments(moments);
+    setActiveMoment(moment);
+  }, [readMoments, writeMoments]);
+
+  const dismissMoment = useCallback(() => {
+    setActiveMoment(null);
+  }, []);
+
+  const shareMoment = useCallback(async () => {
+    if (!activeMoment) return;
+    const text = `${activeMoment.title}\n${activeMoment.subtitle}\n\n#PixelLogoForge`;
+    try {
+      if (sdkReady) {
+        await sdk.actions.composeCast({ text });
+        return;
+      }
+    } catch (error) {
+      console.error('Share moment via SDK failed:', error);
+    }
+    const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }, [activeMoment, sdkReady]);
+
+  const trackForgeMoments = useCallback((result: LogoResult) => {
+    try {
+      const moments = readMoments();
+      if (!moments.first_rare && result.rarity === 'RARE') {
+        triggerMoment({
+          id: 'first_rare',
+          icon: '🔵',
+          title: 'FIRST RARE',
+          subtitle: 'You just pulled something special.',
+        });
+      }
+      if (!moments.first_epic && result.rarity === 'EPIC') {
+        triggerMoment({
+          id: 'first_epic',
+          icon: '🟣',
+          title: 'FIRST EPIC',
+          subtitle: 'The forge is heating up.',
+        });
+      }
+      if (!moments.first_legendary && result.rarity === 'LEGENDARY') {
+        triggerMoment({
+          id: 'first_legendary',
+          icon: '🟠',
+          title: 'FIRST LEGENDARY',
+          subtitle: 'You just pulled something special.',
+        });
+      }
+      const forgeCount = Number(localStorage.getItem('plf:forgeCount') || '0') + 1;
+      localStorage.setItem('plf:forgeCount', String(forgeCount));
+      if (forgeCount >= 100 && !moments.logos_100) {
+        triggerMoment({
+          id: 'logos_100',
+          icon: '💯',
+          title: '100 LOGOS FORGED',
+          subtitle: 'A true master of the forge.',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to track forge moments:', error);
+    }
+  }, [readMoments, triggerMoment]);
+
+  const commitLogoResult = useCallback((result: LogoResult) => {
+    setLogoResult(result);
+    addToHistory(result);
+    trackForgeMoments(result);
+  }, [addToHistory, trackForgeMoments]);
 
   useEffect(() => {
     return () => {
@@ -1326,6 +1428,27 @@ export default function LogoGenerator() {
       loadProfileData(userInfo.username);
     }
   }, [loadProfileData, userInfo?.username]);
+
+  useEffect(() => {
+    const streak = getChallengeStreak(challengeDays);
+    if (streak >= 30) {
+      triggerMoment({
+        id: 'streak_30',
+        icon: '🔥',
+        title: '30-DAY STREAK',
+        subtitle: 'Your forge discipline is legendary.',
+      });
+      return;
+    }
+    if (streak >= 7) {
+      triggerMoment({
+        id: 'streak_7',
+        icon: '🔥',
+        title: '7-DAY STREAK',
+        subtitle: 'The forge calls you daily.',
+      });
+    }
+  }, [challengeDays, getChallengeStreak, triggerMoment]);
 
   useEffect(() => {
     if (activeTab === 'gallery' && galleryEntries.length > 0) {
@@ -2001,6 +2124,14 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
         window.open(warpcastUrl, '_blank');
         setToast({ message: 'Opening Warpcast to compose cast...', type: 'info' });
       }
+      if (!readMoments().first_cast) {
+        triggerMoment({
+          id: 'first_cast',
+          icon: '🎮',
+          title: 'FIRST CAST',
+          subtitle: 'You just shared your first forge.',
+        });
+      }
     } catch (error) {
       console.error('Cast error:', error);
       setToast({ 
@@ -2255,6 +2386,22 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
     return bCreated - aCreated;
   });
 
+  useEffect(() => {
+    if (!userInfo?.username) return;
+    const topThree = sortedLeaderboard.slice(0, 3);
+    const inTopThree = topThree.some(
+      (entry) => entry.username?.toLowerCase() === userInfo.username?.toLowerCase()
+    );
+    if (inTopThree) {
+      triggerMoment({
+        id: 'first_top3',
+        icon: '🏆',
+        title: 'FIRST TOP 3',
+        subtitle: 'You just hit the podium.',
+      });
+    }
+  }, [sortedLeaderboard, triggerMoment, userInfo?.username]);
+
   const galleryRarityOptions = ['all', ...RARITY_OPTIONS, 'Unknown'];
   const galleryPresetOptions = ['all', ...PRESETS.map((preset) => preset.key), 'Unknown'];
   const presetLabelMap = PRESETS.reduce<Record<string, string>>((acc, preset) => {
@@ -2477,7 +2624,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
 
   const leaderboardContent = (
     <div className="leaderboard">
-      <div className="leaderboard-title">Global Leaderboard</div>
+      <div className="leaderboard-title">🏆 Hall of Fame</div>
       {dailyWinners.length > 0 && (
         <div className="daily-winners-section">
           <div className="leaderboard-title">🏆 Today&apos;s Winners</div>
@@ -2512,6 +2659,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
         <span>{leaderboardDate}</span>
         <span>{leaderboard.length} entries</span>
       </div>
+      <div className="leaderboard-narrative">🔥 Hot Today</div>
       <div className="leaderboard-filters">
         <button
           type="button"
@@ -2680,7 +2828,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       )}
       {leaderboard.length > 0 && (
         <div className="recent-casts">
-          <div className="leaderboard-title">Recent Casts</div>
+          <div className="leaderboard-title">⚡ Rising</div>
           <div className="recent-casts-list">
             {[...leaderboard]
                 .sort((a, b) => {
@@ -2729,6 +2877,10 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
     </div>
   );
 
+  const challengeProgress =
+    dailyChallenges.length > 0 ? Object.values(challengeDone).filter(Boolean).length / dailyChallenges.length : 0;
+  const topPercent = Math.max(5, Math.round(40 - challengeProgress * 30));
+
   const challengeContent = (
     <div className="challenge">
       <div className="leaderboard-title">Mini‑Series Challenge</div>
@@ -2737,11 +2889,31 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       </div>
       <div className="challenge-stats">
         <div className="challenge-streak">
-          🔥 Streak: {getChallengeStreak(challengeDays)} day{getChallengeStreak(challengeDays) === 1 ? '' : 's'}
+          <span className="challenge-streak-icon" aria-hidden="true">🔥</span>
+          Streak: {getChallengeStreak(challengeDays)} day{getChallengeStreak(challengeDays) === 1 ? '' : 's'}
         </div>
         <div className="challenge-progress">
           Progress: {Object.values(challengeDone).filter(Boolean).length} / {dailyChallenges.length} prompts
         </div>
+      </div>
+      <div className="challenge-progress-ring" aria-hidden="true">
+        <svg viewBox="0 0 100 100" role="img">
+          <circle className="challenge-ring-track" cx="50" cy="50" r="42" />
+          <circle
+            className="challenge-ring-fill"
+            cx="50"
+            cy="50"
+            r="42"
+            style={{
+              strokeDasharray: 264,
+              strokeDashoffset: 264 - 264 * challengeProgress,
+            }}
+          />
+        </svg>
+        <span>{Math.round(challengeProgress * 100)}%</span>
+      </div>
+      <div className="challenge-top-percent">
+        You&apos;re in the top {topPercent}% today
       </div>
       {timeUntilReset && (
         <div className="challenge-reset-timer">
@@ -2796,6 +2968,11 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       )}
       {Object.values(challengeDone).every(Boolean) && (
         <div className="challenge-complete">
+          <div className="challenge-confetti" aria-hidden="true">
+            {Array.from({ length: 12 }).map((_, index) => (
+              <span key={`confetti-${index}`} />
+            ))}
+          </div>
           🎉 Challenge complete! You earned the Daily Champion badge! ✅
         </div>
       )}
@@ -2831,10 +3008,19 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
           {profileLoading && <div className="profile-tab-meta">Loading profile...</div>}
           {profileError && <div className="profile-tab-meta">{profileError}</div>}
           {profileData && (
-            <div className="profile-tab-meta">
-              {profileData.entries.length} casts · ❤️{' '}
-              {profileData.entries.reduce((sum, entry) => sum + entry.likes, 0)}
-            </div>
+            <>
+              <div className="profile-title-badge">
+                {getProfileTitle(
+                  profileData.entries.length,
+                  profileData.entries.filter((entry) => String(entry.rarity).toUpperCase() === 'LEGENDARY').length,
+                  getChallengeStreak(challengeDays)
+                )}
+              </div>
+              <div className="profile-tab-meta">
+                {profileData.entries.length} casts · ❤️{' '}
+                {profileData.entries.reduce((sum, entry) => sum + entry.likes, 0)}
+              </div>
+            </>
           )}
           <Link className="profile-tab-link" href={`/profile/${encodeURIComponent(userInfo.username)}`}>
             Open your profile
@@ -2860,6 +3046,23 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
             <button type="button" className="daily-boot-start" onClick={dismissDailyBoot}>
               Tap to start
             </button>
+          </div>
+        </div>
+      )}
+      {activeMoment && (
+        <div className="moment-overlay" role="dialog" aria-modal="true" aria-label="Achievement unlocked">
+          <div className="moment-card">
+            <div className="moment-icon" aria-hidden="true">{activeMoment.icon}</div>
+            <div className="moment-title">{activeMoment.title}</div>
+            <div className="moment-subtitle">{activeMoment.subtitle}</div>
+            <div className="moment-actions">
+              <button type="button" className="moment-share" onClick={shareMoment}>
+                Share this moment
+              </button>
+              <button type="button" className="moment-close" onClick={dismissMoment}>
+                Continue
+              </button>
+            </div>
           </div>
         </div>
       )}

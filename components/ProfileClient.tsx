@@ -45,6 +45,12 @@ const formatDate = (timestamp: string) => {
   });
 };
 
+const getProfileTitle = (casts: number, legendaryCount: number) => {
+  if (legendaryCount >= 3) return 'Legend Hunter';
+  if (casts >= 20) return 'Master Crafter';
+  return 'Pixel Forger';
+};
+
 export default function ProfileClient({ profile }: { profile: UserProfile }) {
   const [rarityFilter, setRarityFilter] = useState<string>('all');
   const [presetFilter, setPresetFilter] = useState<string>('all');
@@ -60,6 +66,9 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
   const stats = useMemo(() => {
     const totalCasts = profile.entries.length;
     const totalLikes = profile.entries.reduce((sum, entry) => sum + entry.likes, 0);
+    const legendaryCount = profile.entries.filter(
+      (entry) => String(entry.rarity).toUpperCase() === 'LEGENDARY'
+    ).length;
     const bestRarity = profile.best?.rarity ? String(profile.best.rarity).toUpperCase() : 'Unknown';
     const presetCounts = profile.entries.reduce<Record<string, number>>((acc, entry) => {
       const key = entry.presetKey ?? 'Unknown';
@@ -71,6 +80,7 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
     return {
       totalCasts,
       totalLikes,
+      legendaryCount,
       bestRarity,
       topPreset: presetLabelMap[topPresetKey] ?? topPresetKey,
     };
@@ -175,6 +185,9 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           &larr; Back
         </Link>
         <div className="profile-title">@{profile.username}</div>
+        <div className="profile-title-badge">
+          {getProfileTitle(stats.totalCasts, stats.legendaryCount)}
+        </div>
       </div>
       <div className="profile-actions">
         <button type="button" className="profile-share-button" onClick={handleShareCollection}>
