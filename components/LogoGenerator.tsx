@@ -1433,38 +1433,67 @@ export default function LogoGenerator() {
         return;
       }
 
-      // Desktop: Standard automatic download
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = objectUrl;
-      link.rel = 'noopener';
-      link.style.cssText = 'position: fixed; top: -9999px; opacity: 0; pointer-events: none;';
-      
-      // Ensure the link is in the DOM before clicking
-      document.body.appendChild(link);
-      
-      // Use both click() and dispatchEvent for maximum compatibility
+      // Desktop: Handle sandboxed iframe (Farcaster mini-app)
+      // Try to open in new window/tab if in sandboxed context
       try {
-        link.click();
-      } catch (e) {
-        // Fallback to dispatchEvent if click() fails
-        const clickEvent = new MouseEvent('click', {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-        });
-        link.dispatchEvent(clickEvent);
-      }
-      
-      // Small delay before cleanup to ensure download starts
-      setTimeout(() => {
-        if (document.body.contains(link)) {
-          document.body.removeChild(link);
+        const objectUrl = URL.createObjectURL(blob);
+        
+        // First, try standard download
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = objectUrl;
+        link.rel = 'noopener';
+        link.style.cssText = 'position: fixed; top: -9999px; opacity: 0; pointer-events: none;';
+        document.body.appendChild(link);
+        
+        try {
+          link.click();
+          // If we get here without error, download might work
+          setTimeout(() => {
+            if (document.body.contains(link)) {
+              document.body.removeChild(link);
+            }
+            URL.revokeObjectURL(objectUrl);
+            setToast({ message: 'Image downloaded!', type: 'success' });
+          }, 300);
+          return;
+        } catch (clickError: any) {
+          // If click fails due to sandbox, try opening in new window
+          if (clickError.message?.includes('sandbox') || clickError.message?.includes('download')) {
+            // Open image in new window where user can right-click to save
+            const newWindow = window.open(objectUrl, '_blank');
+            if (newWindow) {
+              setToast({ 
+                message: 'Image opened in new tab. Right-click and select "Save Image As" to download.', 
+                type: 'info' 
+              });
+              // Clean up after a delay
+              setTimeout(() => {
+                URL.revokeObjectURL(objectUrl);
+              }, 1000);
+            } else {
+              // Popup blocked, show instructions
+              setToast({ 
+                message: 'Right-click the logo image above and select "Save Image As" to download.', 
+                type: 'info' 
+              });
+              URL.revokeObjectURL(objectUrl);
+            }
+            if (document.body.contains(link)) {
+              document.body.removeChild(link);
+            }
+            return;
+          }
+          throw clickError;
         }
-        URL.revokeObjectURL(objectUrl);
-        setToast({ message: 'Image downloaded!', type: 'success' });
-      }, 300);
+      } catch (error: any) {
+        // If all else fails, show instructions
+        console.error('Download error:', error);
+        setToast({ 
+          message: 'Right-click the logo image above and select "Save Image As" to download.', 
+          type: 'info' 
+        });
+      }
     } catch (error) {
       console.error('Download error:', error);
       setToast({
