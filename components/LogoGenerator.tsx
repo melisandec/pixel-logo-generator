@@ -1184,7 +1184,8 @@ export default function LogoGenerator() {
 
   const shareMoment = useCallback(async () => {
     if (!activeMoment) return;
-    const text = `${activeMoment.title}\n${activeMoment.subtitle}\n\n#PixelLogoForge`;
+    const shareUrl = window.location.origin;
+    const text = `${activeMoment.title}\n${activeMoment.subtitle}\n${shareUrl}\n\n#PixelLogoForge`;
     try {
       if (sdkReady) {
         await sdk.actions.composeCast({ text });
@@ -3122,18 +3123,6 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 Use prompt
               </button>
             </div>
-            <div className="forge-session">
-              <div className="forge-session-title">Today&apos;s Forge Session</div>
-              <div className="rarity-meter" aria-hidden="true">
-                <div className="rarity-meter-track">
-                  <span>Common</span>
-                  <span>Rare</span>
-                  <span>Epic</span>
-                  <span>Legendary</span>
-                </div>
-                <div className={`rarity-meter-needle${isGenerating ? '' : ' jitter'}`} />
-              </div>
-            </div>
             <input
               type="text"
               value={inputText}
@@ -3238,7 +3227,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 aria-label="Generate pixel logo"
                 aria-busy={isGenerating ? 'true' : 'false'}
               >
-                {isGenerating ? 'GENERATING...' : 'GENERATE'}
+                {isGenerating ? 'FORGING...' : 'FORGE'}
               </button>
               <button
                 onClick={handleRandomize}
