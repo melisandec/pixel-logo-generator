@@ -334,6 +334,49 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           </div>
         )}
       </div>
+
+      <nav className="bottom-nav" aria-label="Main navigation">
+        <Link
+          href="/"
+          className="bottom-nav-button"
+          aria-label="Home"
+          data-label="Home"
+        >
+          <span className="bottom-nav-icon" aria-hidden="true">🏠</span>
+        </Link>
+        <Link
+          href="/"
+          className="bottom-nav-button"
+          aria-label="Gallery"
+          data-label="Gallery"
+        >
+          <span className="bottom-nav-icon" aria-hidden="true">🖼️</span>
+        </Link>
+        <Link
+          href="/"
+          className="bottom-nav-button"
+          aria-label="Leaderboard"
+          data-label="Leaderboard"
+        >
+          <span className="bottom-nav-icon" aria-hidden="true">🏆</span>
+        </Link>
+        <Link
+          href="/"
+          className="bottom-nav-button"
+          aria-label="Challenge"
+          data-label="Challenge"
+        >
+          <span className="bottom-nav-icon" aria-hidden="true">🎯</span>
+        </Link>
+        <Link
+          href={`/profile/${encodeURIComponent(profile.username)}`}
+          className="bottom-nav-button active"
+          aria-label="Profile"
+          data-label="Profile"
+        >
+          <span className="bottom-nav-icon" aria-hidden="true">👤</span>
+        </Link>
+      </nav>
     </div>
   );
 }

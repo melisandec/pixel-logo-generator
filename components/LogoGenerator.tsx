@@ -251,6 +251,8 @@ export default function LogoGenerator() {
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [challengeDone, setChallengeDone] = useState<Record<string, boolean>>({});
   const [challengeDays, setChallengeDays] = useState<string[]>([]);
+  const [timeUntilReset, setTimeUntilReset] = useState<string>('');
+  const [challengeHistory, setChallengeHistory] = useState<Array<{ date: string; completed: boolean }>>([]);
   const [userBadges, setUserBadges] = useState<Array<{ badgeType: string; name: string; description: string; icon: string; rarity: string; earnedAt: string }>>([]);
   const [dailyWinners, setDailyWinners] = useState<Array<{ rank: number; username: string; displayName: string; entry: LeaderboardEntry }>>([]);
   const [pastWinners, setPastWinners] = useState<Array<{ date: string; winners: Array<{ rank: number } & LeaderboardEntry> }>>([]);
@@ -295,6 +297,51 @@ export default function LogoGenerator() {
     }
     return count;
   }, [getDayKeyFromTimestamp]);
+
+  const calculateTimeUntilReset = useCallback(() => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    
+    const msUntilReset = tomorrow.getTime() - now.getTime();
+    const hours = Math.floor(msUntilReset / (1000 * 60 * 60));
+    const minutes = Math.floor((msUntilReset % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  }, []);
+
+  const loadChallengeHistory = useCallback(() => {
+    try {
+      const stored = localStorage.getItem('plf:challengeHistory');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as Array<{ date: string; completed: boolean }>;
+      if (Array.isArray(parsed)) {
+        // Show last 7 days
+        const last7Days = parsed.slice(-7);
+        setChallengeHistory(last7Days);
+      }
+    } catch (error) {
+      console.error('Failed to read challenge history:', error);
+    }
+  }, []);
+
+  const saveChallengeHistory = useCallback((date: string, completed: boolean) => {
+    try {
+      const stored = localStorage.getItem('plf:challengeHistory');
+      const history = stored ? (JSON.parse(stored) as Array<{ date: string; completed: boolean }>) : [];
+      const updated = [...history.filter(item => item.date !== date), { date, completed }]
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(-30); // Keep last 30 days
+      localStorage.setItem('plf:challengeHistory', JSON.stringify(updated));
+      loadChallengeHistory();
+    } catch (error) {
+      console.error('Failed to store challenge history:', error);
+    }
+  }, [loadChallengeHistory]);
 
   const formatHistoryTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleString(undefined, {
@@ -922,6 +969,64 @@ export default function LogoGenerator() {
     loadLikedEntries();
     loadChallenge();
     loadChallengeDays();
+    loadChallengeHistory();
+    
+    // Update time until reset every minute
+    const updateTimeUntilReset = () => {
+      setTimeUntilReset(calculateTimeUntilReset());
+    };
+    updateTimeUntilReset();
+    const timeInterval = setInterval(updateTimeUntilReset, 60000); // Update every minute
+    
+    // Check if challenge should reset (new day)
+    const todayKey = getTodayKey();
+    const storedChallenge = localStorage.getItem('plf:challenge');
+    if (storedChallenge) {
+      try {
+        const parsed = JSON.parse(storedChallenge) as Record<string, boolean>;
+        const lastChallengeDate = localStorage.getItem('plf:challengeDate');
+        if (lastChallengeDate !== todayKey) {
+          // New day - reset challenge
+          setChallengeDone({});
+          saveChallenge({});
+          localStorage.setItem('plf:challengeDate', todayKey);
+        }
+      } catch (error) {
+        console.error('Failed to check challenge reset:', error);
+      }
+    } else {
+      localStorage.setItem('plf:challengeDate', todayKey);
+    }
+    
+    return () => {
+      clearInterval(timeInterval);
+    };
+  }, [
+    checkDailyLimits,
+    ensureDailyLimit,
+    finalizeDailyLimit,
+    generateWithText,
+    loadChallenge,
+    loadChallengeDays,
+    loadChallengeHistory,
+    loadDailyWinners,
+    loadPastWinners,
+    loadFavorites,
+    calculateTimeUntilReset,
+    getTodayKey,
+    saveChallenge,
+    saveChallengeHistory,
+    loadGallery,
+    loadHistory,
+    loadLeaderboard,
+    loadLikedEntries,
+    loadAutoReplySetting,
+    loadMiniappAdded,
+    runWhenIdle,
+    selectedPreset,
+  ]);
+
+  useEffect(() => {
     // Initialize SDK and signal ready after 3 seconds (splash screen delay)
     const initSdk = async () => {
       // Wait 3 seconds before calling ready (splash screen duration)
@@ -982,21 +1087,8 @@ export default function LogoGenerator() {
     }
   }, [
     checkDailyLimits,
-    ensureDailyLimit,
     finalizeDailyLimit,
     generateWithText,
-    loadChallenge,
-    loadChallengeDays,
-    loadDailyWinners,
-    loadPastWinners,
-    loadFavorites,
-    loadGallery,
-    loadHistory,
-    loadLeaderboard,
-    loadLikedEntries,
-    loadAutoReplySetting,
-    loadMiniappAdded,
-    runWhenIdle,
     selectedPreset,
   ]);
 
@@ -1194,23 +1286,74 @@ export default function LogoGenerator() {
       const file = new File([blob], filename, { type: 'image/png' });
 
       if (isMobileDevice) {
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `Pixel Logo: ${logoResult.config.text}`,
-            text: 'Save your pixel logo to Photos',
-          });
-          setToast({ message: 'Use the share sheet to save to Photos.', type: 'success' });
-          return;
+        // Try Web Share API first (works in modern mobile browsers)
+        if (navigator.share) {
+          try {
+            // Check if we can share files
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                files: [file],
+                title: `Pixel Logo: ${logoResult.config.text}`,
+                text: 'Save your pixel logo to Photos',
+              });
+              setToast({ message: 'Use the share sheet to save to Photos.', type: 'success' });
+              return;
+            }
+            // Fallback: share as data URL
+            await navigator.share({
+              title: `Pixel Logo: ${logoResult.config.text}`,
+              text: 'Check out my pixel logo!',
+              url: logoResult.dataUrl,
+            });
+            setToast({ message: 'Use the share sheet to save to Photos.', type: 'success' });
+            return;
+          } catch (shareError: any) {
+            // User cancelled or share failed, continue to fallback
+            if (shareError.name !== 'AbortError') {
+              console.log('Share API failed, trying fallback:', shareError);
+            }
+          }
         }
 
-        const objectUrl = URL.createObjectURL(blob);
-        window.open(objectUrl, '_blank', 'noopener,noreferrer');
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-        setToast({ message: 'Open the image and save it to your camera roll.', type: 'info' });
+        // Fallback for mobile: Try to trigger download via link
+        // For in-app browsers, we'll show the image in a way that allows saving
+        try {
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = objectUrl;
+          link.download = filename;
+          link.style.cssText = 'position: fixed; top: -9999px; opacity: 0; pointer-events: none;';
+          document.body.appendChild(link);
+          
+          // Try to trigger download
+          const clickEvent = new MouseEvent('click', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+          });
+          link.dispatchEvent(clickEvent);
+          
+          // Clean up
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(objectUrl);
+          }, 1000);
+          
+          setToast({ 
+            message: 'If download didn\'t start, long-press the logo image above and select "Save Image"', 
+            type: 'info' 
+          });
+        } catch (linkError) {
+          // Last resort: show instructions
+          setToast({ 
+            message: 'Long-press the logo image above and select "Save Image" or "Add to Photos"', 
+            type: 'info' 
+          });
+        }
         return;
       }
 
+      // Desktop: Standard download
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.download = filename;
@@ -1225,7 +1368,7 @@ export default function LogoGenerator() {
       console.error('Download error:', error);
       setToast({
         message: isMobileDevice
-          ? 'Failed to save image. Please try again.'
+          ? 'Failed to save image. Try long-pressing the logo image and selecting "Save Image".'
           : 'Download failed. Check your browser download settings or allow automatic downloads, then try again.',
         type: 'error',
       });
@@ -2280,6 +2423,11 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
           Progress: {Object.values(challengeDone).filter(Boolean).length} / {CHALLENGE_PROMPTS.length}
         </div>
       </div>
+      {timeUntilReset && (
+        <div className="challenge-reset-timer">
+          ⏰ Resets in: {timeUntilReset}
+        </div>
+      )}
       <div className="challenge-progress-bar">
         <div 
           className="challenge-progress-fill"
@@ -2306,6 +2454,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               onClick={() => {
                 setInputText(prompt);
                 setActiveTab('home');
+                // Note: Seed field remains available - you can use any seed with prompts
               }}
             >
               Use prompt
@@ -2315,7 +2464,27 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       </div>
       {Object.values(challengeDone).every(Boolean) && (
         <div className="challenge-complete">
-          🎉 Challenge complete! Great job!
+          🎉 Challenge complete! You earned the Daily Champion badge! ✅
+        </div>
+      )}
+      {challengeHistory.length > 0 && (
+        <div className="challenge-history-section">
+          <div className="leaderboard-title">Recent History</div>
+          <div className="challenge-history-grid">
+            {challengeHistory.map((item) => (
+              <div 
+                key={item.date} 
+                className={`challenge-history-item ${item.completed ? 'completed' : 'incomplete'}`}
+              >
+                <div className="challenge-history-date">
+                  {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </div>
+                <div className="challenge-history-status">
+                  {item.completed ? '✅' : '⏳'}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -2395,7 +2564,10 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               <button
                 type="button"
                 className="prompt-button"
-                onClick={() => setInputText(getPromptOfDay())}
+                onClick={() => {
+                  setInputText(getPromptOfDay());
+                  // Note: Seed field remains available - you can use any seed with prompts
+                }}
               >
                 Use prompt
               </button>
@@ -2573,7 +2745,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
               className="logo-image logo-image-reveal"
               role="img"
-              aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity`}
+              aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity. Long-press to save on mobile.`}
               width={512}
               height={512}
               unoptimized

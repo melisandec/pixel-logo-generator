@@ -388,7 +388,9 @@ function selectFeaturesByRarity(rarity: Rarity, rng: SeededRandom) {
 }
 
 export function generateLogo(config: LogoConfig): LogoResult {
-  const seed = config.seed ?? stringToSeed(config.text);
+  // If no seed provided, generate a random seed instead of deterministic hash
+  // This ensures different users get different results for the same prompt
+  const seed = config.seed ?? Math.floor(Math.random() * 2147483647);
   const rng = new SeededRandom(seed);
 
   // Determine rarity
