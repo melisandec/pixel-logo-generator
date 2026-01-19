@@ -230,6 +230,7 @@ export default function LogoGenerator() {
     | 'fissure'
     | 'swell'
     | 'shake'
+    | 'pause'
     | 'bloom'
     | 'ticket'
     | null
@@ -429,20 +430,45 @@ export default function LogoGenerator() {
     setSeedCrackStage('dormant');
     setSeedCrackRarity(result.rarity);
     setSeedCrackValue('—');
+    const rarityMultiplier =
+      result.rarity === 'LEGENDARY' ? 1.6 : result.rarity === 'EPIC' ? 1.35 : result.rarity === 'RARE' ? 1.2 : 1;
     setSeedCrackVariance({
-      shakeAmp: 2 * (1 + (Math.random() * 0.2 - 0.1)),
+      shakeAmp: 2 * (1 + (Math.random() * 0.2 - 0.1)) * rarityMultiplier,
       crackOffset: (Math.random() * 2 - 1),
       glowHue: Math.random() * 10 - 5,
-      bloomAngle: 28 + (Math.random() * 6 - 3),
+      bloomAngle: 28 + (Math.random() * 6 - 3) + (result.rarity === 'LEGENDARY' ? 4 : 0),
     });
     if (seedCrackTimerRef.current) {
       window.clearInterval(seedCrackTimerRef.current);
       seedCrackTimerRef.current = null;
     }
 
+    const pacingMultiplier =
+      result.rarity === 'LEGENDARY' ? 1.35 : result.rarity === 'EPIC' ? 1.15 : 1;
+    const scheduleStage = (delay: number, stage: typeof seedCrackStage) => {
+      seedCrackTimeoutsRef.current.push(window.setTimeout(() => setSeedCrackStage(stage), delay * pacingMultiplier));
+    };
+    scheduleStage(250, 'stress');
+    scheduleStage(550, 'crawl-1');
+    scheduleStage(900, 'crawl-2');
+    scheduleStage(1250, 'fissure');
+    scheduleStage(1550, 'swell');
+    scheduleStage(1800, 'shake');
+    scheduleStage(1900, 'pause');
+    scheduleStage(1980, 'bloom');
+
     seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
-      setSeedCrackStage('stress');
-    }, 250));
+      setSeedCrackStage('ticket');
+      setSeedCrackValue(String(result.seed));
+    }, 2400 * pacingMultiplier));
+
+    seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
+      setSeedCrackStage(null);
+      setSeedCrackValue(null);
+      setSeedCrackRarity(null);
+      setSeedCrackVariance(null);
+      onComplete();
+    }, 3800 * pacingMultiplier));
 
     seedCrackTimeoutsRef.current.push(window.setTimeout(() => {
       setSeedCrackStage('crawl-1');
@@ -2926,7 +2952,10 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               </button>
             </div>
             {isGenerating && seedCrackStage && (
-              <div className="seed-crack" aria-live="polite">
+              <div
+                className={`seed-crack${seedCrackRarity ? ` rarity-${seedCrackRarity.toLowerCase()}` : ''}`}
+                aria-live="polite"
+              >
                 {(seedCrackStage === 'dormant' ||
                   seedCrackStage === 'stress' ||
                   seedCrackStage === 'crawl-1' ||
@@ -2934,6 +2963,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                   seedCrackStage === 'fissure' ||
                   seedCrackStage === 'swell' ||
                   seedCrackStage === 'shake' ||
+                  seedCrackStage === 'pause' ||
                   seedCrackStage === 'bloom') && (
                   <>
                     <span className="seed-crack-label">Cracking seed</span>
@@ -2979,7 +3009,8 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                       {seedCrackStage === 'fissure' && 'Stage 5/9'}
                       {seedCrackStage === 'swell' && 'Stage 6/9'}
                       {seedCrackStage === 'shake' && 'Stage 7/9'}
-                      {seedCrackStage === 'bloom' && 'Stage 8/9'}
+                      {seedCrackStage === 'pause' && 'Stage 8/9'}
+                      {seedCrackStage === 'bloom' && 'Stage 9/9'}
                     </span>
                   </>
                 )}
@@ -2989,7 +3020,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                       <span className="seed-ticket-label">Seed ticket</span>
                       <span className="seed-ticket-value">{seedCrackValue}</span>
                     </div>
-                    <span className="seed-crack-stage">Stage 9/9</span>
+                    <span className="seed-crack-stage">Stage 10/10</span>
                   </>
                 )}
               </div>

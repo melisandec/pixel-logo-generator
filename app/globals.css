@@ -612,6 +612,18 @@ body {
   --seed-bloom-angle: 28deg;
 }
 
+.seed-crack.rarity-rare .seed-crack-body {
+  box-shadow: 0 0 18px rgba(80, 220, 255, 0.6);
+}
+
+.seed-crack.rarity-epic .seed-crack-body {
+  box-shadow: 0 0 20px rgba(200, 120, 255, 0.7);
+}
+
+.seed-crack.rarity-legendary .seed-crack-body {
+  box-shadow: 0 0 24px rgba(255, 190, 80, 0.85);
+}
+
 .seed-crack-shake {
   position: absolute;
   inset: 0;
@@ -713,6 +725,7 @@ body {
 .seed-crack-icon.stage-fissure .seed-crack-line,
 .seed-crack-icon.stage-swell .seed-crack-line,
 .seed-crack-icon.stage-shake .seed-crack-line,
+.seed-crack-icon.stage-pause .seed-crack-line,
 .seed-crack-icon.stage-bloom .seed-crack-line {
   --seed-crack-scale: 1;
 }
@@ -735,6 +748,7 @@ body {
 .seed-crack-icon.stage-fissure .seed-crack-highlight,
 .seed-crack-icon.stage-swell .seed-crack-highlight,
 .seed-crack-icon.stage-shake .seed-crack-highlight,
+.seed-crack-icon.stage-pause .seed-crack-highlight,
 .seed-crack-icon.stage-bloom .seed-crack-highlight {
   --seed-crack-scale: 1;
   opacity: 0.9;
@@ -747,6 +761,17 @@ body {
 .seed-crack-icon.stage-fissure .seed-crack-glow {
   opacity: 0.35;
   animation: seedGlowFlash 0.08s ease-out;
+}
+
+.seed-crack.rarity-legendary .seed-crack-icon.stage-fissure .seed-crack-highlight {
+  animation: seedCrackFlash 0.12s ease-out;
+  opacity: 1;
+}
+
+.seed-crack.rarity-legendary .seed-crack-icon.stage-fissure .seed-crack-glow {
+  opacity: 0.75;
+  animation: seedGlowFlash 0.12s ease-out;
+  filter: hue-rotate(18deg) saturate(1.4);
 }
 
 .seed-crack-icon.stage-dormant .seed-crack-body {
@@ -762,6 +787,14 @@ body {
 .seed-crack-icon.stage-bloom .seed-crack-glow {
   opacity: 0.6;
   animation: seedBloomBurst 0.45s ease-out;
+}
+
+.seed-crack.rarity-epic .seed-crack-icon.stage-bloom .seed-crack-glow {
+  opacity: 0.8;
+}
+
+.seed-crack.rarity-legendary .seed-crack-icon.stage-bloom .seed-crack-glow {
+  opacity: 0.95;
 }
 
 .seed-crack-icon.stage-bloom .seed-crack-highlight {
@@ -855,6 +888,14 @@ body {
   overflow: hidden;
 }
 
+.seed-crack.rarity-epic .seed-ticket.from-seed {
+  animation-duration: 1.45s;
+}
+
+.seed-crack.rarity-legendary .seed-ticket.from-seed {
+  animation-duration: 1.7s;
+}
+
 .seed-ticket.from-seed .seed-ticket-label {
   opacity: 0;
   animation: seedTicketNumber 0.45s ease-out 0.6s forwards;
@@ -899,11 +940,15 @@ body {
   }
   70% {
     opacity: 1;
-    transform: translateY(-4px) scale(0.85);
+    transform: translateY(-2px) scale(0.9);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.1);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1.08);
+    transform: translateY(0) scale(1);
   }
 }
 
