@@ -2279,6 +2279,43 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       return bCreated - aCreated;
     });
 
+  const openGalleryEntry = useCallback((entry: LeaderboardEntry, label: string) => {
+    try {
+      const presetKey = entry.presetKey ?? null;
+      const result = createLogoResult(entry.text, entry.seed, presetKey);
+      commitLogoResult(result);
+      setInputText(entry.text);
+      setSelectedPreset(presetKey);
+      setActiveTab('home');
+      setToast({ message: label, type: 'success' });
+    } catch (error) {
+      console.error('Failed to open gallery entry:', error);
+      setToast({ message: 'Could not open that entry. Try another.', type: 'error' });
+    }
+  }, [commitLogoResult, createLogoResult, setActiveTab, setInputText]);
+
+  const handleRandomLegendary = useCallback(() => {
+    const legendaryEntries = galleryEntries.filter((entry) => {
+      const rarityValue = entry.rarity ? String(entry.rarity).toUpperCase() : 'UNKNOWN';
+      return rarityValue === 'LEGENDARY';
+    });
+    if (legendaryEntries.length === 0) {
+      setToast({ message: 'No legendary casts yet. Try again later!', type: 'info' });
+      return;
+    }
+    const entry = legendaryEntries[Math.floor(Math.random() * legendaryEntries.length)];
+    openGalleryEntry(entry, 'Legendary cast loaded!');
+  }, [galleryEntries, openGalleryEntry]);
+
+  const handleSurpriseMe = useCallback(() => {
+    if (filteredGalleryEntries.length === 0) {
+      setToast({ message: 'No casts match those filters yet.', type: 'info' });
+      return;
+    }
+    const entry = filteredGalleryEntries[Math.floor(Math.random() * filteredGalleryEntries.length)];
+    openGalleryEntry(entry, 'Surprise cast loaded!');
+  }, [filteredGalleryEntries, openGalleryEntry]);
+
   const leaderboardTotalPages = Math.max(1, Math.ceil(sortedLeaderboard.length / leaderboardPageSize));
   const galleryTotalPages = Math.max(1, Math.ceil(filteredGalleryEntries.length / galleryPageSize));
   const pagedLeaderboard = sortedLeaderboard.slice(
@@ -2295,6 +2332,14 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       <div className="leaderboard-title">Cast Gallery</div>
       <div className="gallery-meta">
         Recent casts from the community - {filteredGalleryEntries.length} shown
+      </div>
+      <div className="gallery-actions-top">
+        <button type="button" className="gallery-action-button" onClick={handleRandomLegendary}>
+          Random Legendary
+        </button>
+        <button type="button" className="gallery-action-button" onClick={handleSurpriseMe}>
+          Surprise Me
+        </button>
       </div>
       <div className="gallery-filters">
         <label className="gallery-filter">
@@ -2369,6 +2414,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                   <span className="gallery-chip">{rarityValue}</span>
                   <span className="gallery-chip">{presetValue}</span>
                 </div>
+                <div className="gallery-card-seed">Seed: {entry.seed}</div>
                 <div className="gallery-actions">
                   <button
                     type="button"
@@ -3001,10 +3047,11 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               </button>
             </div>
             {isGenerating && seedCrackStage && (
-              <div
-                className={`seed-crack${seedCrackRarity ? ` rarity-${seedCrackRarity.toLowerCase()}` : ''}`}
-                aria-live="polite"
-              >
+              <div className="seed-crack-overlay">
+                <div
+                  className={`seed-crack${seedCrackRarity ? ` rarity-${seedCrackRarity.toLowerCase()}` : ''}`}
+                  aria-live="polite"
+                >
                 {(seedCrackStage === 'dormant' ||
                   seedCrackStage === 'stress' ||
                   seedCrackStage === 'crawl-1' ||
@@ -3075,6 +3122,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                     </div>
                   </>
                 )}
+                </div>
               </div>
             )}
             <div className="preset-group">
