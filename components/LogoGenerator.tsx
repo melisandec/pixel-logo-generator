@@ -1355,25 +1355,43 @@ export default function LogoGenerator() {
         // Mobile: Use Web Share API to open native save dialog
         if (navigator.share) {
           try {
-            // Check if we can share files
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-              await navigator.share({
-                files: [file],
-                title: `Pixel Logo: ${logoResult.config.text}`,
-                text: 'Save your pixel logo',
-              });
-              // Only show success if share actually opened
+            // First try with files if supported
+            let shareSucceeded = false;
+            if (navigator.canShare) {
+              try {
+                if (navigator.canShare({ files: [file] })) {
+                  await navigator.share({
+                    files: [file],
+                    title: `Pixel Logo: ${logoResult.config.text}`,
+                    text: 'Save your pixel logo',
+                  });
+                  shareSucceeded = true;
+                }
+              } catch (canShareError) {
+                // canShare check failed, try without it
+                console.log('canShare check failed:', canShareError);
+              }
+            }
+            
+            // If file sharing didn't work, try without files
+            if (!shareSucceeded) {
+              try {
+                await navigator.share({
+                  title: `Pixel Logo: ${logoResult.config.text}`,
+                  text: 'Save your pixel logo',
+                  url: logoResult.dataUrl,
+                });
+                shareSucceeded = true;
+              } catch (urlShareError) {
+                console.log('URL share failed:', urlShareError);
+              }
+            }
+            
+            // Only show success if share actually opened
+            if (shareSucceeded) {
               setToast({ message: 'Choose where to save the image.', type: 'success' });
               return;
             }
-            // If canShare is not available, try sharing without files
-            await navigator.share({
-              title: `Pixel Logo: ${logoResult.config.text}`,
-              text: 'Save your pixel logo',
-              url: logoResult.dataUrl,
-            });
-            setToast({ message: 'Choose where to save the image.', type: 'success' });
-            return;
           } catch (shareError: any) {
             // User cancelled - that's fine, just return silently
             if (shareError.name === 'AbortError') {
@@ -1421,30 +1439,32 @@ export default function LogoGenerator() {
       link.download = filename;
       link.href = objectUrl;
       link.rel = 'noopener';
-      link.style.display = 'none';
+      link.style.cssText = 'position: fixed; top: -9999px; opacity: 0; pointer-events: none;';
       
       // Ensure the link is in the DOM before clicking
       document.body.appendChild(link);
       
-      // Use a more reliable click method
-      const clickEvent = new MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-      });
-      
-      link.dispatchEvent(clickEvent);
+      // Use both click() and dispatchEvent for maximum compatibility
+      try {
+        link.click();
+      } catch (e) {
+        // Fallback to dispatchEvent if click() fails
+        const clickEvent = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+        });
+        link.dispatchEvent(clickEvent);
+      }
       
       // Small delay before cleanup to ensure download starts
       setTimeout(() => {
-        document.body.removeChild(link);
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
         URL.revokeObjectURL(objectUrl);
-      }, 100);
-      
-      // Only show success after a brief delay to ensure download actually started
-      setTimeout(() => {
         setToast({ message: 'Image downloaded!', type: 'success' });
-      }, 200);
+      }, 300);
     } catch (error) {
       console.error('Download error:', error);
       setToast({
