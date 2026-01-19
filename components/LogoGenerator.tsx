@@ -1352,52 +1352,36 @@ export default function LogoGenerator() {
       const file = new File([blob], filename, { type: 'image/png' });
 
       if (isMobileDevice) {
-        // Try Web Share API first (works in modern mobile browsers)
-        if (navigator.share) {
+        // Mobile: Use Web Share API to open native save dialog
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
-            // Check if we can share files
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-              await navigator.share({
-                files: [file],
-                title: `Pixel Logo: ${logoResult.config.text}`,
-                text: 'Save your pixel logo to Photos',
-              });
-              setToast({ message: 'Use the share sheet to save to Photos.', type: 'success' });
-              return;
-            }
-            // Fallback: share as data URL
             await navigator.share({
+              files: [file],
               title: `Pixel Logo: ${logoResult.config.text}`,
-              text: 'Check out my pixel logo!',
-              url: logoResult.dataUrl,
+              text: 'Save your pixel logo',
             });
-            setToast({ message: 'Use the share sheet to save to Photos.', type: 'success' });
+            setToast({ message: 'Choose where to save the image.', type: 'success' });
             return;
           } catch (shareError: any) {
-            // User cancelled or share failed, continue to fallback
-            if (shareError.name !== 'AbortError') {
-              console.log('Share API failed, trying fallback:', shareError);
+            // User cancelled - that's fine, just return
+            if (shareError.name === 'AbortError') {
+              return;
             }
+            console.log('Share API failed, trying fallback:', shareError);
           }
         }
 
-        // Fallback for mobile: Try to trigger download via link
-        // For in-app browsers, we'll show the image in a way that allows saving
+        // Fallback: Create download link that opens save dialog
         try {
           const objectUrl = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = objectUrl;
           link.download = filename;
-          link.style.cssText = 'position: fixed; top: -9999px; opacity: 0; pointer-events: none;';
+          link.style.display = 'none';
           document.body.appendChild(link);
           
-          // Try to trigger download
-          const clickEvent = new MouseEvent('click', {
-            view: window,
-            bubbles: true,
-            cancelable: true,
-          });
-          link.dispatchEvent(clickEvent);
+          // Trigger click to open save dialog
+          link.click();
           
           // Clean up
           setTimeout(() => {
@@ -1406,11 +1390,10 @@ export default function LogoGenerator() {
           }, 1000);
           
           setToast({ 
-            message: 'If download didn\'t start, long-press the logo image above and select "Save Image"', 
+            message: 'If save dialog didn\'t appear, long-press the logo image above and select "Save Image"', 
             type: 'info' 
           });
         } catch (linkError) {
-          // Last resort: show instructions
           setToast({ 
             message: 'Long-press the logo image above and select "Save Image" or "Add to Photos"', 
             type: 'info' 
@@ -1419,7 +1402,7 @@ export default function LogoGenerator() {
         return;
       }
 
-      // Desktop: Standard download
+      // Desktop: Standard automatic download
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.download = filename;
@@ -1430,6 +1413,8 @@ export default function LogoGenerator() {
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      
+      setToast({ message: 'Image downloaded!', type: 'success' });
     } catch (error) {
       console.error('Download error:', error);
       setToast({
