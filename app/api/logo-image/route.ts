@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
+    const download = searchParams.get('download');
+    const filenameParam = searchParams.get('filename');
     // Support both 'dataUrl' (old format) and 'data' (new format)
     const dataParam = searchParams.get('data') || searchParams.get('dataUrl');
     
@@ -73,11 +75,18 @@ export async function GET(request: NextRequest) {
     }
 
     const imageBuffer = Buffer.from(base64Data, 'base64');
+    const safeFilename = filenameParam
+      ? decodeURIComponent(filenameParam)
+      : 'pixel-logo.png';
+    const contentDisposition = download === '1'
+      ? `attachment; filename="${safeFilename}"`
+      : `inline; filename="${safeFilename}"`;
 
     // Return the image with proper headers for Farcaster
     return new NextResponse(imageBuffer, {
       headers: {
         'Content-Type': 'image/png',
+        'Content-Disposition': contentDisposition,
         'Cache-Control': 'public, max-age=3600, s-maxage=3600', // Cache for 1 hour
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -150,13 +159,17 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    // Always store in memory to provide a short download URL
+    const store = getStore();
+    cleanupStore(store);
+    const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    store.set(id, { base64: base64Data, createdAt: Date.now() });
+    const viewUrl = `${baseUrl}/api/logo-image?id=${encodeURIComponent(id)}`;
+    const downloadUrl = `${baseUrl}/api/logo-image?id=${encodeURIComponent(id)}&download=1&filename=${encodeURIComponent(filename)}`;
+
     // Use fallback if Blob upload didn't succeed
     if (!blobUploadSucceeded) {
-      const store = getStore();
-      cleanupStore(store);
-      const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      store.set(id, { base64: base64Data, createdAt: Date.now() });
-      imageUrl = `${baseUrl}/api/logo-image?id=${encodeURIComponent(id)}`;
+      imageUrl = viewUrl;
     }
     
     if (!imageUrl) {
@@ -169,6 +182,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       imageUrl: imageUrl, // HTTP URL that serves the image
+      viewUrl,
+      downloadUrl,
       shareUrl: `${baseUrl}?text=${encodeURIComponent(text || '')}&seed=${seed || ''}`,
     });
   } catch (error) {

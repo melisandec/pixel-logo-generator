@@ -1447,8 +1447,11 @@ export default function LogoGenerator() {
 
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
-          if (uploadData.imageUrl) {
-            await sdk.actions.openUrl(uploadData.imageUrl);
+          const viewUrl = uploadData.viewUrl || uploadData.imageUrl;
+          const downloadUrl = uploadData.downloadUrl || uploadData.imageUrl;
+          const targetUrl = target === 'download' ? downloadUrl : viewUrl;
+          if (targetUrl) {
+            await sdk.actions.openUrl(targetUrl);
             if (target === 'photos') {
               setToast({
                 message: 'Image opened. Long-press and choose "Save Image" to save to Photos.',
