@@ -1352,105 +1352,44 @@ export default function LogoGenerator() {
       const file = new File([blob], filename, { type: 'image/png' });
 
       if (isMobileDevice) {
-        // Mobile: Use Web Share API to open native save dialog
-        console.log('Mobile device detected, attempting Web Share API...');
-        console.log('navigator.share available:', !!navigator.share);
-        console.log('navigator.canShare available:', !!navigator.canShare);
-        
-        if (navigator.share) {
-          try {
-            // Try file sharing first (most reliable)
-            let shareAttempted = false;
-            
-            if (navigator.canShare) {
-              try {
-                const canShareFiles = navigator.canShare({ files: [file] });
-                console.log('canShare files check:', canShareFiles);
-                
-                if (canShareFiles) {
-                  console.log('Attempting to share file...');
-                  shareAttempted = true;
-                  await navigator.share({
-                    files: [file],
-                    title: `Pixel Logo: ${logoResult.config.text}`,
-                    text: 'Save your pixel logo',
-                  });
-                  console.log('File share succeeded!');
-                  setToast({ message: 'Choose where to save the image.', type: 'success' });
-                  return;
-                }
-              } catch (canShareError: any) {
-                console.log('canShare check error:', canShareError);
-                // Continue to try sharing anyway
-              }
-            }
-            
-            // If canShare check failed or returned false, try sharing file directly
-            if (!shareAttempted) {
-              try {
-                console.log('Attempting to share file without canShare check...');
-                shareAttempted = true;
-                await navigator.share({
-                  files: [file],
-                  title: `Pixel Logo: ${logoResult.config.text}`,
-                  text: 'Save your pixel logo',
-                });
-                console.log('File share succeeded (no canShare check)!');
-                setToast({ message: 'Choose where to save the image.', type: 'success' });
-                return;
-              } catch (fileShareError: any) {
-                console.log('File share failed:', fileShareError);
-                // Continue to try URL sharing
-              }
-            }
-            
-            // Fallback: Try sharing with URL (less ideal but might work)
-            try {
-              console.log('Attempting to share URL...');
-              await navigator.share({
-                title: `Pixel Logo: ${logoResult.config.text}`,
-                text: 'Save your pixel logo',
-                url: logoResult.dataUrl,
-              });
-              console.log('URL share succeeded!');
-              setToast({ message: 'Choose where to save the image.', type: 'success' });
-              return;
-            } catch (urlShareError: any) {
-              console.log('URL share failed:', urlShareError);
-              if (urlShareError.name === 'AbortError') {
-                console.log('User cancelled share dialog');
-                return;
-              }
-              throw urlShareError; // Re-throw to trigger fallback
-            }
-          } catch (shareError: any) {
-            // User cancelled - that's fine, just return silently
-            if (shareError.name === 'AbortError') {
-              console.log('User cancelled share');
-              return;
-            }
-            console.error('Share API completely failed:', shareError);
-            // Continue to fallback below
-          }
-        } else {
-          console.log('navigator.share not available');
-        }
-
-        // Fallback: Create download link that opens save dialog
+        // Mobile: Web Share API is blocked in sandboxed iframes
+        // Use direct download link approach instead
         try {
           const objectUrl = URL.createObjectURL(blob);
+          
+          // Try to open in new window first (works better on mobile)
+          try {
+            const newWindow = window.open(objectUrl, '_blank');
+            if (newWindow) {
+              setToast({ 
+                message: 'Image opened. Long-press the image and select "Save Image" to save to Photos.', 
+                type: 'info' 
+              });
+              // Clean up after delay
+              setTimeout(() => {
+                URL.revokeObjectURL(objectUrl);
+              }, 2000);
+              return;
+            }
+          } catch (openError) {
+            // Popup blocked or failed, continue to download link
+          }
+          
+          // Fallback: Create download link
           const link = document.createElement('a');
           link.href = objectUrl;
           link.download = filename;
-          link.style.display = 'none';
+          link.style.cssText = 'position: fixed; top: -9999px; opacity: 0; pointer-events: none;';
           document.body.appendChild(link);
           
-          // Trigger click to open save dialog
+          // Trigger click immediately (must be synchronous with user gesture)
           link.click();
           
           // Clean up
           setTimeout(() => {
-            document.body.removeChild(link);
+            if (document.body.contains(link)) {
+              document.body.removeChild(link);
+            }
             URL.revokeObjectURL(objectUrl);
           }, 1000);
           
