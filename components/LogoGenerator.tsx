@@ -221,6 +221,7 @@ export default function LogoGenerator() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [userInfo, setUserInfo] = useState<{ fid?: number; username?: string } | null>(null);
   const [showCastPreview, setShowCastPreview] = useState(false);
+  const [showDailyBoot, setShowDailyBoot] = useState(false);
   const [seedCrackValue, setSeedCrackValue] = useState<string | null>(null);
   const [seedCrackStage, setSeedCrackStage] = useState<
     | 'dormant'
@@ -1133,6 +1134,15 @@ export default function LogoGenerator() {
     addToHistory(result);
   }, [addToHistory]);
 
+  const dismissDailyBoot = useCallback(() => {
+    setShowDailyBoot(false);
+    try {
+      localStorage.setItem('plf:bootDate', getTodayKey());
+    } catch (error) {
+      console.error('Failed to store boot state:', error);
+    }
+  }, [getTodayKey]);
+
   useEffect(() => {
     return () => {
       clearSeedCrackSequence();
@@ -1158,6 +1168,17 @@ export default function LogoGenerator() {
     // Set daily challenges based on today's date
     const challenges = getDailyChallenges();
     setDailyChallenges(challenges);
+
+    // Show daily boot screen once per day
+    try {
+      const todayKey = getTodayKey();
+      const lastBoot = localStorage.getItem('plf:bootDate');
+      if (lastBoot !== todayKey) {
+        setShowDailyBoot(true);
+      }
+    } catch (error) {
+      console.error('Failed to read boot state:', error);
+    }
     
     // Update time until reset every minute
     const updateTimeUntilReset = () => {
@@ -1199,6 +1220,7 @@ export default function LogoGenerator() {
     checkDailyLimits,
     ensureDailyLimit,
     finalizeDailyLimit,
+    getTodayKey,
     loadChallenge,
     loadChallengeDays,
     loadChallengeHistory,
@@ -2779,7 +2801,22 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
   );
 
   return (
-    <div className="logo-generator">
+    <div className={`logo-generator${isGenerating ? ' is-generating' : ''}`}>
+      {showDailyBoot && (
+        <div className="daily-boot-overlay" role="dialog" aria-modal="true" aria-label="Daily boot screen">
+          <div className="daily-boot-card">
+            <div className="daily-boot-title">Pixel Logo Forge</div>
+            <div className="daily-boot-subtitle">Terminal boot</div>
+            <div className="daily-boot-lines">
+              <div>Daily seeds available: {TRIES_PER_DAY}</div>
+              <div>Rarity odds: Common 50% · Rare 30% · Epic 15% · Legendary 5%</div>
+            </div>
+            <button type="button" className="daily-boot-start" onClick={dismissDailyBoot}>
+              Tap to start
+            </button>
+          </div>
+        </div>
+      )}
       {toast && (
         <Toast
           message={toast.message}
@@ -2835,6 +2872,18 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               >
                 Use prompt
               </button>
+            </div>
+            <div className="forge-session">
+              <div className="forge-session-title">Today&apos;s Forge Session</div>
+              <div className="rarity-meter" aria-hidden="true">
+                <div className="rarity-meter-track">
+                  <span>Common</span>
+                  <span>Rare</span>
+                  <span>Epic</span>
+                  <span>Legendary</span>
+                </div>
+                <div className={`rarity-meter-needle${isGenerating ? '' : ' jitter'}`} />
+              </div>
             </div>
             <input
               type="text"
@@ -3021,6 +3070,9 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                       <span className="seed-ticket-value">{seedCrackValue}</span>
                     </div>
                     <span className="seed-crack-stage">Stage 10/10</span>
+                    <div className="seed-congrats">
+                      {seedCrackRarity === 'LEGENDARY' ? 'Legendary forge unlocked.' : 'Congratulations.'}
+                    </div>
                   </>
                 )}
               </div>
@@ -3062,6 +3114,11 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
         <div className="output-section">
           <div className="logo-card">
             <div className="rarity-badge" style={{ borderColor: getRarityColor(logoResult.rarity) }}>
+              <div
+                className="rarity-glow"
+                style={{ background: getRarityColor(logoResult.rarity) }}
+                aria-hidden="true"
+              />
               <span className="rarity-label">RARITY:</span>
               <span className="rarity-value" style={{ color: getRarityColor(logoResult.rarity) }}>
                 {logoResult.rarity}
@@ -3078,6 +3135,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               </button>
             </div>
             <div className={`logo-image-wrapper rarity-${logoResult.rarity.toLowerCase()}`}>
+              <div className="logo-card-frame" aria-hidden="true" />
               <NextImage
                 key={`${logoResult.seed}-${logoResult.config.text}`}
                 src={logoResult.dataUrl}
@@ -3089,6 +3147,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                 height={512}
                 unoptimized
               />
+              <div className="logo-shine" aria-hidden="true" />
               <div className="rarity-sparkle" aria-hidden="true" />
               <button
                 type="button"
@@ -3135,15 +3194,10 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               </button>
               <div className="seed-display">
                 <span>Seed: </span>
-                <button 
-                  onClick={copySeed} 
-                  className="seed-button"
-                  aria-label={`Copy seed ${logoResult.seed} to clipboard`}
-                >
-                  {logoResult.seed}
-                </button>
-                <span className="seed-help">(Click to copy)</span>
+                <span className="seed-value">{logoResult.seed}</span>
+                <span className="seed-help">(Permanent)</span>
               </div>
+              <div className="seed-permanence">This seed is permanent. Anyone can recreate it.</div>
               <div className="logo-footer">
                 Generated by Pixel Logo Forge
               </div>
@@ -3164,7 +3218,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               </label>
             </div>
             <div className="logo-actions">
-              <div className="logo-actions-primary">
+              <div className="logo-actions-primary action-row action-row-two">
                 <button 
                   onClick={() => (remixMode ? handleRemixCast() : handleCastClick())} 
                   className="action-button cast-button"
@@ -3172,38 +3226,59 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                   aria-label="Cast logo to Farcaster"
                   aria-busy={isCasting ? 'true' : 'false'}
                 >
-                  {isCasting ? 'CASTING...' : 'CAST THIS LOGO'}
+                  {isCasting ? 'CASTING...' : 'CAST'}
+                </button>
+                <button 
+                  onClick={handleDownload} 
+                  className="action-button" 
+                  disabled={isGenerating}
+                  aria-label={isMobile ? "Save image to Photos or Files" : "Download image as PNG"}
+                >
+                  DOWNLOAD
                 </button>
               </div>
               <div className="logo-actions-secondary">
-                <div className="action-row action-row-two">
-                  <button 
-                    onClick={handleDownload} 
-                    className="action-button" 
+                <div className="action-icons">
+                  <button
+                    type="button"
+                    className="action-icon-button"
+                    onClick={copySeed}
+                    aria-label={`Copy seed ${logoResult.seed} to clipboard`}
                     disabled={isGenerating}
-                    aria-label={isMobile ? "Save image to Photos or Files" : "Download image as PNG"}
                   >
-                    DOWNLOAD IMAGE
+                    🔑
+                    <span>Copy</span>
                   </button>
-                  <button 
-                    onClick={handleShare} 
-                    className="action-button"
-                    disabled={isSharing || isGenerating}
-                    aria-label="Share logo"
-                    aria-busy={isSharing}
-                  >
-                    <span className="action-icon" aria-hidden="true">🔗</span>
-                    {isSharing ? 'SHARING...' : 'SHARE'}
-                  </button>
-                </div>
-                <div className="action-row action-row-two">
-                  <button 
-                    onClick={() => toggleFavorite(logoResult)} 
-                    className="action-button" 
-                    disabled={isGenerating}
+                  <button
+                    type="button"
+                    className="action-icon-button"
+                    onClick={() => toggleFavorite(logoResult)}
                     aria-label="Save logo to favorites"
+                    disabled={isGenerating}
                   >
-                    {isFavorite(logoResult) ? 'SAVED' : 'SAVE'}
+                    ⭐
+                    <span>{isFavorite(logoResult) ? 'Saved' : 'Save'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="action-icon-button"
+                    onClick={() => setRemixMode((prev) => !prev)}
+                    aria-label="Toggle remix mode"
+                    disabled={isGenerating}
+                  >
+                    ♻️
+                    <span>{remixMode ? 'Remix on' : 'Remix'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="action-icon-button"
+                    onClick={handleShare}
+                    aria-label="Share logo link"
+                    aria-busy={isSharing}
+                    disabled={isSharing || isGenerating}
+                  >
+                    🔗
+                    <span>{isSharing ? 'Sharing' : 'Share'}</span>
                   </button>
                 </div>
               </div>
@@ -3228,8 +3303,14 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
               <div className="leaderboard-status">No casts yet today. Be the first!</div>
             ) : (
               <div className="home-top-casts-grid">
-                {sortedLeaderboard.slice(0, 3).map((entry) => (
+                {sortedLeaderboard.slice(0, 3).map((entry, index) => (
                   <div key={`home-top-${entry.id}`} className="home-top-cast">
+                    {index === 0 && (
+                      <div className="home-top-cast-champion">
+                        <span className="champion-crown" aria-hidden="true">👑</span>
+                        Today&apos;s Champion
+                      </div>
+                    )}
                     {entry.imageUrl ? (
                       <NextImage
                         src={entry.imageUrl}
