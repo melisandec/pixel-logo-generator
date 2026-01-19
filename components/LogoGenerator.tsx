@@ -2905,8 +2905,9 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
                       aria-hidden="true"
                     >
                       <div className={`seed-crack-shake${seedCrackStage === 'shake' ? ' is-active' : ''}`}>
-                        <div className="seed-crack-half left" />
-                        <div className="seed-crack-half right" />
+                        <div className="seed-crack-body" />
+                        <div className="seed-crack-flap left" />
+                        <div className="seed-crack-flap right" />
                         <div className="seed-crack-line" />
                       </div>
                     </div>
