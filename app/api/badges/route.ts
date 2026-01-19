@@ -40,7 +40,7 @@ export const BADGE_TYPES = {
 
 export type BadgeType = typeof BADGE_TYPES[keyof typeof BADGE_TYPES];
 
-const BADGE_INFO: Record<BadgeType, { name: string; description: string; icon: string; rarity: 'common' | 'rare' | 'epic' | 'legendary' }> = {
+export const BADGE_INFO: Record<BadgeType, { name: string; description: string; icon: string; rarity: 'common' | 'rare' | 'epic' | 'legendary' }> = {
   [BADGE_TYPES.FIRST_CAST]: { name: 'First Forge', description: 'Cast your first logo', icon: '🎯', rarity: 'common' },
   [BADGE_TYPES.NOVICE_FORGER]: { name: 'Novice Forger', description: 'Cast 5 logos', icon: '🔨', rarity: 'common' },
   [BADGE_TYPES.SKILLED_FORGER]: { name: 'Skilled Forger', description: 'Cast 25 logos', icon: '⚒️', rarity: 'rare' },

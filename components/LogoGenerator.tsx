@@ -2017,7 +2017,7 @@ ${remixLine ? `${remixLine}\n` : ''}#PixelLogoForge #${activeResult.rarity}Logo
       <div className="leaderboard-title">Global Leaderboard</div>
       {dailyWinners.length > 0 && (
         <div className="daily-winners-section">
-          <div className="leaderboard-title">🏆 Today's Winners</div>
+          <div className="leaderboard-title">🏆 Today&apos;s Winners</div>
           <div className="daily-winners-grid">
             {dailyWinners.map((winner) => (
               <div key={`winner-${winner.rank}`} className={`daily-winner-card rank-${winner.rank}`}>
