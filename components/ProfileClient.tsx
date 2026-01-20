@@ -38,6 +38,206 @@ const buildWarpcastComposeUrl = (text: string, embeds?: string[]) => {
   return `https://warpcast.com/~/compose?${params.toString()}`;
 };
 
+const generatePlayerCard = (
+  username: string,
+  level: number,
+  bestRarity: string,
+  forgeRank: string,
+  signatureLogo: LeaderboardEntry | null,
+  isRarityMaster: boolean,
+): Promise<string> => {
+  return new Promise((resolve) => {
+    // Create canvas (square 600x600)
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 600;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      resolve("");
+      return;
+    }
+
+    // Background
+    ctx.fillStyle = "#0a0e27";
+    ctx.fillRect(0, 0, 600, 600);
+
+    // Gradient overlay for rarity
+    const gradient = ctx.createLinearGradient(0, 0, 600, 600);
+    let topColor = "rgba(0, 255, 0, 0.1)"; // Common
+    let accentColor = "#00ff00";
+    let glowColor = "rgba(0, 255, 0, 0.3)";
+
+    switch (bestRarity.toUpperCase()) {
+      case "LEGENDARY":
+        topColor = "rgba(255, 170, 0, 0.15)";
+        accentColor = "#ffaa00";
+        glowColor = "rgba(255, 170, 0, 0.4)";
+        break;
+      case "EPIC":
+        topColor = "rgba(170, 0, 255, 0.12)";
+        accentColor = "#aa00ff";
+        glowColor = "rgba(170, 0, 255, 0.35)";
+        break;
+      case "RARE":
+        topColor = "rgba(0, 170, 255, 0.12)";
+        accentColor = "#00aaff";
+        glowColor = "rgba(0, 170, 255, 0.3)";
+        break;
+    }
+
+    gradient.addColorStop(0, topColor);
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 600, 600);
+
+    // Border glow
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(15, 15, 570, 570);
+
+    // Top section - Title
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 16px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("PIXEL LOGO FORGE", 300, 50);
+
+    // Player card title
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 14px 'Courier New', monospace";
+    ctx.fillText("PLAYER CARD", 300, 80);
+
+    // Username section
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 32px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(`@${username}`, 300, 130);
+
+    // Stats section - left side
+    ctx.fillStyle = "#cccccc";
+    ctx.font = "bold 12px 'Courier New', monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("LEVEL", 40, 180);
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 28px 'Courier New', monospace";
+    ctx.fillText(`${level}`, 40, 220);
+
+    // Forge Rank - center
+    ctx.fillStyle = "#cccccc";
+    ctx.font = "bold 12px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("FORGE RANK", 300, 180);
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 32px 'Courier New', monospace";
+    ctx.fillText(forgeRank, 300, 220);
+
+    // Best Rarity - right side
+    ctx.fillStyle = "#cccccc";
+    ctx.font = "bold 12px 'Courier New', monospace";
+    ctx.textAlign = "right";
+    ctx.fillText("BEST RARITY", 560, 180);
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 22px 'Courier New', monospace";
+    ctx.fillText(bestRarity, 560, 220);
+
+    // Divider line
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(30, 240);
+    ctx.lineTo(570, 240);
+    ctx.stroke();
+
+    // Signature logo section
+    if (signatureLogo && signatureLogo.imageUrl) {
+      const imgElement = typeof window !== "undefined" ? new (window as any).Image() : null;
+      if (!imgElement) {
+        // Fallback: no image support
+        ctx.fillStyle = "#333333";
+        ctx.fillRect(65, 275, 470, 270);
+        ctx.fillStyle = "#888888";
+        ctx.font = "14px 'Courier New', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("SIGNATURE LOGO", 300, 410);
+
+        if (isRarityMaster) {
+          ctx.fillStyle = "#ffaa00";
+          ctx.font = "bold 11px 'Courier New', monospace";
+          ctx.textAlign = "right";
+          ctx.fillText("★ RARITY MASTER", 530, 560);
+        }
+
+        resolve(canvas.toDataURL("image/png"));
+        return;
+      }
+
+      imgElement.crossOrigin = "anonymous";
+      imgElement.onload = () => {
+        // Draw signature logo frame
+        ctx.fillStyle = glowColor;
+        ctx.fillRect(60, 270, 480, 280);
+        ctx.fillStyle = "#0a0e27";
+        ctx.fillRect(65, 275, 470, 270);
+
+        // Draw image
+        ctx.drawImage(imgElement, 65, 275, 470, 270);
+
+        // Label
+        ctx.fillStyle = "#cccccc";
+        ctx.font = "bold 11px 'Courier New', monospace";
+        ctx.textAlign = "left";
+        ctx.fillText("SIGNATURE LOGO", 70, 560);
+
+        // Rarity Master badge
+        if (isRarityMaster) {
+          ctx.fillStyle = "#ffaa00";
+          ctx.font = "bold 11px 'Courier New', monospace";
+          ctx.textAlign = "right";
+          ctx.fillText("★ RARITY MASTER", 530, 560);
+        }
+
+        // Convert canvas to data URL
+        resolve(canvas.toDataURL("image/png"));
+      };
+      imgElement.onerror = () => {
+        // If image fails to load, show placeholder
+        ctx.fillStyle = "#333333";
+        ctx.fillRect(65, 275, 470, 270);
+        ctx.fillStyle = "#888888";
+        ctx.font = "14px 'Courier New', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("SIGNATURE LOGO", 300, 410);
+
+        if (isRarityMaster) {
+          ctx.fillStyle = "#ffaa00";
+          ctx.font = "bold 11px 'Courier New', monospace";
+          ctx.textAlign = "right";
+          ctx.fillText("★ RARITY MASTER", 530, 560);
+        }
+
+        resolve(canvas.toDataURL("image/png"));
+      };
+      imgElement.src = signatureLogo.imageUrl;
+    } else {
+      // No signature logo - show placeholder
+      ctx.fillStyle = "#333333";
+      ctx.fillRect(65, 275, 470, 270);
+      ctx.fillStyle = "#888888";
+      ctx.font = "14px 'Courier New', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("SELECT A SIGNATURE LOGO", 300, 410);
+
+      if (isRarityMaster) {
+        ctx.fillStyle = "#ffaa00";
+        ctx.font = "bold 11px 'Courier New', monospace";
+        ctx.textAlign = "right";
+        ctx.fillText("★ RARITY MASTER", 530, 560);
+      }
+
+      resolve(canvas.toDataURL("image/png"));
+    }
+  });
+};
+
 const PRESETS = [
   { key: "arcade", label: "Arcade" },
   { key: "vaporwave", label: "Vaporwave" },
@@ -294,29 +494,77 @@ export default function ProfileClient({
 
   const handleShareCollection = async () => {
     const profileUrl = `${window.location.origin}/profile/${encodeURIComponent(profile.username)}`;
-    const embeds = topEntries
-      .map((entry) => entry.imageUrl)
-      .filter(
-        (url) =>
-          url && (url.startsWith("http://") || url.startsWith("https://")),
-      );
-    const text = `My Pixel Logo Forge collection (top 3)\n${profileUrl}`;
+    
+    // Generate player card image
+    const isRarityMaster = userBadges.some(
+      (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
+    );
+    
+    const playerCardDataUrl = await generatePlayerCard(
+      profile.username,
+      stats.level,
+      stats.bestRarity,
+      stats.forgeRank,
+      signatureLogo,
+      isRarityMaster,
+    );
+
+    const text = `My Pixel Logo Forge player card 🎮\n${profileUrl}`;
+    
     try {
-      const embedsForSdk = embeds.slice(0, 2) as string[];
+      // Try to upload player card image
+      let playerCardImageUrl: string | null = null;
+      try {
+        const cardUploadResponse = await fetch("/api/logo-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            dataUrl: playerCardDataUrl,
+            text: `${profile.username}'s Player Card`,
+            seed: 0,
+          }),
+        });
+        if (cardUploadResponse.ok) {
+          const cardData = await cardUploadResponse.json();
+          playerCardImageUrl = cardData.imageUrl;
+        }
+      } catch (uploadError) {
+        console.error("Player card upload failed:", uploadError);
+      }
+
+      // Prepare embeds with player card + top logos
+      const topLogoEmbeds = topEntries
+        .map((entry) => entry.imageUrl)
+        .filter(
+          (url) =>
+            url && (url.startsWith("http://") || url.startsWith("https://")),
+        )
+        .slice(0, 1);
+
+      const embedsForSdk = playerCardImageUrl
+        ? [playerCardImageUrl, ...topLogoEmbeds]
+        : topLogoEmbeds;
+
+      const embedsForSDK = embedsForSdk.slice(0, 2) as [string] | [string, string] | [];
+
       await sdk.actions.composeCast({
         text,
         embeds:
-          embedsForSdk.length === 2
-            ? ([embedsForSdk[0], embedsForSdk[1]] as [string, string])
-            : embedsForSdk.length === 1
-              ? ([embedsForSdk[0]] as [string])
+          embedsForSDK.length === 2
+            ? ([embedsForSDK[0], embedsForSDK[1]] as [string, string])
+            : embedsForSDK.length === 1
+              ? ([embedsForSDK[0]] as [string])
               : undefined,
       });
       return;
     } catch (error) {
       console.error("Share collection via SDK failed:", error);
     }
-    const composeUrl = buildWarpcastComposeUrl(text, embeds);
+
+    // Fallback to web share
+    const composeUrl = buildWarpcastComposeUrl(text, [playerCardDataUrl]);
     const opened = window.open(composeUrl, "_blank", "noopener,noreferrer");
     if (!opened) {
       window.location.href = composeUrl;
