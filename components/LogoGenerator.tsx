@@ -211,7 +211,7 @@ const PRESETS = [
       compositionMode: "centered",
     },
   },
-] as const;
+];
 const RARITY_OPTIONS: Rarity[] = ["COMMON", "RARE", "EPIC", "LEGENDARY"];
 const PRESET_SWATCHES: Record<string, string[]> = {
   arcade: ["#00ff00", "#ff00ff", "#ffff00"],
@@ -232,7 +232,7 @@ const ALL_CHALLENGE_PROMPTS = [
   { name: "Dior", description: "Generate a logo for Dior" },
   { name: "Amazon", description: "Generate a logo for Amazon" },
   { name: "Nintendo", description: "Generate a logo for Nintendo" },
-] as const;
+];
 
 const DAILY_PROMPTS = [
   "Meta",
@@ -242,7 +242,7 @@ const DAILY_PROMPTS = [
   "Dior",
   "Amazon",
   "Nintendo",
-] as const;
+];
 
 export default function LogoGenerator() {
   const [inputText, setInputText] = useState("");
@@ -363,7 +363,6 @@ export default function LogoGenerator() {
   const [pastWinners, setPastWinners] = useState<
     Array<{ date: string; winners: Array<{ rank: number } & LeaderboardEntry> }>
   >([]);
-
   const getTodayKey = useCallback(() => {
     const now = new Date();
     const year = now.getFullYear();
@@ -1289,49 +1288,182 @@ export default function LogoGenerator() {
     return audioContextRef.current;
   }, []);
 
-  const playCrackSound = useCallback(() => {
-    if (!soundEnabled) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const noiseBuffer = ctx.createBuffer(
-      1,
-      ctx.sampleRate * 0.08,
-      ctx.sampleRate,
-    );
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < data.length; i += 1) {
-      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-    }
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = "highpass";
-    filter.frequency.value = 900;
-    const gain = ctx.createGain();
-    gain.gain.value = 0.06;
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-    noise.start();
-  }, [getAudioContext, soundEnabled]);
+  const createSeededRandom = useCallback((seed: number) => {
+    let state = seed >>> 0;
+    return () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 0xffffffff;
+    };
+  }, []);
 
-  const playBloomSound = useCallback(() => {
-    if (!soundEnabled) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    osc.type = "triangle";
-    const gain = ctx.createGain();
-    gain.gain.value = 0.0001;
-    osc.frequency.setValueAtTime(320, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.35);
-    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.45);
-  }, [getAudioContext, soundEnabled]);
+  const getRarityGain = useCallback((rarity?: Rarity | null) => {
+    if (rarity === "LEGENDARY") return 1.35;
+    if (rarity === "EPIC") return 1.18;
+    if (rarity === "RARE") return 1.08;
+    return 1;
+  }, []);
+
+  const playCrackSound = useCallback(
+    (params: { seed?: number; rarity?: Rarity | null }) => {
+      if (!soundEnabled) return;
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+      const now = ctx.currentTime;
+      const seed =
+        params.seed ?? Math.floor((performance.now() % 1e6) * 1000);
+      const rand = createSeededRandom(seed ^ 0x9e3779b9);
+      const rarityGain = getRarityGain(params.rarity) * 0.9;
+
+      const master = ctx.createGain();
+      master.gain.value = 0.0001;
+      master.gain.exponentialRampToValueAtTime(0.8 * rarityGain, now + 0.01);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+      master.connect(ctx.destination);
+
+      const pan = ctx.createStereoPanner();
+      pan.pan.value = (rand() * 2 - 1) * 0.25;
+      pan.connect(master);
+
+      const crackBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
+      const crackData = crackBuffer.getChannelData(0);
+      for (let i = 0; i < crackData.length; i += 1) {
+        const t = i / crackData.length;
+        const decay = 1 - t;
+        crackData[i] = (rand() * 2 - 1) * decay * Math.pow(1 - t, 1.25);
+      }
+      const crack = ctx.createBufferSource();
+      crack.buffer = crackBuffer;
+      const crackFilter = ctx.createBiquadFilter();
+      crackFilter.type = "highpass";
+      crackFilter.frequency.value = 900 + rand() * 600;
+      const crackGain = ctx.createGain();
+      crackGain.gain.setValueAtTime(0.14 * rarityGain, now);
+      crackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+      crack.connect(crackFilter);
+      crackFilter.connect(crackGain);
+      crackGain.connect(pan);
+      crack.start(now);
+      crack.stop(now + 0.22);
+
+      const thump = ctx.createOscillator();
+      thump.type = "triangle";
+      thump.frequency.setValueAtTime(140 + rand() * 40, now);
+      thump.frequency.exponentialRampToValueAtTime(60 + rand() * 18, now + 0.34);
+      const thumpGain = ctx.createGain();
+      thumpGain.gain.setValueAtTime(0.18 * rarityGain, now);
+      thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
+      thump.connect(thumpGain);
+      thumpGain.connect(master);
+      thump.start(now);
+      thump.stop(now + 0.38);
+
+      const debrisBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.18, ctx.sampleRate);
+      const debrisData = debrisBuffer.getChannelData(0);
+      for (let i = 0; i < debrisData.length; i += 1) {
+        const t = i / debrisData.length;
+        const decay = Math.pow(1 - t, 1.6);
+        debrisData[i] = (rand() * 2 - 1) * decay * 0.9;
+      }
+      const debris = ctx.createBufferSource();
+      debris.buffer = debrisBuffer;
+      const debrisFilter = ctx.createBiquadFilter();
+      debrisFilter.type = "bandpass";
+      debrisFilter.frequency.value = 3800 + rand() * 1600;
+      debrisFilter.Q.value = 3.2;
+      const debrisGain = ctx.createGain();
+      debrisGain.gain.setValueAtTime(0.08 * rarityGain, now + 0.02);
+      debrisGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+      debris.connect(debrisFilter);
+      debrisFilter.connect(debrisGain);
+      debrisGain.connect(pan);
+      debris.start(now + 0.02);
+      debris.stop(now + 0.3);
+
+      const shard = ctx.createOscillator();
+      shard.type = "sine";
+      shard.frequency.setValueAtTime(780 + rand() * 220, now + 0.02);
+      shard.frequency.exponentialRampToValueAtTime(320 + rand() * 60, now + 0.18);
+      const shardGain = ctx.createGain();
+      shardGain.gain.setValueAtTime(0.06 * rarityGain, now + 0.02);
+      shardGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
+      shard.connect(shardGain);
+      shardGain.connect(master);
+      shard.start(now + 0.02);
+      shard.stop(now + 0.27);
+    },
+    [createSeededRandom, getAudioContext, getRarityGain, soundEnabled],
+  );
+
+  const playBloomSound = useCallback(
+    (params: { seed?: number; rarity?: Rarity | null }) => {
+      if (!soundEnabled) return;
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+      const seed =
+        params.seed ?? Math.floor((performance.now() % 1e6) * 1000 + 17);
+      const rand = createSeededRandom(seed ^ 0x85ebca6b);
+      const rarityGain = getRarityGain(params.rarity);
+      const now = ctx.currentTime;
+
+      const master = ctx.createGain();
+      master.gain.value = 0.0001;
+      master.gain.exponentialRampToValueAtTime(0.55 * rarityGain, now + 0.04);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+      master.connect(ctx.destination);
+
+      const pad = ctx.createOscillator();
+      pad.type = "sawtooth";
+      pad.frequency.setValueAtTime(260 + rand() * 40, now);
+      pad.frequency.exponentialRampToValueAtTime(140 + rand() * 30, now + 0.5);
+      const padGain = ctx.createGain();
+      padGain.gain.setValueAtTime(0.12 * rarityGain, now);
+      padGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.52);
+      pad.connect(padGain);
+      padGain.connect(master);
+      pad.start(now);
+      pad.stop(now + 0.54);
+
+      const shimmer = ctx.createOscillator();
+      shimmer.type = "triangle";
+      shimmer.frequency.setValueAtTime(880 + rand() * 120, now + 0.08);
+      shimmer.frequency.exponentialRampToValueAtTime(620 + rand() * 60, now + 0.34);
+      const shimmerGain = ctx.createGain();
+      shimmerGain.gain.setValueAtTime(0.05 * rarityGain, now + 0.08);
+      shimmerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+      shimmer.connect(shimmerGain);
+      shimmerGain.connect(master);
+      shimmer.start(now + 0.08);
+      shimmer.stop(now + 0.42);
+
+      const airBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.25, ctx.sampleRate);
+      const airData = airBuffer.getChannelData(0);
+      for (let i = 0; i < airData.length; i += 1) {
+        const t = i / airData.length;
+        const decay = Math.pow(1 - t, 1.4);
+        airData[i] = (rand() * 2 - 1) * decay * 0.5;
+      }
+      const air = ctx.createBufferSource();
+      air.buffer = airBuffer;
+      const airFilter = ctx.createBiquadFilter();
+      airFilter.type = "highpass";
+      airFilter.frequency.value = 1800 + rand() * 400;
+      const airGain = ctx.createGain();
+      airGain.gain.setValueAtTime(0.04 * rarityGain, now + 0.02);
+      airGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+      air.connect(airFilter);
+      airFilter.connect(airGain);
+      airGain.connect(master);
+      air.start(now + 0.02);
+      air.stop(now + 0.5);
+    },
+    [createSeededRandom, getAudioContext, getRarityGain, soundEnabled],
+  );
 
   const playTicketSound = useCallback(() => {
     if (!soundEnabled) return;
@@ -1411,7 +1543,7 @@ export default function LogoGenerator() {
       scheduleStage(1250, "fissure");
       seedCrackTimeoutsRef.current.push(
         window.setTimeout(() => {
-          playCrackSound();
+          playCrackSound({ seed: result.seed, rarity: result.rarity });
         }, 1250 * pacingMultiplier),
       );
       scheduleStage(1550, "swell");
@@ -1420,7 +1552,7 @@ export default function LogoGenerator() {
       scheduleStage(1980, "bloom");
       seedCrackTimeoutsRef.current.push(
         window.setTimeout(() => {
-          playBloomSound();
+          playBloomSound({ seed: result.seed, rarity: result.rarity });
         }, 1980 * pacingMultiplier),
       );
 
