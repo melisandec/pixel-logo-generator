@@ -1728,7 +1728,6 @@ export default function LogoGenerator() {
     loadPastWinners,
     loadFavorites,
     calculateTimeUntilReset,
-    getTodayKey,
     getDailyChallenges,
     saveChallenge,
     saveChallengeHistory,
