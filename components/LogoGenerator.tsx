@@ -3,7 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import NextImage from "next/image";
 import Link from "next/link";
-import { generateLogo, LogoResult, Rarity } from "@/lib/logoGenerator";
+import {
+  generateLogo,
+  type LogoConfig,
+  type LogoResult,
+  type Rarity,
+} from "@/lib/logoGenerator";
 import { getImageForContext, type ImageRenderContext } from "@/lib/imageContext";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { EXTRA_BADGE_TYPES } from "@/lib/badgeTypes";
@@ -180,7 +185,11 @@ const RANDOM_WORDS = [
   "Filecoin",
   "Arbitrum",
 ];
-const PRESETS = [
+const PRESETS: Array<{
+  key: string;
+  label: string;
+  config: Partial<LogoConfig>;
+}> = [
   {
     key: "arcade",
     label: "Arcade",
