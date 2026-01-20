@@ -47,7 +47,7 @@ export default function LazyImage({
       {
         rootMargin: "50px", // Start loading 50px before visible
         threshold: 0.01,
-      }
+      },
     );
 
     if (imgRef.current) {

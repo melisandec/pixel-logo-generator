@@ -6,7 +6,7 @@ export async function trackEvent(
   eventType: string,
   metadata?: Record<string, any>,
   userId?: string,
-  username?: string
+  username?: string,
 ) {
   try {
     await fetch("/api/analytics", {
@@ -32,7 +32,7 @@ export async function saveUserPreferences(
     soundEnabled?: boolean;
   },
   userId?: string,
-  username?: string
+  username?: string,
 ) {
   try {
     await fetch("/api/preferences", {

@@ -7,16 +7,13 @@ export async function GET(req: NextRequest) {
   try {
     // Get a random entry from the database
     const count = await prisma.leaderboardEntry.count();
-    
+
     if (count === 0) {
-      return NextResponse.json(
-        { error: "No entries found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "No entries found" }, { status: 404 });
     }
 
     const randomSkip = Math.floor(Math.random() * count);
-    
+
     const entry = await prisma.leaderboardEntry.findMany({
       take: 1,
       skip: randomSkip,
@@ -24,10 +21,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!entry || entry.length === 0) {
-      return NextResponse.json(
-        { error: "No entry found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "No entry found" }, { status: 404 });
     }
 
     return NextResponse.json({ entry: entry[0] });
@@ -35,7 +29,7 @@ export async function GET(req: NextRequest) {
     console.error("Random entry fetch error:", error);
     return NextResponse.json(
       { error: "Failed to fetch random entry" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

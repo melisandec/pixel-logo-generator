@@ -15,12 +15,14 @@ export default function SearchBar({
   showRandomButton = true,
 }: SearchBarProps) {
   const [query, setQuery] = useState("");
-  const [searchType, setSearchType] = useState<"username" | "seed" | "text">("username");
+  const [searchType, setSearchType] = useState<"username" | "seed" | "text">(
+    "username",
+  );
   const router = useRouter();
 
   const handleSearch = useCallback(() => {
     if (!query.trim()) return;
-    
+
     if (onSearch) {
       onSearch(query, searchType);
     } else {
@@ -42,7 +44,7 @@ export default function SearchBar({
     try {
       const response = await fetch("/api/leaderboard/random");
       if (!response.ok) throw new Error("Failed to fetch random cast");
-      
+
       const data = await response.json();
       if (data.entry) {
         // Navigate to a detail view or profile
@@ -60,17 +62,17 @@ export default function SearchBar({
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div className="flex gap-2 mb-3">
+    <div className="w-full max-w-xl mx-auto">
+      <div className="flex gap-1 mb-2">
         {/* Search Type Selector */}
         <select
           value={searchType}
           onChange={(e) => setSearchType(e.target.value as any)}
-          className="px-3 py-2 bg-[#0a0e27] border-2 border-[#00ff00] text-[#00ff00] rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50"
+          className="px-2 py-1 bg-[#0a0e27] border border-[#00ff00] text-[#00ff00] rounded font-mono text-xs focus:outline-none"
         >
-          <option value="username">👤 User</option>
-          <option value="seed">🎲 Seed</option>
-          <option value="text">📝 Text</option>
+          <option value="username">👤</option>
+          <option value="seed">🎲</option>
+          <option value="text">📝</option>
         </select>
 
         {/* Search Input */}
@@ -81,12 +83,12 @@ export default function SearchBar({
             onChange={(e) => setQuery(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder={placeholder}
-            className="w-full px-4 py-2 bg-[#0a0e27] border-2 border-[#00ff00] text-white rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[#00ff00]/50 placeholder-white/40"
+            className="w-full px-2 py-1 bg-[#0a0e27] border border-[#00ff00] text-white rounded font-mono text-xs focus:outline-none placeholder-white/30"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-xs"
             >
               ✕
             </button>
@@ -97,9 +99,9 @@ export default function SearchBar({
         <button
           onClick={handleSearch}
           disabled={!query.trim()}
-          className="px-6 py-2 bg-[#00ff00] text-[#0a0e27] rounded-lg font-mono font-bold text-sm hover:bg-[#00ff00]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_0_20px_rgba(0,255,0,0.3)]"
+          className="px-3 py-1 bg-[#00ff00] text-[#0a0e27] rounded font-mono font-bold text-xs hover:bg-[#00ff00]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
-          🔍 Search
+          🔍
         </button>
       </div>
 
@@ -107,10 +109,9 @@ export default function SearchBar({
       {showRandomButton && (
         <button
           onClick={handleRandomCast}
-          className="w-full px-4 py-2 border-2 border-[#ff00ff] text-[#ff00ff] rounded-lg font-mono text-sm hover:bg-[#ff00ff]/10 transition-all flex items-center justify-center gap-2"
+          className="w-full px-2 py-1 border border-[#ff00ff] text-[#ff00ff] rounded font-mono text-xs hover:bg-[#ff00ff]/10 transition-all"
         >
-          🎲 Random Cast
-          <span className="text-xs opacity-70">(Discover something new)</span>
+          🎲 Random
         </button>
       )}
     </div>

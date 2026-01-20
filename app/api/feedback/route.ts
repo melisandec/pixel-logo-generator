@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (!message || typeof message !== "string") {
       return NextResponse.json(
         { error: "Message is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     console.error("Feedback submission error:", error);
     return NextResponse.json(
       { error: "Failed to submit feedback" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     console.error("Feedback fetch error:", error);
     return NextResponse.json(
       { error: "Failed to fetch feedback" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

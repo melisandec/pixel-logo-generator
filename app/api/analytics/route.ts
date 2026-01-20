@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (!eventType) {
       return NextResponse.json(
         { error: "Event type is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     console.error("Analytics tracking error:", error);
     return NextResponse.json(
       { error: "Failed to track event" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       // Aggregate metadata
       if (event.metadata && typeof event.metadata === "object") {
         const meta = event.metadata as any;
-        
+
         if (meta.seed) {
           stats.topSeeds[meta.seed] = (stats.topSeeds[meta.seed] || 0) + 1;
         }
@@ -76,7 +76,8 @@ export async function GET(req: NextRequest) {
           stats.topWords[meta.text] = (stats.topWords[meta.text] || 0) + 1;
         }
         if (meta.rarity) {
-          stats.topRarities[meta.rarity] = (stats.topRarities[meta.rarity] || 0) + 1;
+          stats.topRarities[meta.rarity] =
+            (stats.topRarities[meta.rarity] || 0) + 1;
         }
       }
     });
@@ -85,12 +86,12 @@ export async function GET(req: NextRequest) {
     stats.topSeeds = Object.fromEntries(
       Object.entries(stats.topSeeds)
         .sort(([, a], [, b]) => (b as number) - (a as number))
-        .slice(0, 10)
+        .slice(0, 10),
     );
     stats.topWords = Object.fromEntries(
       Object.entries(stats.topWords)
         .sort(([, a], [, b]) => (b as number) - (a as number))
-        .slice(0, 20)
+        .slice(0, 20),
     );
 
     return NextResponse.json({ stats, events: events.slice(0, 100) });
@@ -98,7 +99,7 @@ export async function GET(req: NextRequest) {
     console.error("Analytics fetch error:", error);
     return NextResponse.json(
       { error: "Failed to fetch analytics" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

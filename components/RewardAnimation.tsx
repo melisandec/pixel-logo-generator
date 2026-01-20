@@ -31,23 +31,26 @@ export default function RewardAnimation({
 
   useEffect(() => {
     // Generate particles based on animation type
-    const particleCount = type === "rarity-master" ? 40 : 30;
+    const particleCount = type === "rarity-master" ? 20 : 15;
     const colors = getColorsForType(type);
-    
-    const newParticles: Particle[] = Array.from({ length: particleCount }, (_, i) => {
-      const angle = (Math.PI * 2 * i) / particleCount;
-      const speed = 2 + Math.random() * 3;
-      return {
-        id: i,
-        x: 50, // Center (percentage)
-        y: 50,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        size: 4 + Math.random() * 8,
-        life: 1,
-      };
-    });
+
+    const newParticles: Particle[] = Array.from(
+      { length: particleCount },
+      (_, i) => {
+        const angle = (Math.PI * 2 * i) / particleCount;
+        const speed = 2 + Math.random() * 3;
+        return {
+          id: i,
+          x: 50, // Center (percentage)
+          y: 50,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: 4 + Math.random() * 8,
+          life: 1,
+        };
+      },
+    );
 
     setParticles(newParticles);
 
@@ -62,7 +65,7 @@ export default function RewardAnimation({
             vy: p.vy + 0.2, // Gravity
             life: p.life - 0.02,
           }))
-          .filter((p) => p.life > 0)
+          .filter((p) => p.life > 0),
       );
     }, 30);
 
@@ -110,23 +113,25 @@ export default function RewardAnimation({
 
       {/* Center Message */}
       <div
-        className={`relative bg-gradient-to-br from-[#0a0e27] to-[#1a1e37] border-4 rounded-xl p-8 max-w-sm text-center shadow-2xl transition-all duration-500 ${
+        className={`relative bg-gradient-to-br from-[#0a0e27] to-[#1a1e37] border-2 rounded-lg p-4 max-w-xs text-center shadow-lg transition-all duration-500 ${
           isVisible ? "scale-100" : "scale-90"
         }`}
         style={{
           borderColor: getBorderColorForType(type),
-          boxShadow: `0 0 40px ${getBorderColorForType(type)}40, inset 0 0 20px ${getBorderColorForType(type)}20`,
+          boxShadow: `0 0 20px ${getBorderColorForType(type)}30, inset 0 0 10px ${getBorderColorForType(type)}10`,
         }}
       >
-        <div className="text-6xl mb-4 animate-bounce">{getIconForType(type)}</div>
+        <div className="text-3xl mb-2 animate-bounce">
+          {getIconForType(type)}
+        </div>
         <h2
-          className="text-3xl font-bold mb-2 font-mono tracking-wider"
+          className="text-base font-bold mb-1 font-mono"
           style={{ color: getBorderColorForType(type) }}
         >
           {title}
         </h2>
         {subtitle && (
-          <p className="text-white/80 text-sm font-mono">{subtitle}</p>
+          <p className="text-white/70 text-xs font-mono">{subtitle}</p>
         )}
       </div>
 

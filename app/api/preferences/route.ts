@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (!userId && !username) {
       return NextResponse.json(
         { error: "User ID or username is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     console.error("Preferences update error:", error);
     return NextResponse.json(
       { error: "Failed to update preferences" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     if (!userId && !username) {
       return NextResponse.json(
         { error: "User ID or username is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
     console.error("Preferences fetch error:", error);
     return NextResponse.json(
       { error: "Failed to fetch preferences" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

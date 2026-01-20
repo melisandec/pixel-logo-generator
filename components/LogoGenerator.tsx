@@ -9,7 +9,10 @@ import {
   type LogoResult,
   type Rarity,
 } from "@/lib/logoGenerator";
-import { getImageForContext, type ImageRenderContext } from "@/lib/imageContext";
+import {
+  getImageForContext,
+  type ImageRenderContext,
+} from "@/lib/imageContext";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { EXTRA_BADGE_TYPES } from "@/lib/badgeTypes";
 import dynamic from "next/dynamic";
@@ -1338,8 +1341,7 @@ export default function LogoGenerator() {
         void ctx.resume();
       }
       const now = ctx.currentTime;
-      const seed =
-        params.seed ?? Math.floor((performance.now() % 1e6) * 1000);
+      const seed = params.seed ?? Math.floor((performance.now() % 1e6) * 1000);
       const rand = createSeededRandom(seed ^ 0x9e3779b9);
       const rarityGain = getRarityGain(params.rarity) * 0.9;
 
@@ -1353,7 +1355,11 @@ export default function LogoGenerator() {
       pan.pan.value = (rand() * 2 - 1) * 0.25;
       pan.connect(master);
 
-      const crackBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
+      const crackBuffer = ctx.createBuffer(
+        1,
+        ctx.sampleRate * 0.08,
+        ctx.sampleRate,
+      );
       const crackData = crackBuffer.getChannelData(0);
       for (let i = 0; i < crackData.length; i += 1) {
         const t = i / crackData.length;
@@ -1377,7 +1383,10 @@ export default function LogoGenerator() {
       const thump = ctx.createOscillator();
       thump.type = "triangle";
       thump.frequency.setValueAtTime(140 + rand() * 40, now);
-      thump.frequency.exponentialRampToValueAtTime(60 + rand() * 18, now + 0.34);
+      thump.frequency.exponentialRampToValueAtTime(
+        60 + rand() * 18,
+        now + 0.34,
+      );
       const thumpGain = ctx.createGain();
       thumpGain.gain.setValueAtTime(0.18 * rarityGain, now);
       thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
@@ -1386,7 +1395,11 @@ export default function LogoGenerator() {
       thump.start(now);
       thump.stop(now + 0.38);
 
-      const debrisBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.18, ctx.sampleRate);
+      const debrisBuffer = ctx.createBuffer(
+        1,
+        ctx.sampleRate * 0.18,
+        ctx.sampleRate,
+      );
       const debrisData = debrisBuffer.getChannelData(0);
       for (let i = 0; i < debrisData.length; i += 1) {
         const t = i / debrisData.length;
@@ -1411,7 +1424,10 @@ export default function LogoGenerator() {
       const shard = ctx.createOscillator();
       shard.type = "sine";
       shard.frequency.setValueAtTime(780 + rand() * 220, now + 0.02);
-      shard.frequency.exponentialRampToValueAtTime(320 + rand() * 60, now + 0.18);
+      shard.frequency.exponentialRampToValueAtTime(
+        320 + rand() * 60,
+        now + 0.18,
+      );
       const shardGain = ctx.createGain();
       shardGain.gain.setValueAtTime(0.06 * rarityGain, now + 0.02);
       shardGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
@@ -1458,7 +1474,10 @@ export default function LogoGenerator() {
       const shimmer = ctx.createOscillator();
       shimmer.type = "triangle";
       shimmer.frequency.setValueAtTime(880 + rand() * 120, now + 0.08);
-      shimmer.frequency.exponentialRampToValueAtTime(620 + rand() * 60, now + 0.34);
+      shimmer.frequency.exponentialRampToValueAtTime(
+        620 + rand() * 60,
+        now + 0.34,
+      );
       const shimmerGain = ctx.createGain();
       shimmerGain.gain.setValueAtTime(0.05 * rarityGain, now + 0.08);
       shimmerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
@@ -1467,7 +1486,11 @@ export default function LogoGenerator() {
       shimmer.start(now + 0.08);
       shimmer.stop(now + 0.42);
 
-      const airBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.25, ctx.sampleRate);
+      const airBuffer = ctx.createBuffer(
+        1,
+        ctx.sampleRate * 0.25,
+        ctx.sampleRate,
+      );
       const airData = airBuffer.getChannelData(0);
       for (let i = 0; i < airData.length; i += 1) {
         const t = i / airData.length;
@@ -1830,7 +1853,7 @@ export default function LogoGenerator() {
       const storedOnboarding = localStorage.getItem("plf:onboardingDone");
       const onboardingComplete = storedOnboarding === "true";
       setOnboardingDone(onboardingComplete);
-      
+
       // Show onboarding for first-time users
       if (!onboardingComplete) {
         setTimeout(() => setShowOnboarding(true), 1000);
@@ -2148,13 +2171,13 @@ export default function LogoGenerator() {
             !!seed,
           );
         }
-        
+
         // NEW: Track analytics
         const newCount = generationCount + 1;
         setGenerationCount(newCount);
         try {
           localStorage.setItem("plf:generationCount", String(newCount));
-          
+
           // Track event
           fetch("/api/analytics", {
             method: "POST",
@@ -2171,20 +2194,21 @@ export default function LogoGenerator() {
               },
             }),
           }).catch(() => {});
-          
+
           // Auto-upgrade to advanced mode after 3 successful generations
           if (uiMode === "simple" && newCount >= 3) {
             setUiMode("advanced");
             localStorage.setItem("plf:uiMode", "advanced");
-            setToast({ 
-              message: "🎉 Advanced Mode unlocked! You can now use seeds and remix.", 
-              type: "success" 
+            setToast({
+              message:
+                "🎉 Advanced Mode unlocked! You can now use seeds and remix.",
+              type: "success",
             });
           }
         } catch (error) {
           console.error("Failed to track generation:", error);
         }
-        
+
         setToast({ message: "Logo generated successfully!", type: "success" });
         setIsGenerating(false);
       });
@@ -2433,10 +2457,7 @@ export default function LogoGenerator() {
               const file = new File([blob], "logo.png", { type: blob.type });
 
               // Check if navigator.share supports files
-              if (
-                navigator.canShare &&
-                navigator.canShare({ files: [file] })
-              ) {
+              if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                   files: [file],
                   title: `Pixel Logo: ${logoResult.config.text}`,
@@ -2520,7 +2541,11 @@ export default function LogoGenerator() {
       const blob = await response.blob();
       const file = new File([blob], "logo.png", { type: blob.type });
 
-      if (target === "photos" && navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (
+        target === "photos" &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
         await navigator.share({
           files: [file],
           title: `Pixel Logo: ${logoResult.config.text}`,
@@ -2651,7 +2676,7 @@ export default function LogoGenerator() {
           cardImageUrl: entry.cardImageUrl,
           imageUrl: entry.imageUrl,
         },
-        "share"
+        "share",
       );
       if (
         shareImageUrl &&
@@ -3404,20 +3429,25 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
       <div className="gallery-meta">
         Recent casts from the community - {filteredGalleryEntries.length} shown
       </div>
-      
+
       {/* NEW: Search Bar */}
-      <div style={{ padding: "1rem 0", maxWidth: "600px", margin: "0 auto" }}>
+      <div style={{ padding: "0.5rem 0", maxWidth: "500px", margin: "0 auto" }}>
         <SearchBar
-          placeholder="Search by username, seed, or text..."
+          placeholder="Search..."
           showRandomButton={true}
           onSearch={async (query, type) => {
             try {
-              const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&type=${type}&limit=20`);
+              const response = await fetch(
+                `/api/search?q=${encodeURIComponent(query)}&type=${type}&limit=20`,
+              );
               if (response.ok) {
                 const data = await response.json();
                 if (data.results && data.results.length > 0) {
                   setGalleryEntries(data.results);
-                  setToast({ message: `Found ${data.results.length} result(s)`, type: "success" });
+                  setToast({
+                    message: `Found ${data.results.length} result(s)`,
+                    type: "success",
+                  });
                 } else {
                   setToast({ message: "No results found", type: "info" });
                 }
@@ -3429,7 +3459,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
           }}
         />
       </div>
-      
+
       <div className="gallery-actions-top">
         <button
           type="button"
@@ -3512,7 +3542,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                 cardImageUrl: entry.cardImageUrl,
                 imageUrl: entry.imageUrl,
               },
-              "gallery"
+              "gallery",
             );
             const CardBody = (
               <>
@@ -3622,36 +3652,36 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                   cardImageUrl: winner.entry.cardImageUrl,
                   imageUrl: winner.entry.imageUrl,
                 },
-                "leaderboard"
+                "leaderboard",
               );
               return (
-              <div
-                key={`winner-${winner.rank}`}
-                className={`daily-winner-card rank-${winner.rank}`}
-              >
-                <div className="daily-winner-rank">#{winner.rank}</div>
-                {leaderboardImageUrl ? (
-                  <NextImage
-                    src={leaderboardImageUrl}
-                    alt={`Winner ${winner.rank} by ${winner.username}`}
-                    className="daily-winner-image"
-                    width={200}
-                    height={120}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="daily-winner-text">{winner.entry.text}</div>
-                )}
-                <div className="daily-winner-info">
-                  <div className="daily-winner-username">
-                    @{winner.username}
-                  </div>
-                  <div className="daily-winner-stats">
-                    ❤️ {winner.entry.likes} 🔁 {winner.entry.recasts ?? 0}
+                <div
+                  key={`winner-${winner.rank}`}
+                  className={`daily-winner-card rank-${winner.rank}`}
+                >
+                  <div className="daily-winner-rank">#{winner.rank}</div>
+                  {leaderboardImageUrl ? (
+                    <NextImage
+                      src={leaderboardImageUrl}
+                      alt={`Winner ${winner.rank} by ${winner.username}`}
+                      className="daily-winner-image"
+                      width={200}
+                      height={120}
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="daily-winner-text">{winner.entry.text}</div>
+                  )}
+                  <div className="daily-winner-info">
+                    <div className="daily-winner-username">
+                      @{winner.username}
+                    </div>
+                    <div className="daily-winner-stats">
+                      ❤️ {winner.entry.likes} 🔁 {winner.entry.recasts ?? 0}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
+              );
             })}
           </div>
         </div>
@@ -3753,7 +3783,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                       cardImageUrl: entry.cardImageUrl,
                       imageUrl: entry.imageUrl,
                     },
-                    "leaderboard"
+                    "leaderboard",
                   );
                   return leaderboardImageUrl ? (
                     <NextImage
@@ -3766,8 +3796,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                     />
                   ) : (
                     <div className="leaderboard-text">
-                    {entry.text || "View cast"}
-                  </div>
+                      {entry.text || "View cast"}
+                    </div>
                   );
                 })()}
                 <div className="leaderboard-tags">
@@ -4206,7 +4236,10 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                   username: userInfo?.username,
                 }),
               });
-              setToast({ message: "Thanks for your feedback!", type: "success" });
+              setToast({
+                message: "Thanks for your feedback!",
+                type: "success",
+              });
             } catch (error) {
               setToast({ message: "Failed to submit feedback", type: "error" });
             }
@@ -4266,7 +4299,15 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
         <div className="input-panel">
           <div className="input-section">
             {/* NEW: Mode Toggle */}
-            <div className="mode-toggle-wrapper" style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <div
+              className="mode-toggle-wrapper"
+              style={{
+                marginBottom: "1rem",
+                display: "flex",
+                gap: "0.5rem",
+                alignItems: "center",
+              }}
+            >
               <button
                 type="button"
                 className={`mode-toggle-button ${uiMode === "simple" ? "active" : ""}`}
@@ -4309,7 +4350,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                   fontSize: "0.85rem",
                   border: "2px solid",
                   borderColor: uiMode === "advanced" ? "#00ff00" : "#444",
-                  background: uiMode === "advanced" ? "#00ff0020" : "transparent",
+                  background:
+                    uiMode === "advanced" ? "#00ff0020" : "transparent",
                   color: uiMode === "advanced" ? "#00ff00" : "#888",
                   borderRadius: "4px",
                   cursor: "pointer",
@@ -4354,90 +4396,90 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
             />
             {/* Only show seed input in Advanced Mode */}
             {uiMode === "advanced" && (
-            <div className="seed-input-group">
-              <div className="seed-label">
-                <svg
-                  className="seed-icon"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <rect x="6" y="2" width="4" height="2" />
-                  <rect x="5" y="4" width="6" height="2" />
-                  <rect x="4" y="6" width="8" height="2" />
-                  <rect x="4" y="8" width="8" height="2" />
-                  <rect x="5" y="10" width="6" height="2" />
-                  <rect x="6" y="12" width="4" height="2" />
-                </svg>
-                <span>Seed</span>
-                <button
-                  type="button"
-                  className={`remix-pill${remixMode ? " active" : ""}`}
-                  onClick={() => {
-                    if (!customSeed.trim()) {
-                      setToast({
-                        message: "Enter a seed to enable remix.",
-                        type: "info",
-                      });
+              <div className="seed-input-group">
+                <div className="seed-label">
+                  <svg
+                    className="seed-icon"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <rect x="6" y="2" width="4" height="2" />
+                    <rect x="5" y="4" width="6" height="2" />
+                    <rect x="4" y="6" width="8" height="2" />
+                    <rect x="4" y="8" width="8" height="2" />
+                    <rect x="5" y="10" width="6" height="2" />
+                    <rect x="6" y="12" width="4" height="2" />
+                  </svg>
+                  <span>Seed</span>
+                  <button
+                    type="button"
+                    className={`remix-pill${remixMode ? " active" : ""}`}
+                    onClick={() => {
+                      if (!customSeed.trim()) {
+                        setToast({
+                          message: "Enter a seed to enable remix.",
+                          type: "info",
+                        });
+                        return;
+                      }
+                      if (!inputText.trim()) {
+                        setToast({
+                          message: "Enter the original text to remix.",
+                          type: "info",
+                        });
+                        return;
+                      }
+                      setRemixMode((prev) => !prev);
+                    }}
+                    aria-pressed={remixMode}
+                  >
+                    Remix
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={customSeed}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    setCustomSeed(value);
+
+                    if (value === "") {
+                      setSeedError("");
                       return;
                     }
-                    if (!inputText.trim()) {
-                      setToast({
-                        message: "Enter the original text to remix.",
-                        type: "info",
-                      });
-                      return;
+
+                    const parsedSeed = parseInt(value, 10);
+                    if (isNaN(parsedSeed)) {
+                      setSeedError("Seed must be a number");
+                    } else if (parsedSeed < 0 || parsedSeed > 2147483647) {
+                      setSeedError("Seed must be between 0 and 2147483647");
+                    } else {
+                      setSeedError("");
                     }
-                    setRemixMode((prev) => !prev);
                   }}
-                  aria-pressed={remixMode}
-                >
-                  Remix
-                </button>
+                  placeholder="Optional: Use a seed once per day"
+                  className="seed-input"
+                  disabled={isGenerating || dailyLimit.seedUsed}
+                  aria-label="Optional seed input for deterministic logo generation"
+                  aria-invalid={seedError !== ""}
+                  aria-describedby={seedError ? "seed-error" : "seed-hint"}
+                />
+                {seedError ? (
+                  <span id="seed-error" className="seed-error" role="alert">
+                    {seedError}
+                  </span>
+                ) : (
+                  <span id="seed-hint" className="seed-hint">
+                    {dailyLimit.seedUsed
+                      ? "Seed used today — try again tomorrow"
+                      : "One seed entry per day"}
+                  </span>
+                )}
+                <span className="seed-tip">Tip: seed = recreate</span>
               </div>
-              <input
-                type="text"
-                value={customSeed}
-                onChange={(e) => {
-                  const value = e.target.value.trim();
-                  setCustomSeed(value);
-
-                  if (value === "") {
-                    setSeedError("");
-                    return;
-                  }
-
-                  const parsedSeed = parseInt(value, 10);
-                  if (isNaN(parsedSeed)) {
-                    setSeedError("Seed must be a number");
-                  } else if (parsedSeed < 0 || parsedSeed > 2147483647) {
-                    setSeedError("Seed must be between 0 and 2147483647");
-                  } else {
-                    setSeedError("");
-                  }
-                }}
-                placeholder="Optional: Use a seed once per day"
-                className="seed-input"
-                disabled={isGenerating || dailyLimit.seedUsed}
-                aria-label="Optional seed input for deterministic logo generation"
-                aria-invalid={seedError !== ""}
-                aria-describedby={seedError ? "seed-error" : "seed-hint"}
-              />
-              {seedError ? (
-                <span id="seed-error" className="seed-error" role="alert">
-                  {seedError}
-                </span>
-              ) : (
-                <span id="seed-hint" className="seed-hint">
-                  {dailyLimit.seedUsed
-                    ? "Seed used today — try again tomorrow"
-                    : "One seed entry per day"}
-                </span>
-              )}
-              <span className="seed-tip">Tip: seed = recreate</span>
-            </div>
             )}
             {/* End of Advanced Mode section */}
             <button
@@ -4463,15 +4505,15 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
               className="feedback-button"
               onClick={() => setShowFeedbackModal(true)}
               style={{
-                padding: "0.5rem 1rem",
-                fontSize: "0.85rem",
-                border: "2px solid #ff00ff",
+                padding: "0.25rem 0.5rem",
+                fontSize: "0.7rem",
+                border: "1px solid #ff00ff",
                 background: "transparent",
                 color: "#ff00ff",
                 borderRadius: "4px",
                 cursor: "pointer",
                 fontFamily: "monospace",
-                marginTop: "0.5rem",
+                marginTop: "0.25rem",
                 transition: "all 0.2s",
               }}
               onMouseEnter={(e) => {
@@ -4481,7 +4523,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                 e.currentTarget.style.background = "transparent";
               }}
             >
-              💬 Give Feedback
+              💬 Feedback
             </button>
             <div className="button-group">
               <button
@@ -4868,7 +4910,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                           cardImageUrl: entry.cardImageUrl,
                           imageUrl: entry.imageUrl,
                         },
-                        "preview"
+                        "preview",
                       );
                       return previewImageUrl ? (
                         <NextImage

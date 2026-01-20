@@ -53,16 +53,13 @@ export async function GET(req: NextRequest) {
       default:
         return NextResponse.json(
           { error: "Invalid search type" },
-          { status: 400 }
+          { status: 400 },
         );
     }
 
     return NextResponse.json({ results, count: results.length });
   } catch (error) {
     console.error("Search error:", error);
-    return NextResponse.json(
-      { error: "Search failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Search failed" }, { status: 500 });
   }
 }
