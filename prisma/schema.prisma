@@ -64,3 +64,42 @@ model DailyWinner {
 
   @@index([date])
 }
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String?
+  username  String?
+  type      String   // bug, feature, ux, praise, other
+  message   String
+  rating    Int?
+  createdAt DateTime @default(now())
+  status    String   @default("new") // new, reviewed, resolved
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+model Analytics {
+  id        String   @id @default(cuid())
+  eventType String   // generation, share, search, etc.
+  userId    String?
+  username  String?
+  metadata  Json?    // seed, text, rarity, etc.
+  createdAt DateTime @default(now())
+
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model UserPreferences {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  username        String   @unique
+  uiMode          String   @default("simple") // simple or advanced
+  onboardingDone  Boolean  @default(false)
+  soundEnabled    Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+
+  @@index([username])
+}

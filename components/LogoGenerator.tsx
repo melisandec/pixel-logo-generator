@@ -14,6 +14,10 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { EXTRA_BADGE_TYPES } from "@/lib/badgeTypes";
 import dynamic from "next/dynamic";
 import Toast from "./Toast";
+import OnboardingWizard from "./OnboardingWizard";
+import FeedbackModal from "./FeedbackModal";
+import RewardAnimation from "./RewardAnimation";
+import SearchBar from "./SearchBar";
 
 const CastPreviewModal = dynamic(() => import("./CastPreviewModal"), {
   ssr: false,
@@ -338,6 +342,19 @@ export default function LogoGenerator() {
   });
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const initRef = useRef(false);
+
+  // NEW UX ENHANCEMENT STATES
+  const [uiMode, setUiMode] = useState<"simple" | "advanced">("simple");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [rewardAnimation, setRewardAnimation] = useState<{
+    type: "rarity-master" | "forge-rank" | "level-up" | "achievement";
+    title: string;
+    subtitle?: string;
+  } | null>(null);
+  const [generationCount, setGenerationCount] = useState(0);
+  const [showSearch, setShowSearch] = useState(false);
 
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [challengeDone, setChallengeDone] = useState<Record<string, boolean>>(
@@ -1801,6 +1818,33 @@ export default function LogoGenerator() {
     const challenges = getDailyChallenges();
     setDailyChallenges(challenges);
 
+    // NEW: Initialize UX enhancements
+    try {
+      // Load UI mode preference
+      const storedMode = localStorage.getItem("plf:uiMode");
+      if (storedMode === "advanced" || storedMode === "simple") {
+        setUiMode(storedMode);
+      }
+
+      // Check onboarding status
+      const storedOnboarding = localStorage.getItem("plf:onboardingDone");
+      const onboardingComplete = storedOnboarding === "true";
+      setOnboardingDone(onboardingComplete);
+      
+      // Show onboarding for first-time users
+      if (!onboardingComplete) {
+        setTimeout(() => setShowOnboarding(true), 1000);
+      }
+
+      // Load generation count for auto-upgrade to advanced mode
+      const storedCount = localStorage.getItem("plf:generationCount");
+      if (storedCount) {
+        setGenerationCount(parseInt(storedCount) || 0);
+      }
+    } catch (error) {
+      console.error("Failed to load UX preferences:", error);
+    }
+
     // Show daily boot screen once per day
     try {
       const todayKey = getTodayKey();
@@ -2104,6 +2148,43 @@ export default function LogoGenerator() {
             !!seed,
           );
         }
+        
+        // NEW: Track analytics
+        const newCount = generationCount + 1;
+        setGenerationCount(newCount);
+        try {
+          localStorage.setItem("plf:generationCount", String(newCount));
+          
+          // Track event
+          fetch("/api/analytics", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              eventType: "generation",
+              userId: userInfo?.fid ? String(userInfo.fid) : undefined,
+              username: userInfo?.username,
+              metadata: {
+                text: inputText.trim(),
+                seed: seedToUse,
+                rarity: result.rarity,
+                preset: selectedPreset,
+              },
+            }),
+          }).catch(() => {});
+          
+          // Auto-upgrade to advanced mode after 3 successful generations
+          if (uiMode === "simple" && newCount >= 3) {
+            setUiMode("advanced");
+            localStorage.setItem("plf:uiMode", "advanced");
+            setToast({ 
+              message: "🎉 Advanced Mode unlocked! You can now use seeds and remix.", 
+              type: "success" 
+            });
+          }
+        } catch (error) {
+          console.error("Failed to track generation:", error);
+        }
+        
         setToast({ message: "Logo generated successfully!", type: "success" });
         setIsGenerating(false);
       });
@@ -3323,6 +3404,32 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
       <div className="gallery-meta">
         Recent casts from the community - {filteredGalleryEntries.length} shown
       </div>
+      
+      {/* NEW: Search Bar */}
+      <div style={{ padding: "1rem 0", maxWidth: "600px", margin: "0 auto" }}>
+        <SearchBar
+          placeholder="Search by username, seed, or text..."
+          showRandomButton={true}
+          onSearch={async (query, type) => {
+            try {
+              const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&type=${type}&limit=20`);
+              if (response.ok) {
+                const data = await response.json();
+                if (data.results && data.results.length > 0) {
+                  setGalleryEntries(data.results);
+                  setToast({ message: `Found ${data.results.length} result(s)`, type: "success" });
+                } else {
+                  setToast({ message: "No results found", type: "info" });
+                }
+              }
+            } catch (error) {
+              console.error("Search error:", error);
+              setToast({ message: "Search failed", type: "error" });
+            }
+          }}
+        />
+      </div>
+      
       <div className="gallery-actions-top">
         <button
           type="button"
@@ -4062,6 +4169,58 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
           onClose={() => setToast(null)}
         />
       )}
+      {showOnboarding && (
+        <OnboardingWizard
+          onComplete={() => {
+            setShowOnboarding(false);
+            setOnboardingDone(true);
+            try {
+              localStorage.setItem("plf:onboardingDone", "true");
+            } catch (error) {
+              console.error("Failed to save onboarding state:", error);
+            }
+          }}
+          onSkip={() => {
+            setShowOnboarding(false);
+            setOnboardingDone(true);
+            try {
+              localStorage.setItem("plf:onboardingDone", "true");
+            } catch (error) {
+              console.error("Failed to save onboarding state:", error);
+            }
+          }}
+        />
+      )}
+      {showFeedbackModal && (
+        <FeedbackModal
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+          onSubmit={async (feedback) => {
+            try {
+              await fetch("/api/feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  ...feedback,
+                  userId: userInfo?.fid ? String(userInfo.fid) : undefined,
+                  username: userInfo?.username,
+                }),
+              });
+              setToast({ message: "Thanks for your feedback!", type: "success" });
+            } catch (error) {
+              setToast({ message: "Failed to submit feedback", type: "error" });
+            }
+          }}
+        />
+      )}
+      {rewardAnimation && (
+        <RewardAnimation
+          type={rewardAnimation.type}
+          title={rewardAnimation.title}
+          subtitle={rewardAnimation.subtitle}
+          onComplete={() => setRewardAnimation(null)}
+        />
+      )}
       {showCastPreview && castPreviewImage && (
         <CastPreviewModal
           previewImage={castPreviewImage}
@@ -4106,6 +4265,62 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
       {activeTab === "home" && (
         <div className="input-panel">
           <div className="input-section">
+            {/* NEW: Mode Toggle */}
+            <div className="mode-toggle-wrapper" style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <button
+                type="button"
+                className={`mode-toggle-button ${uiMode === "simple" ? "active" : ""}`}
+                onClick={() => {
+                  setUiMode("simple");
+                  try {
+                    localStorage.setItem("plf:uiMode", "simple");
+                  } catch (error) {
+                    console.error("Failed to save UI mode:", error);
+                  }
+                }}
+                style={{
+                  padding: "0.4rem 0.8rem",
+                  fontSize: "0.85rem",
+                  border: "2px solid",
+                  borderColor: uiMode === "simple" ? "#00ff00" : "#444",
+                  background: uiMode === "simple" ? "#00ff0020" : "transparent",
+                  color: uiMode === "simple" ? "#00ff00" : "#888",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                  transition: "all 0.2s",
+                }}
+              >
+                🎮 Simple
+              </button>
+              <button
+                type="button"
+                className={`mode-toggle-button ${uiMode === "advanced" ? "active" : ""}`}
+                onClick={() => {
+                  setUiMode("advanced");
+                  try {
+                    localStorage.setItem("plf:uiMode", "advanced");
+                  } catch (error) {
+                    console.error("Failed to save UI mode:", error);
+                  }
+                }}
+                style={{
+                  padding: "0.4rem 0.8rem",
+                  fontSize: "0.85rem",
+                  border: "2px solid",
+                  borderColor: uiMode === "advanced" ? "#00ff00" : "#444",
+                  background: uiMode === "advanced" ? "#00ff0020" : "transparent",
+                  color: uiMode === "advanced" ? "#00ff00" : "#888",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                  transition: "all 0.2s",
+                }}
+              >
+                ⚙️ Advanced
+              </button>
+            </div>
+
             <div className="daily-limit">
               Tries left today:{" "}
               {userInfo?.username?.toLowerCase() === "ladymel"
@@ -4137,6 +4352,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
               aria-label="Text input for logo generation"
               aria-required="true"
             />
+            {/* Only show seed input in Advanced Mode */}
+            {uiMode === "advanced" && (
             <div className="seed-input-group">
               <div className="seed-label">
                 <svg
@@ -4221,6 +4438,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
               )}
               <span className="seed-tip">Tip: seed = recreate</span>
             </div>
+            )}
+            {/* End of Advanced Mode section */}
             <button
               type="button"
               className="how-link"
@@ -4237,6 +4456,32 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
               aria-label={`Sound ${soundEnabled ? "on" : "off"}`}
             >
               Sound: {soundEnabled ? "On" : "Off"}
+            </button>
+            {/* NEW: Feedback Button */}
+            <button
+              type="button"
+              className="feedback-button"
+              onClick={() => setShowFeedbackModal(true)}
+              style={{
+                padding: "0.5rem 1rem",
+                fontSize: "0.85rem",
+                border: "2px solid #ff00ff",
+                background: "transparent",
+                color: "#ff00ff",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontFamily: "monospace",
+                marginTop: "0.5rem",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#ff00ff20";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              💬 Give Feedback
             </button>
             <div className="button-group">
               <button
