@@ -2195,18 +2195,66 @@ export default function LogoGenerator() {
 
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
-          const viewUrl = uploadData.viewUrl || uploadData.imageUrl;
-          const downloadUrl = uploadData.downloadUrl || uploadData.imageUrl;
-          const targetUrl = target === "download" ? downloadUrl : viewUrl;
-          if (targetUrl) {
-            await sdk.actions.openUrl(targetUrl);
-            if (target === "photos") {
+          const imageUrl = uploadData.imageUrl;
+
+          if (!imageUrl) return;
+
+          // For "Save to Photos" on iOS, use the Web Share API with files
+          // This opens the native iOS share sheet where users can tap "Save Image"
+          if (target === "photos") {
+            try {
+              const response = await fetch(imageUrl);
+              const blob = await response.blob();
+              const file = new File([blob], "logo.png", { type: blob.type });
+
+              // Check if navigator.share supports files
+              if (
+                navigator.canShare &&
+                navigator.canShare({ files: [file] })
+              ) {
+                await navigator.share({
+                  files: [file],
+                  title: `Pixel Logo: ${logoResult.config.text}`,
+                  text: "Save this logo to your Photos",
+                });
+                setToast({
+                  message: "Image shared! Tap 'Save Image' to save to Photos.",
+                  type: "success",
+                });
+                return;
+              }
+            } catch (shareError) {
+              // If share API fails, fall through to fallback below
+              console.log("Web Share API failed, using fallback:", shareError);
+            }
+
+            // Fallback: Open image in new tab with instructions
+            // (when Web Share API isn't supported)
+            try {
+              await sdk.actions.openUrl(imageUrl);
               setToast({
                 message:
                   'Image opened. Long-press and choose "Save Image" to save to Photos.',
                 type: "info",
               });
-            } else if (target === "files") {
+              return;
+            } catch {
+              // SDK openUrl not available, use window.open
+              window.open(imageUrl, "_blank", "noopener,noreferrer");
+              setToast({
+                message:
+                  'Image opened. Long-press and choose "Save Image" to save to Photos.',
+                type: "info",
+              });
+              return;
+            }
+          }
+
+          // For "Save to Files" and "Download", use SDK or fallback
+          const downloadUrl = uploadData.downloadUrl || imageUrl;
+          try {
+            await sdk.actions.openUrl(downloadUrl);
+            if (target === "files") {
               setToast({
                 message: 'Image opened. Long-press and choose "Save to Files".',
                 type: "info",
@@ -2219,6 +2267,21 @@ export default function LogoGenerator() {
               });
             }
             return;
+          } catch {
+            // Fallback if SDK not available
+            window.open(downloadUrl, "_blank", "noopener,noreferrer");
+            if (target === "files") {
+              setToast({
+                message: 'Image opened. Long-press and choose "Save to Files".',
+                type: "info",
+              });
+            } else {
+              setToast({
+                message:
+                  'Image opened. Right-click and choose "Save Image As" to download.',
+                type: "info",
+              });
+            }
           }
         }
       }
@@ -2226,12 +2289,51 @@ export default function LogoGenerator() {
       console.log("Open image failed:", error);
     }
 
-    // Fallback if SDK not available
+    // Fallback if SDK not ready: use Web Share API or show instructions
+    try {
+      const response = await fetch(logoResult.dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], "logo.png", { type: blob.type });
+
+      if (target === "photos" && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Pixel Logo: ${logoResult.config.text}`,
+          text: "Save this logo to your Photos",
+        });
+        setToast({
+          message: "Image shared! Tap 'Save Image' to save to Photos.",
+          type: "success",
+        });
+        return;
+      }
+    } catch (error) {
+      console.log("Web Share API not available:", error);
+    }
+
+    // Final fallback: open data URL in new tab
     const objectUrl = logoResult.dataUrl;
     const newWindow = window.open(objectUrl, "_blank", "noopener,noreferrer");
     if (!newWindow) {
       setToast({
         message: "Popup blocked. Please save the image from the preview above.",
+        type: "info",
+      });
+    } else if (target === "photos") {
+      setToast({
+        message:
+          'Image opened. Long-press and choose "Save Image" to save to Photos.',
+        type: "info",
+      });
+    } else if (target === "files") {
+      setToast({
+        message: 'Image opened. Long-press and choose "Save to Files".',
+        type: "info",
+      });
+    } else {
+      setToast({
+        message:
+          'Image opened. Right-click and choose "Save Image As" to download.',
         type: "info",
       });
     }

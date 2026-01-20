@@ -55,10 +55,31 @@ const formatDate = (timestamp: string) => {
   });
 };
 
-const getProfileTitle = (casts: number, legendaryCount: number) => {
-  if (legendaryCount >= 3) return "Legend Hunter";
-  if (casts >= 20) return "Master Crafter";
+const getProfileTitle = (casts: number, legendaryCount: number, rarity: Set<string>) => {
+  if (rarity.size === 4) return "Rarity Master";
+  if (legendaryCount > 0) return "Master Forger";
+  if (rarity.has("EPIC")) return "Arcade Crafter";
+  if (casts > 0) return "Apprentice Forger";
   return "Pixel Forger";
+};
+
+const getProfileEmblems = (
+  legendaryCount: number,
+  topEntries: LeaderboardEntry[],
+): string[] => {
+  const emblems: string[] = [];
+  if (legendaryCount > 0) emblems.push("⭐"); // Legendary unlocked
+  // Check for streak (3+ casts in last 7 days)
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recentCasts = topEntries.filter(
+    (e) => new Date(e.createdAt).getTime() >= sevenDaysAgo,
+  ).length;
+  if (recentCasts >= 3) emblems.push("🔥"); // On streak
+  return emblems;
+};
+
+const getProfileLevel = (casts: number): number => {
+  return Math.floor(casts / 5) + 1;
 };
 
 export default function ProfileClient({
@@ -126,12 +147,17 @@ export default function ProfileClient({
     const topPresetKey =
       Object.entries(presetCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ??
       "Unknown";
+    const raritySet = new Set(
+      profile.entries.map((e) => String(e.rarity).toUpperCase()),
+    );
     return {
       totalCasts,
       totalLikes,
       legendaryCount,
       bestRarity,
       topPreset: presetLabelMap[topPresetKey] ?? topPresetKey,
+      raritySet,
+      level: getProfileLevel(totalCasts),
     };
   }, [presetLabelMap, profile.best?.rarity, profile.entries]);
 
@@ -244,9 +270,19 @@ export default function ProfileClient({
         <Link href="/" className="profile-back">
           &larr; Back
         </Link>
-        <div className="profile-title">@{profile.username}</div>
-        <div className="profile-title-badge">
-          {getProfileTitle(stats.totalCasts, stats.legendaryCount)}
+        <div className="profile-name-badge">
+          <span className="profile-username">@{profile.username}</span>
+          <span className="profile-emblems">
+            {getProfileEmblems(stats.legendaryCount, topEntries).join(" ")}
+          </span>
+        </div>
+        <div className="profile-level-subtitle">
+          {getProfileTitle(
+            stats.totalCasts,
+            stats.legendaryCount,
+            stats.raritySet,
+          )}{" "}
+          Lv. {stats.level}
         </div>
       </div>
       <div className="profile-actions">
@@ -259,7 +295,7 @@ export default function ProfileClient({
         </button>
         <button
           type="button"
-          className="profile-share-link"
+          className="profile-copy-link"
           onClick={handleCopyProfileLink}
         >
           Copy profile link
@@ -268,33 +304,38 @@ export default function ProfileClient({
 
       <div className="profile-stats">
         <div className="profile-stat">
-          <span>Total casts</span>
-          <strong>{stats.totalCasts}</strong>
+          <span className="stat-label">TOTAL CASTS</span>
+          <strong className="stat-value">{String(stats.totalCasts).padStart(3, "0")}</strong>
         </div>
         <div className="profile-stat">
-          <span>Total likes</span>
-          <strong>{stats.totalLikes}</strong>
+          <span className="stat-label">TOTAL LIKES</span>
+          <strong className="stat-value">{String(stats.totalLikes).padStart(3, "0")}</strong>
         </div>
         <div className="profile-stat">
-          <span>Best rarity</span>
-          <strong>{stats.bestRarity}</strong>
+          <span className="stat-label">BEST RARITY</span>
+          <strong className={`stat-value rarity-${String(stats.bestRarity).toLowerCase()}`}>
+            {stats.bestRarity}
+          </strong>
         </div>
         <div className="profile-stat">
-          <span>Top preset</span>
-          <strong>{stats.topPreset}</strong>
+          <span className="stat-label">TOP PRESET</span>
+          <strong className="stat-value">{stats.topPreset}</strong>
         </div>
       </div>
 
       <div className="profile-section">
         <div className="leaderboard-title">Rarity Collection</div>
-        <div className="rarity-collection">
+        <div className="rarity-progress-console">
           {["COMMON", "RARE", "EPIC", "LEGENDARY"].map((r) => {
             const has = profile.entries.some(
               (e) => String(e.rarity).toUpperCase() === r,
             );
             return (
-              <div key={`rarity-${r}`} className="rarity-item">
-                <span className="rarity-check">{has ? "✔" : "⬜"}</span>
+              <div
+                key={`rarity-${r}`}
+                className={`rarity-progress-item ${has ? "unlocked" : ""} ${r.toLowerCase()}`}
+              >
+                <span className="rarity-check">{has ? "✔" : "☐"}</span>
                 <span className="rarity-label">
                   {r.charAt(0) + r.slice(1).toLowerCase()}
                 </span>
@@ -302,64 +343,90 @@ export default function ProfileClient({
             );
           })}
         </div>
-        <div className="rarity-progress">
-          {
-            new Set(profile.entries.map((e) => String(e.rarity).toUpperCase()))
-              .size
-          }
-          /4 unlocked
+        <div className="rarity-progress-bar-container">
+          <div
+            className="rarity-progress-bar"
+            style={{
+              width: `${(stats.raritySet.size / 4) * 100}%`,
+            }}
+          />
         </div>
+        <div className="rarity-progress-text">
+          {stats.raritySet.size} / 4 COMPLETE
+        </div>
+
         {userBadges.some(
           (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
         ) ? (
-          <div className="rarity-master-box">
-            <div className="rarity-master-title">Rarity Master</div>
+          <div className="rarity-master-panel">
+            <div className="rarity-master-header">✓ RARITY MASTER</div>
             <div className="rarity-master-desc">
-              You unlocked the special frame, background, and +1 daily generate.
+              Unlocked: Mythic Frame, Mythic Background, +1 Daily Generate
             </div>
           </div>
         ) : (
-          <div className="rarity-cta">
-            Collect all 4 rarities to unlock special rewards
+          <div className="next-objective-panel">
+            <div className="next-objective-title">NEXT OBJECTIVE</div>
+            <div className="next-objective-text">
+              Complete the set to unlock Mythic rewards.
+            </div>
           </div>
         )}
+
         <div className="unlocked-rewards">
           <div className="leaderboard-subtitle">Unlocked Rewards</div>
           <div className="reward-list">
-            <div className="reward-item">
-              <input
-                type="checkbox"
-                readOnly
-                checked={Boolean(
+            <div className="reward-card">
+              <div className="reward-card-content">
+                {Boolean(
                   devRewards?.specialFrameUnlocked ||
-                  userBadges.some(
-                    (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
-                  ),
+                    userBadges.some(
+                      (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
+                    ),
+                ) ? (
+                  <div className="reward-unlocked">
+                    <span className="reward-check">✓</span>
+                    <span className="reward-name">Mythic Frame</span>
+                    <span className="reward-badge">UNLOCKED</span>
+                  </div>
+                ) : (
+                  <div className="reward-locked">
+                    <span className="reward-lock">🔒</span>
+                    <span className="reward-name">Mythic Frame</span>
+                  </div>
                 )}
-              />
-              <span>Mythic Frame</span>
+              </div>
             </div>
-            <div className="reward-item">
-              <input
-                type="checkbox"
-                readOnly
-                checked={Boolean(
+            <div className="reward-card">
+              <div className="reward-card-content">
+                {Boolean(
                   devRewards?.specialBackgroundUnlocked ||
-                  userBadges.some(
-                    (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
-                  ),
+                    userBadges.some(
+                      (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
+                    ),
+                ) ? (
+                  <div className="reward-unlocked">
+                    <span className="reward-check">✓</span>
+                    <span className="reward-name">Mythic Background</span>
+                    <span className="reward-badge">UNLOCKED</span>
+                  </div>
+                ) : (
+                  <div className="reward-locked">
+                    <span className="reward-lock">🔒</span>
+                    <span className="reward-name">Mythic Background</span>
+                  </div>
                 )}
-              />
-              <span>Mythic Background</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <div className="profile-section">
-        <div className="leaderboard-title">Latest cast</div>
+        <div className="leaderboard-title">Latest Showcase</div>
         {latestEntry ? (
-          <div className="profile-latest-card">
+          <div className="profile-showcase-card">
+            <div className="showcase-tag">SHOWCASE</div>
             {latestEntry.imageUrl ? (
               <Image
                 src={latestEntry.imageUrl}
@@ -372,8 +439,13 @@ export default function ProfileClient({
             ) : (
               <div className="profile-best-text">{latestEntry.text}</div>
             )}
-            <div className="profile-latest-meta">
+            <div className="showcase-meta">
               <span>{formatDate(latestEntry.createdAt)}</span>
+              <span className={`rarity-${String(latestEntry.rarity).toLowerCase()}`}>
+                {latestEntry.rarity
+                  ? String(latestEntry.rarity).toUpperCase()
+                  : "UNKNOWN"}
+              </span>
               <span>❤️ {latestEntry.likes}</span>
             </div>
           </div>
@@ -385,7 +457,7 @@ export default function ProfileClient({
       </div>
 
       <div className="profile-section">
-        <div className="leaderboard-title">Personal best</div>
+        <div className="leaderboard-title">Personal Best</div>
         {profile.best ? (
           <div className="profile-best-card">
             {profile.best.imageUrl ? (
@@ -470,7 +542,7 @@ export default function ProfileClient({
       </div>
 
       <div className="profile-section">
-        <div className="leaderboard-title">Recent logos</div>
+        <div className="leaderboard-title">Recent Logos</div>
         {filteredEntries.length === 0 ? (
           <div className="leaderboard-status">
             No casts match those filters yet.
