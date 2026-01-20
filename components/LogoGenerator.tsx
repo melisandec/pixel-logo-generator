@@ -3431,9 +3431,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
       </div>
 
       {/* NEW: Search Bar */}
-      <div style={{ padding: "0.5rem 0", maxWidth: "500px", margin: "0 auto" }}>
+      <div style={{ padding: "4px 0", margin: "0 auto" }}>
         <SearchBar
-          placeholder="Search..."
           showRandomButton={true}
           onSearch={async (query, type) => {
             try {
@@ -4505,25 +4504,18 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
               className="feedback-button"
               onClick={() => setShowFeedbackModal(true)}
               style={{
-                padding: "0.25rem 0.5rem",
-                fontSize: "0.7rem",
-                border: "1px solid #ff00ff",
+                padding: "2px 6px",
+                fontSize: "10px",
+                border: "1px solid #a0a",
                 background: "transparent",
-                color: "#ff00ff",
-                borderRadius: "4px",
+                color: "#a0a",
+                borderRadius: "2px",
                 cursor: "pointer",
                 fontFamily: "monospace",
-                marginTop: "0.25rem",
-                transition: "all 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#ff00ff20";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
+                marginTop: "4px",
               }}
             >
-              💬 Feedback
+              💬
             </button>
             <div className="button-group">
               <button

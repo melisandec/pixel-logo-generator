@@ -62,54 +62,70 @@ export default function SearchBar({
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto">
-      <div className="flex gap-1 mb-2">
-        {/* Search Type Selector */}
+    <div className="w-full" style={{ maxWidth: "500px", margin: "0 auto" }}>
+      <div style={{ display: "flex", gap: "4px", marginBottom: "4px" }}>
         <select
           value={searchType}
           onChange={(e) => setSearchType(e.target.value as any)}
-          className="px-2 py-1 bg-[#0a0e27] border border-[#00ff00] text-[#00ff00] rounded font-mono text-xs focus:outline-none"
+          style={{
+            padding: "2px 4px",
+            fontSize: "11px",
+            border: "1px solid #ccc",
+            borderRadius: "2px",
+            background: "white",
+          }}
         >
           <option value="username">👤</option>
           <option value="seed">🎲</option>
           <option value="text">📝</option>
         </select>
 
-        {/* Search Input */}
-        <div className="flex-1 relative">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={placeholder}
-            className="w-full px-2 py-1 bg-[#0a0e27] border border-[#00ff00] text-white rounded font-mono text-xs focus:outline-none placeholder-white/30"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-xs"
-            >
-              ✕
-            </button>
-          )}
-        </div>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="Search..."
+          style={{
+            flex: 1,
+            padding: "2px 6px",
+            fontSize: "11px",
+            border: "1px solid #ccc",
+            borderRadius: "2px",
+          }}
+        />
 
-        {/* Search Button */}
         <button
           onClick={handleSearch}
           disabled={!query.trim()}
-          className="px-3 py-1 bg-[#00ff00] text-[#0a0e27] rounded font-mono font-bold text-xs hover:bg-[#00ff00]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          style={{
+            padding: "2px 8px",
+            fontSize: "11px",
+            border: "1px solid #0a0",
+            borderRadius: "2px",
+            background: "#0a0",
+            color: "white",
+            cursor: query.trim() ? "pointer" : "not-allowed",
+            opacity: query.trim() ? 1 : 0.5,
+          }}
         >
           🔍
         </button>
       </div>
 
-      {/* Random Cast Button */}
       {showRandomButton && (
         <button
           onClick={handleRandomCast}
-          className="w-full px-2 py-1 border border-[#ff00ff] text-[#ff00ff] rounded font-mono text-xs hover:bg-[#ff00ff]/10 transition-all"
+          style={{
+            width: "100%",
+            padding: "2px 4px",
+            fontSize: "11px",
+            border: "1px solid #a0a",
+            borderRadius: "2px",
+            background: "transparent",
+            color: "#a0a",
+            cursor: "pointer",
+          }}
         >
           🎲 Random
         </button>

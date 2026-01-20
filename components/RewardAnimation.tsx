@@ -31,7 +31,7 @@ export default function RewardAnimation({
 
   useEffect(() => {
     // Generate particles based on animation type
-    const particleCount = type === "rarity-master" ? 20 : 15;
+    const particleCount = type === "rarity-master" ? 12 : 8;
     const colors = getColorsForType(type);
 
     const newParticles: Particle[] = Array.from(
@@ -46,7 +46,7 @@ export default function RewardAnimation({
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed,
           color: colors[Math.floor(Math.random() * colors.length)],
-          size: 4 + Math.random() * 8,
+          size: 3 + Math.random() * 5,
           life: 1,
         };
       },
@@ -113,35 +113,29 @@ export default function RewardAnimation({
 
       {/* Center Message */}
       <div
-        className={`relative bg-gradient-to-br from-[#0a0e27] to-[#1a1e37] border-2 rounded-lg p-4 max-w-xs text-center shadow-lg transition-all duration-500 ${
+        className={`relative bg-[#0a0e27] border rounded text-center transition-all duration-500 ${
           isVisible ? "scale-100" : "scale-90"
         }`}
         style={{
           borderColor: getBorderColorForType(type),
-          boxShadow: `0 0 20px ${getBorderColorForType(type)}30, inset 0 0 10px ${getBorderColorForType(type)}10`,
+          padding: "8px 12px",
+          maxWidth: "200px",
+          fontSize: "11px",
         }}
       >
-        <div className="text-3xl mb-2 animate-bounce">
+        <div style={{ fontSize: "20px", marginBottom: "4px" }}>
           {getIconForType(type)}
         </div>
-        <h2
-          className="text-base font-bold mb-1 font-mono"
-          style={{ color: getBorderColorForType(type) }}
+        <div
+          className="font-mono"
+          style={{ color: getBorderColorForType(type), fontWeight: "bold", marginBottom: "2px" }}
         >
           {title}
-        </h2>
+        </div>
         {subtitle && (
-          <p className="text-white/70 text-xs font-mono">{subtitle}</p>
+          <div className="text-white/70 font-mono" style={{ fontSize: "10px" }}>{subtitle}</div>
         )}
       </div>
-
-      {/* Glow Pulse */}
-      <div
-        className="absolute inset-0 animate-pulse pointer-events-none"
-        style={{
-          background: `radial-gradient(circle at center, ${getBorderColorForType(type)}20 0%, transparent 70%)`,
-        }}
-      />
     </div>
   );
 }

@@ -69,118 +69,96 @@ export default function FeedbackModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 bg-black/70"
       onClick={handleClose}
     >
       <div
-        className="relative bg-gradient-to-br from-[#0a0e27] to-[#1a1e37] border-2 border-[#00ff00] rounded-lg p-4 max-w-sm w-full shadow-[0_0_20px_rgba(0,255,0,0.2)]"
+        className="relative bg-[#0a0e27] border border-[#00ff00] rounded p-3 w-full"
         onClick={(e) => e.stopPropagation()}
-        style={{
-          boxShadow:
-            "0 0 20px rgba(0, 255, 0, 0.2), inset 0 0 10px rgba(0, 255, 0, 0.05)",
-        }}
+        style={{ maxWidth: "320px", fontSize: "11px" }}
       >
-        {/* CRT Effect */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-5 rounded-lg"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(0deg, transparent, transparent 2px, #00ff00 2px, #00ff00 4px)",
-          }}
-        />
-
         {submitted ? (
-          // Success State
-          <div className="text-center py-4">
-            <div className="text-3xl mb-2">🎉</div>
-            <h3 className="text-base font-bold text-[#00ff00] mb-1 font-mono">
+          <div className="text-center py-2">
+            <div style={{ fontSize: "20px", marginBottom: "4px" }}>🎉</div>
+            <div
+              className="text-[#00ff00] font-mono"
+              style={{ fontSize: "11px", fontWeight: "bold" }}
+            >
               Thanks!
-            </h3>
-            <p className="text-white/70 text-xs font-mono">
-              Your feedback helps improve the forge.
-            </p>
+            </div>
           </div>
         ) : (
           <>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-[#00ff00] font-mono">
-                Give Feedback
-              </h2>
+            <div className="flex items-center justify-between mb-2">
+              <div
+                className="text-[#00ff00] font-mono"
+                style={{ fontSize: "11px", fontWeight: "bold" }}
+              >
+                Feedback
+              </div>
               <button
                 onClick={handleClose}
-                className="text-white/50 hover:text-white text-2xl leading-none"
+                className="text-white/50 hover:text-white"
+                style={{ fontSize: "16px", lineHeight: 1 }}
               >
                 ✕
               </button>
             </div>
 
-            {/* Feedback Type */}
-            <div className="mb-3">
-              <label className="block text-[#00ff00] font-mono text-xs mb-1">
-                Type
-              </label>
-              <div className="grid grid-cols-2 gap-1">
-                {FEEDBACK_TYPES.map((type) => (
-                  <button
-                    key={type.value}
-                    onClick={() => setFeedbackType(type.value)}
-                    className={`px-2 py-1 rounded font-mono text-[10px] transition-all border ${
-                      feedbackType === type.value
-                        ? "bg-[#00ff00]/20 border-[#00ff00] text-[#00ff00]"
-                        : "border-white/20 text-white/60 hover:border-white/40"
-                    }`}
-                  >
-                    {type.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <select
+              value={feedbackType}
+              onChange={(e) => setFeedbackType(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "2px 4px",
+                fontSize: "11px",
+                marginBottom: "6px",
+                border: "1px solid #0a0",
+                borderRadius: "2px",
+                background: "#0a0e27",
+                color: "#0a0",
+              }}
+            >
+              {FEEDBACK_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
 
-            {/* Rating (Optional) */}
-            <div className="mb-3">
-              <label className="block text-[#00ff00] font-mono text-xs mb-1">
-                Rating
-              </label>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => setRating(star)}
-                    className={`text-sm transition-transform hover:scale-110 ${
-                      rating && star <= rating
-                        ? "text-[#ffaa00]"
-                        : "text-white/20"
-                    }`}
-                  >
-                    ⭐
-                  </button>
-                ))}
-              </div>
-            </div>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Your feedback..."
+              rows={3}
+              style={{
+                width: "100%",
+                padding: "4px",
+                fontSize: "11px",
+                marginBottom: "6px",
+                border: "1px solid #0a0",
+                borderRadius: "2px",
+                background: "#0a0e27",
+                color: "white",
+                resize: "none",
+              }}
+            />
 
-            {/* Message */}
-            <div className="mb-3">
-              <label className="block text-[#00ff00] font-mono text-xs mb-1">
-                Message
-              </label>
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Tell us what you think..."
-                rows={3}
-                className="w-full px-2 py-2 bg-[#0a0e27]/50 border border-[#00ff00]/50 text-white rounded font-mono text-xs focus:outline-none focus:border-[#00ff00] placeholder-white/30 resize-none"
-              />
-              <div className="text-right text-[10px] text-white/30 mt-0.5 font-mono">
-                {message.length}/500
-              </div>
-            </div>
-
-            {/* Submit Button */}
             <button
               onClick={handleSubmit}
               disabled={!message.trim() || isSubmitting}
-              className="w-full px-3 py-1.5 bg-[#00ff00] text-[#0a0e27] rounded font-mono font-bold text-xs hover:bg-[#00ff00]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_0_10px_rgba(0,255,0,0.3)]"
+              style={{
+                width: "100%",
+                padding: "4px",
+                fontSize: "11px",
+                border: "1px solid #0a0",
+                borderRadius: "2px",
+                background: "#0a0",
+                color: "white",
+                cursor:
+                  !message.trim() || isSubmitting ? "not-allowed" : "pointer",
+                opacity: !message.trim() || isSubmitting ? 0.5 : 1,
+              }}
             >
               {isSubmitting ? "Sending..." : "Submit"}
             </button>
