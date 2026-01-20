@@ -70,9 +70,10 @@ export default function SearchBar({
           style={{
             padding: "2px 4px",
             fontSize: "11px",
-            border: "1px solid #ccc",
+            border: "1px solid #0a0",
             borderRadius: "2px",
-            background: "white",
+            background: "#0a0e27",
+            color: "#0a0",
           }}
         >
           <option value="username">👤</option>
@@ -90,8 +91,10 @@ export default function SearchBar({
             flex: 1,
             padding: "2px 6px",
             fontSize: "11px",
-            border: "1px solid #ccc",
+            border: "1px solid #0a0",
             borderRadius: "2px",
+            background: "#0a0e27",
+            color: "#0a0",
           }}
         />
 

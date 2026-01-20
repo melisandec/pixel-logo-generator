@@ -128,12 +128,18 @@ export default function RewardAnimation({
         </div>
         <div
           className="font-mono"
-          style={{ color: getBorderColorForType(type), fontWeight: "bold", marginBottom: "2px" }}
+          style={{
+            color: getBorderColorForType(type),
+            fontWeight: "bold",
+            marginBottom: "2px",
+          }}
         >
           {title}
         </div>
         {subtitle && (
-          <div className="text-white/70 font-mono" style={{ fontSize: "10px" }}>{subtitle}</div>
+          <div className="text-white/70 font-mono" style={{ fontSize: "10px" }}>
+            {subtitle}
+          </div>
         )}
       </div>
     </div>
