@@ -130,7 +130,6 @@ export default function FeedbackModal({
                   minWidth: "20px",
                 }}
               >
-              >
                 ✕
               </button>
             </div>

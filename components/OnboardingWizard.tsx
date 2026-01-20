@@ -11,34 +11,39 @@ export default function OnboardingWizard({
 }: OnboardingWizardProps) {
   return (
     <div
-      className="fixed top-2 left-2 right-2 z-50 bg-[#0a0e27] border border-[#00ff00] p-2"
       style={{
-        fontSize: "11px",
-        lineHeight: "1.3",
-        maxWidth: "600px",
-        margin: "0 auto",
+        position: "fixed",
+        top: "8px",
         left: "50%",
         transform: "translateX(-50%)",
-        width: "auto",
+        zIndex: 50,
+        backgroundColor: "#0a0e27",
+        border: "1px solid #00ff00",
+        padding: "8px 12px",
+        fontSize: "11px",
+        lineHeight: "1.3",
+        maxWidth: "calc(100% - 16px)",
+        width: "100%",
+        boxSizing: "border-box",
       }}
     >
-      <div className="flex items-start gap-2">
-        <div className="flex-1 font-mono" style={{ color: "#aaa" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+        <div style={{ flex: 1, fontFamily: "monospace", color: "#aaa" }}>
           <strong style={{ color: "#00ff00" }}>Tip:</strong> Same text + seed =
           same logo. Rarity is random. 3 tries/day.
         </div>
         <button
           onClick={onSkip}
-          className="hover:text-white font-bold"
           style={{
             minWidth: "20px",
-            fontSize: "14px",
+            fontSize: "16px",
             lineHeight: "1",
             color: "#888",
             background: "transparent",
             border: "none",
             cursor: "pointer",
             padding: "0",
+            flexShrink: 0,
           }}
         >
           ✕
