@@ -4,13 +4,16 @@ import { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { sdk } from "@farcaster/miniapp-sdk";
+import { getImageForContext } from "@/lib/imageContext";
 import { EXTRA_BADGE_TYPES } from "@/lib/badgeTypes";
 
 type LeaderboardEntry = {
   id: string;
   text: string;
   seed: number;
-  imageUrl: string;
+  imageUrl: string; // Legacy field
+  logoImageUrl?: string; // Raw pixel logo
+  cardImageUrl?: string; // Framed card
   username: string;
   displayName: string;
   pfpUrl: string;
@@ -147,8 +150,11 @@ const generatePlayerCard = (
     ctx.lineTo(570, 240);
     ctx.stroke();
 
-    // Signature logo section
-    if (signatureLogo && signatureLogo.imageUrl) {
+    // Signature logo section - use raw logo image (not card)
+    if (signatureLogo) {
+      // Prefer logoImageUrl (raw logo) over cardImageUrl, fallback to imageUrl
+      const logoToDisplay = signatureLogo.logoImageUrl || signatureLogo.cardImageUrl || signatureLogo.imageUrl;
+      if (logoToDisplay) {
       const imgElement = typeof window !== "undefined" ? new (window as any).Image() : null;
       if (!imgElement) {
         // Fallback: no image support
@@ -206,7 +212,6 @@ const generatePlayerCard = (
         ctx.font = "14px 'Courier New', monospace";
         ctx.textAlign = "center";
         ctx.fillText("SIGNATURE LOGO", 300, 410);
-
         if (isRarityMaster) {
           ctx.fillStyle = "#ffaa00";
           ctx.font = "bold 11px 'Courier New', monospace";
@@ -216,7 +221,25 @@ const generatePlayerCard = (
 
         resolve(canvas.toDataURL("image/png"));
       };
-      imgElement.src = signatureLogo.imageUrl;
+      imgElement.src = logoToDisplay;
+      } else {
+        // Logo data not available, show placeholder
+        ctx.fillStyle = "#333333";
+        ctx.fillRect(65, 275, 470, 270);
+        ctx.fillStyle = "#888888";
+        ctx.font = "14px 'Courier New', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("SIGNATURE LOGO", 300, 410);
+
+        if (isRarityMaster) {
+          ctx.fillStyle = "#ffaa00";
+          ctx.font = "bold 11px 'Courier New', monospace";
+          ctx.textAlign = "right";
+          ctx.fillText("★ RARITY MASTER", 530, 560);
+        }
+
+        resolve(canvas.toDataURL("image/png"));
+      }
     } else {
       // No signature logo - show placeholder
       ctx.fillStyle = "#333333";
@@ -534,9 +557,16 @@ export default function ProfileClient({
         console.error("Player card upload failed:", uploadError);
       }
 
-      // Prepare embeds with player card + top logos
+      // Prepare embeds with player card + top logos (use card images for sharing)
       const topLogoEmbeds = topEntries
-        .map((entry) => entry.imageUrl)
+        .map((entry) => getImageForContext(
+          {
+            logoImageUrl: entry.logoImageUrl,
+            cardImageUrl: entry.cardImageUrl,
+            imageUrl: entry.imageUrl,
+          },
+          "share"
+        ))
         .filter(
           (url) =>
             url && (url.startsWith("http://") || url.startsWith("https://")),
@@ -879,9 +909,19 @@ export default function ProfileClient({
         {latestEntry ? (
           <div className="profile-showcase-card">
             <div className="showcase-tag">SHOWCASE</div>
-            {latestEntry.imageUrl ? (
+            {(() => {
+              // Use card image for showcase/highlight context
+              const showcaseImageUrl = getImageForContext(
+                {
+                  logoImageUrl: latestEntry.logoImageUrl,
+                  cardImageUrl: latestEntry.cardImageUrl,
+                  imageUrl: latestEntry.imageUrl,
+                },
+                "share"
+              );
+              return showcaseImageUrl ? (
               <Image
-                src={latestEntry.imageUrl}
+                src={showcaseImageUrl}
                 alt={`Latest logo by ${latestEntry.username}`}
                 className="profile-latest-image"
                 width={360}
@@ -890,7 +930,8 @@ export default function ProfileClient({
               />
             ) : (
               <div className="profile-best-text">{latestEntry.text}</div>
-            )}
+            );
+            })()}
             <div className="showcase-meta">
               <span>{formatDate(latestEntry.createdAt)}</span>
               <span className={`rarity-${String(latestEntry.rarity).toLowerCase()}`}>
@@ -1001,11 +1042,21 @@ export default function ProfileClient({
           </div>
         ) : (
           <div className="profile-gallery-grid">
-            {filteredEntries.map((entry) => (
+            {filteredEntries.map((entry) => {
+              // Use logo image for profile gallery context
+              const profileGalleryImageUrl = getImageForContext(
+                {
+                  logoImageUrl: entry.logoImageUrl,
+                  cardImageUrl: entry.cardImageUrl,
+                  imageUrl: entry.imageUrl,
+                },
+                "profile"
+              );
+              return (
               <div key={`profile-${entry.id}`} className="profile-gallery-card">
-                {entry.imageUrl ? (
+                {profileGalleryImageUrl ? (
                   <Image
-                    src={entry.imageUrl}
+                    src={profileGalleryImageUrl}
                     alt={`Logo by ${entry.username}`}
                     className="profile-gallery-image"
                     width={200}
@@ -1024,7 +1075,8 @@ export default function ProfileClient({
                   </span>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>

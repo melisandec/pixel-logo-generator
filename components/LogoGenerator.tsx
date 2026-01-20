@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import NextImage from "next/image";
 import Link from "next/link";
 import { generateLogo, LogoResult, Rarity } from "@/lib/logoGenerator";
+import { getImageForContext, type ImageRenderContext } from "@/lib/imageContext";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { EXTRA_BADGE_TYPES } from "@/lib/badgeTypes";
 import dynamic from "next/dynamic";
@@ -38,7 +39,9 @@ type LeaderboardEntry = {
   id: string;
   text: string;
   seed: number;
-  imageUrl: string;
+  imageUrl: string; // Legacy field
+  logoImageUrl?: string; // Raw pixel logo
+  cardImageUrl?: string; // Framed card
   username: string;
   displayName: string;
   pfpUrl: string;
@@ -2419,12 +2422,21 @@ export default function LogoGenerator() {
     async (entry: LeaderboardEntry) => {
       const safeText = entry.text || "Pixel logo";
       const embeds: string[] = [];
+      // Use card image for sharing context
+      const shareImageUrl = getImageForContext(
+        {
+          logoImageUrl: entry.logoImageUrl,
+          cardImageUrl: entry.cardImageUrl,
+          imageUrl: entry.imageUrl,
+        },
+        "share"
+      );
       if (
-        entry.imageUrl &&
-        (entry.imageUrl.startsWith("http://") ||
-          entry.imageUrl.startsWith("https://"))
+        shareImageUrl &&
+        (shareImageUrl.startsWith("http://") ||
+          shareImageUrl.startsWith("https://"))
       ) {
-        embeds.push(entry.imageUrl);
+        embeds.push(shareImageUrl);
       }
       const shareText = `Pixel Logo Forge: "${safeText}"`;
       if (sdkReady) {
@@ -3245,11 +3257,20 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
             const presetValue = entry.presetKey
               ? (presetLabelMap[entry.presetKey] ?? entry.presetKey)
               : "Unknown";
+            // Use logo image for gallery display context
+            const galleryImageUrl = getImageForContext(
+              {
+                logoImageUrl: entry.logoImageUrl,
+                cardImageUrl: entry.cardImageUrl,
+                imageUrl: entry.imageUrl,
+              },
+              "gallery"
+            );
             const CardBody = (
               <>
-                {entry.imageUrl ? (
+                {galleryImageUrl ? (
                   <NextImage
-                    src={entry.imageUrl}
+                    src={galleryImageUrl}
                     alt={`Cast by ${entry.username}`}
                     className="gallery-image"
                     width={320}
@@ -3345,15 +3366,25 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
         <div className="daily-winners-section">
           <div className="leaderboard-title">🏆 Today&apos;s Winners</div>
           <div className="daily-winners-grid">
-            {dailyWinners.map((winner) => (
+            {dailyWinners.map((winner) => {
+              // Use logo image for leaderboard display context
+              const leaderboardImageUrl = getImageForContext(
+                {
+                  logoImageUrl: winner.entry.logoImageUrl,
+                  cardImageUrl: winner.entry.cardImageUrl,
+                  imageUrl: winner.entry.imageUrl,
+                },
+                "leaderboard"
+              );
+              return (
               <div
                 key={`winner-${winner.rank}`}
                 className={`daily-winner-card rank-${winner.rank}`}
               >
                 <div className="daily-winner-rank">#{winner.rank}</div>
-                {winner.entry.imageUrl ? (
+                {leaderboardImageUrl ? (
                   <NextImage
-                    src={winner.entry.imageUrl}
+                    src={leaderboardImageUrl}
                     alt={`Winner ${winner.rank} by ${winner.username}`}
                     className="daily-winner-image"
                     width={200}
@@ -3372,7 +3403,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       )}
@@ -3465,20 +3497,31 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                     </div>
                   </Link>
                 </div>
-                {entry.imageUrl ? (
-                  <NextImage
-                    src={entry.imageUrl}
-                    alt="Cast media"
-                    className="leaderboard-image"
-                    width={400}
-                    height={120}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="leaderboard-text">
+                {(() => {
+                  // Use logo image for leaderboard display context
+                  const leaderboardImageUrl = getImageForContext(
+                    {
+                      logoImageUrl: entry.logoImageUrl,
+                      cardImageUrl: entry.cardImageUrl,
+                      imageUrl: entry.imageUrl,
+                    },
+                    "leaderboard"
+                  );
+                  return leaderboardImageUrl ? (
+                    <NextImage
+                      src={leaderboardImageUrl}
+                      alt="Cast media"
+                      className="leaderboard-image"
+                      width={400}
+                      height={120}
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="leaderboard-text">
                     {entry.text || "View cast"}
                   </div>
-                )}
+                  );
+                })()}
                 <div className="leaderboard-tags">
                   <span className="leaderboard-chip">{rarityValue}</span>
                   <span className="leaderboard-chip">{presetValue}</span>
@@ -4431,20 +4474,31 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                         Today&apos;s Champion
                       </div>
                     )}
-                    {entry.imageUrl ? (
-                      <NextImage
-                        src={entry.imageUrl}
-                        alt={`Logo by ${entry.username}`}
-                        className="home-top-cast-image"
-                        width={160}
-                        height={110}
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="home-top-cast-text">
-                        {entry.text || "View cast"}
-                      </div>
-                    )}
+                    {(() => {
+                      // Use card image for highlighted cast display (like trophy display)
+                      const previewImageUrl = getImageForContext(
+                        {
+                          logoImageUrl: entry.logoImageUrl,
+                          cardImageUrl: entry.cardImageUrl,
+                          imageUrl: entry.imageUrl,
+                        },
+                        "preview"
+                      );
+                      return previewImageUrl ? (
+                        <NextImage
+                          src={previewImageUrl}
+                          alt={`Logo by ${entry.username}`}
+                          className="home-top-cast-image"
+                          width={160}
+                          height={110}
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="home-top-cast-text">
+                          {entry.text || "View cast"}
+                        </div>
+                      );
+                    })()}
                     <div className="home-top-cast-meta">
                       <span>@{entry.username}</span>
                       <span>❤️ {entry.likes}</span>

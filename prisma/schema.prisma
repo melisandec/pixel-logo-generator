@@ -8,19 +8,21 @@ datasource db {
 }
 
 model LeaderboardEntry {
-  id          String   @id
-  text        String
-  seed        Int
-  imageUrl    String
-  username    String
-  displayName String
-  pfpUrl      String
-  likes       Int      @default(0)
-  recasts     Int      @default(0)
-  rarity      String?
-  presetKey   String?
-  createdAt   DateTime @default(now())
-  castUrl     String?
+  id           String   @id
+  text         String
+  seed         Int
+  imageUrl     String   // Legacy field - use logoImageUrl or cardImageUrl based on context
+  logoImageUrl String?  // Raw pixel logo (no frame, no UI, just the art)
+  cardImageUrl String?  // Social sharing card (frame, rarity, branding)
+  username     String
+  displayName  String
+  pfpUrl       String
+  likes        Int      @default(0)
+  recasts      Int      @default(0)
+  rarity       String?
+  presetKey    String?
+  createdAt    DateTime @default(now())
+  castUrl      String?
 
   @@index([createdAt])
   @@index([username])
