@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useMemo, useState, useEffect } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { sdk } from '@farcaster/miniapp-sdk';
-import { EXTRA_BADGE_TYPES } from '@/lib/badgeTypes';
+import { useMemo, useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { sdk } from "@farcaster/miniapp-sdk";
+import { EXTRA_BADGE_TYPES } from "@/lib/badgeTypes";
 
 type LeaderboardEntry = {
   id: string;
@@ -31,53 +31,69 @@ type UserProfile = {
 
 const buildWarpcastComposeUrl = (text: string, embeds?: string[]) => {
   const params = new URLSearchParams();
-  params.set('text', text);
-  (embeds ?? []).slice(0, 2).forEach((embed) => params.append('embeds[]', embed));
+  params.set("text", text);
+  (embeds ?? [])
+    .slice(0, 2)
+    .forEach((embed) => params.append("embeds[]", embed));
   return `https://warpcast.com/~/compose?${params.toString()}`;
 };
 
 const PRESETS = [
-  { key: 'arcade', label: 'Arcade' },
-  { key: 'vaporwave', label: 'Vaporwave' },
-  { key: 'gameboy', label: 'Game Boy' },
+  { key: "arcade", label: "Arcade" },
+  { key: "vaporwave", label: "Vaporwave" },
+  { key: "gameboy", label: "Game Boy" },
 ] as const;
 
-const RARITIES = ['COMMON', 'RARE', 'EPIC', 'LEGENDARY'] as const;
+const RARITIES = ["COMMON", "RARE", "EPIC", "LEGENDARY"] as const;
 
 const formatDate = (timestamp: string) => {
   return new Date(timestamp).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
 const getProfileTitle = (casts: number, legendaryCount: number) => {
-  if (legendaryCount >= 3) return 'Legend Hunter';
-  if (casts >= 20) return 'Master Crafter';
-  return 'Pixel Forger';
+  if (legendaryCount >= 3) return "Legend Hunter";
+  if (casts >= 20) return "Master Crafter";
+  return "Pixel Forger";
 };
 
-export default function ProfileClient({ profile }: { profile: UserProfile }) {
-  const [userBadges, setUserBadges] = useState<Array<{ badgeType: string }>>([]);
+export default function ProfileClient({
+  profile,
+  badges: initialBadges,
+  devRewards,
+}: {
+  profile: UserProfile;
+  badges?: Array<any>;
+  devRewards?: {
+    specialFrameUnlocked?: boolean;
+    specialBackgroundUnlocked?: boolean;
+  };
+}) {
+  const [userBadges, setUserBadges] = useState<Array<any>>(initialBadges ?? []);
 
   useEffect(() => {
+    if (initialBadges && Array.isArray(initialBadges)) return;
     const loadBadges = async () => {
       try {
-        const response = await fetch(`/api/badges?username=${encodeURIComponent(profile.username)}`);
+        const response = await fetch(
+          `/api/badges?username=${encodeURIComponent(profile.username)}`,
+        );
         if (!response.ok) return;
         const data = await response.json();
         if (Array.isArray(data.badges)) setUserBadges(data.badges);
       } catch (err) {
-        console.error('Failed to load badges for profile:', err);
+        console.error("Failed to load badges for profile:", err);
       }
     };
     loadBadges();
-  }, [profile.username]);
+  }, [profile.username, initialBadges]);
 
-  const [rarityFilter, setRarityFilter] = useState<string>('all');
-  const [presetFilter, setPresetFilter] = useState<string>('all');
+  const [rarityFilter, setRarityFilter] = useState<string>("all");
+  const [presetFilter, setPresetFilter] = useState<string>("all");
   const [recentOnly, setRecentOnly] = useState(false);
 
   const presetLabelMap = useMemo(() => {
@@ -89,18 +105,27 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
 
   const stats = useMemo(() => {
     const totalCasts = profile.entries.length;
-    const totalLikes = profile.entries.reduce((sum, entry) => sum + entry.likes, 0);
+    const totalLikes = profile.entries.reduce(
+      (sum, entry) => sum + entry.likes,
+      0,
+    );
     const legendaryCount = profile.entries.filter(
-      (entry) => String(entry.rarity).toUpperCase() === 'LEGENDARY'
+      (entry) => String(entry.rarity).toUpperCase() === "LEGENDARY",
     ).length;
-    const bestRarity = profile.best?.rarity ? String(profile.best.rarity).toUpperCase() : 'Unknown';
-    const presetCounts = profile.entries.reduce<Record<string, number>>((acc, entry) => {
-      const key = entry.presetKey ?? 'Unknown';
-      acc[key] = (acc[key] ?? 0) + 1;
-      return acc;
-    }, {});
+    const bestRarity = profile.best?.rarity
+      ? String(profile.best.rarity).toUpperCase()
+      : "Unknown";
+    const presetCounts = profile.entries.reduce<Record<string, number>>(
+      (acc, entry) => {
+        const key = entry.presetKey ?? "Unknown";
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      },
+      {},
+    );
     const topPresetKey =
-      Object.entries(presetCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Unknown';
+      Object.entries(presetCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+      "Unknown";
     return {
       totalCasts,
       totalLikes,
@@ -115,7 +140,10 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
       profile.latest ??
       profile.entries.reduce<LeaderboardEntry | null>((latest, entry) => {
         if (!latest) return entry;
-        return new Date(entry.createdAt).getTime() > new Date(latest.createdAt).getTime() ? entry : latest;
+        return new Date(entry.createdAt).getTime() >
+          new Date(latest.createdAt).getTime()
+          ? entry
+          : latest;
       }, null)
     );
   }, [profile.entries, profile.latest]);
@@ -126,7 +154,9 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
         const aScore = a.likes + (a.recasts ?? 0) * 2;
         const bScore = b.likes + (b.recasts ?? 0) * 2;
         if (aScore !== bScore) return bScore - aScore;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
       })
       .slice(0, 3);
   }, [profile.entries]);
@@ -134,15 +164,21 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
   const filteredEntries = useMemo(() => {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return profile.entries.filter((entry) => {
-      const rarityValue = entry.rarity ? String(entry.rarity).toUpperCase() : 'UNKNOWN';
-      const presetValue = entry.presetKey ?? 'Unknown';
-      if (rarityFilter !== 'all') {
-        if (rarityFilter === 'Unknown' && rarityValue !== 'UNKNOWN') return false;
-        if (rarityFilter !== 'Unknown' && rarityValue !== rarityFilter) return false;
+      const rarityValue = entry.rarity
+        ? String(entry.rarity).toUpperCase()
+        : "UNKNOWN";
+      const presetValue = entry.presetKey ?? "Unknown";
+      if (rarityFilter !== "all") {
+        if (rarityFilter === "Unknown" && rarityValue !== "UNKNOWN")
+          return false;
+        if (rarityFilter !== "Unknown" && rarityValue !== rarityFilter)
+          return false;
       }
-      if (presetFilter !== 'all') {
-        if (presetFilter === 'Unknown' && presetValue !== 'Unknown') return false;
-        if (presetFilter !== 'Unknown' && presetValue !== presetFilter) return false;
+      if (presetFilter !== "all") {
+        if (presetFilter === "Unknown" && presetValue !== "Unknown")
+          return false;
+        if (presetFilter !== "Unknown" && presetValue !== presetFilter)
+          return false;
       }
       if (recentOnly) {
         return new Date(entry.createdAt).getTime() >= cutoff;
@@ -154,15 +190,21 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
   const handleCastBest = () => {
     if (!profile.best) return;
     const text = `My best pixel logo: "${profile.best.text}"`;
-    const url = buildWarpcastComposeUrl(text, profile.best.imageUrl ? [profile.best.imageUrl] : undefined);
-    window.open(url, '_blank', 'noopener,noreferrer');
+    const url = buildWarpcastComposeUrl(
+      text,
+      profile.best.imageUrl ? [profile.best.imageUrl] : undefined,
+    );
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleShareCollection = async () => {
     const profileUrl = `${window.location.origin}/profile/${encodeURIComponent(profile.username)}`;
     const embeds = topEntries
       .map((entry) => entry.imageUrl)
-      .filter((url) => url && (url.startsWith('http://') || url.startsWith('https://')));
+      .filter(
+        (url) =>
+          url && (url.startsWith("http://") || url.startsWith("https://")),
+      );
     const text = `My Pixel Logo Forge collection (top 3)\n${profileUrl}`;
     try {
       const embedsForSdk = embeds.slice(0, 2) as string[];
@@ -172,15 +214,15 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           embedsForSdk.length === 2
             ? ([embedsForSdk[0], embedsForSdk[1]] as [string, string])
             : embedsForSdk.length === 1
-            ? ([embedsForSdk[0]] as [string])
-            : undefined,
+              ? ([embedsForSdk[0]] as [string])
+              : undefined,
       });
       return;
     } catch (error) {
-      console.error('Share collection via SDK failed:', error);
+      console.error("Share collection via SDK failed:", error);
     }
     const composeUrl = buildWarpcastComposeUrl(text, embeds);
-    const opened = window.open(composeUrl, '_blank', 'noopener,noreferrer');
+    const opened = window.open(composeUrl, "_blank", "noopener,noreferrer");
     if (!opened) {
       window.location.href = composeUrl;
     }
@@ -191,8 +233,8 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
     try {
       await navigator.clipboard.writeText(profileUrl);
     } catch (error) {
-      console.error('Failed to copy profile link:', error);
-      window.open(profileUrl, '_blank', 'noopener,noreferrer');
+      console.error("Failed to copy profile link:", error);
+      window.open(profileUrl, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -208,10 +250,18 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
         </div>
       </div>
       <div className="profile-actions">
-        <button type="button" className="profile-share-button" onClick={handleShareCollection}>
+        <button
+          type="button"
+          className="profile-share-button"
+          onClick={handleShareCollection}
+        >
           Share collection
         </button>
-        <button type="button" className="profile-share-link" onClick={handleCopyProfileLink}>
+        <button
+          type="button"
+          className="profile-share-link"
+          onClick={handleCopyProfileLink}
+        >
           Copy profile link
         </button>
       </div>
@@ -238,25 +288,72 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
       <div className="profile-section">
         <div className="leaderboard-title">Rarity Collection</div>
         <div className="rarity-collection">
-          {['COMMON', 'RARE', 'EPIC', 'LEGENDARY'].map((r) => {
-            const has = profile.entries.some((e) => String(e.rarity).toUpperCase() === r);
+          {["COMMON", "RARE", "EPIC", "LEGENDARY"].map((r) => {
+            const has = profile.entries.some(
+              (e) => String(e.rarity).toUpperCase() === r,
+            );
             return (
               <div key={`rarity-${r}`} className="rarity-item">
-                <span className="rarity-check">{has ? '✔' : '⬜'}</span>
-                <span className="rarity-label">{r.charAt(0) + r.slice(1).toLowerCase()}</span>
+                <span className="rarity-check">{has ? "✔" : "⬜"}</span>
+                <span className="rarity-label">
+                  {r.charAt(0) + r.slice(1).toLowerCase()}
+                </span>
               </div>
             );
           })}
         </div>
-        <div className="rarity-progress">{(new Set(profile.entries.map((e) => String(e.rarity).toUpperCase())).size)}/4 unlocked</div>
-        {userBadges.some((b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER) ? (
+        <div className="rarity-progress">
+          {
+            new Set(profile.entries.map((e) => String(e.rarity).toUpperCase()))
+              .size
+          }
+          /4 unlocked
+        </div>
+        {userBadges.some(
+          (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
+        ) ? (
           <div className="rarity-master-box">
             <div className="rarity-master-title">Rarity Master</div>
-            <div className="rarity-master-desc">You unlocked the special frame, background, and +1 daily generate.</div>
+            <div className="rarity-master-desc">
+              You unlocked the special frame, background, and +1 daily generate.
+            </div>
           </div>
         ) : (
-          <div className="rarity-cta">Collect all 4 rarities to unlock special rewards</div>
+          <div className="rarity-cta">
+            Collect all 4 rarities to unlock special rewards
+          </div>
         )}
+        <div className="unlocked-rewards">
+          <div className="leaderboard-subtitle">Unlocked Rewards</div>
+          <div className="reward-list">
+            <div className="reward-item">
+              <input
+                type="checkbox"
+                readOnly
+                checked={Boolean(
+                  devRewards?.specialFrameUnlocked ||
+                  userBadges.some(
+                    (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
+                  ),
+                )}
+              />
+              <span>Mythic Frame</span>
+            </div>
+            <div className="reward-item">
+              <input
+                type="checkbox"
+                readOnly
+                checked={Boolean(
+                  devRewards?.specialBackgroundUnlocked ||
+                  userBadges.some(
+                    (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
+                  ),
+                )}
+              />
+              <span>Mythic Background</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="profile-section">
@@ -281,7 +378,9 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
             </div>
           </div>
         ) : (
-          <div className="leaderboard-status">Cast your first logo to populate this.</div>
+          <div className="leaderboard-status">
+            Cast your first logo to populate this.
+          </div>
         )}
       </div>
 
@@ -305,12 +404,18 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
               <span>❤️ {profile.best.likes}</span>
               <span>🔁 {profile.best.recasts ?? 0}</span>
             </div>
-            <button type="button" className="profile-cast-button" onClick={handleCastBest}>
+            <button
+              type="button"
+              className="profile-cast-button"
+              onClick={handleCastBest}
+            >
               Cast this
             </button>
           </div>
         ) : (
-          <div className="leaderboard-status">Cast your first logo to populate this.</div>
+          <div className="leaderboard-status">
+            Cast your first logo to populate this.
+          </div>
         )}
       </div>
 
@@ -320,15 +425,15 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           <div className="profile-filter-row">
             <span>Rarity</span>
             <div className="profile-filter-chips">
-              {['all', ...RARITIES, 'Unknown'].map((option) => (
+              {["all", ...RARITIES, "Unknown"].map((option) => (
                 <button
                   key={`rarity-${option}`}
                   type="button"
-                  className={`profile-chip${rarityFilter === option ? ' active' : ''}`}
+                  className={`profile-chip${rarityFilter === option ? " active" : ""}`}
                   onClick={() => setRarityFilter(option)}
                   aria-pressed={rarityFilter === option}
                 >
-                  {option === 'all' ? 'All' : option}
+                  {option === "all" ? "All" : option}
                 </button>
               ))}
             </div>
@@ -336,22 +441,26 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           <div className="profile-filter-row">
             <span>Preset</span>
             <div className="profile-filter-chips">
-              {['all', ...PRESETS.map((preset) => preset.key), 'Unknown'].map((option) => (
-                <button
-                  key={`preset-${option}`}
-                  type="button"
-                  className={`profile-chip${presetFilter === option ? ' active' : ''}`}
-                  onClick={() => setPresetFilter(option)}
-                  aria-pressed={presetFilter === option}
-                >
-                  {option === 'all' ? 'All' : presetLabelMap[option] ?? option}
-                </button>
-              ))}
+              {["all", ...PRESETS.map((preset) => preset.key), "Unknown"].map(
+                (option) => (
+                  <button
+                    key={`preset-${option}`}
+                    type="button"
+                    className={`profile-chip${presetFilter === option ? " active" : ""}`}
+                    onClick={() => setPresetFilter(option)}
+                    aria-pressed={presetFilter === option}
+                  >
+                    {option === "all"
+                      ? "All"
+                      : (presetLabelMap[option] ?? option)}
+                  </button>
+                ),
+              )}
             </div>
           </div>
           <button
             type="button"
-            className={`profile-chip${recentOnly ? ' active' : ''}`}
+            className={`profile-chip${recentOnly ? " active" : ""}`}
             onClick={() => setRecentOnly((prev) => !prev)}
             aria-pressed={recentOnly}
           >
@@ -363,7 +472,9 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
       <div className="profile-section">
         <div className="leaderboard-title">Recent logos</div>
         {filteredEntries.length === 0 ? (
-          <div className="leaderboard-status">No casts match those filters yet.</div>
+          <div className="leaderboard-status">
+            No casts match those filters yet.
+          </div>
         ) : (
           <div className="profile-gallery-grid">
             {filteredEntries.map((entry) => (
@@ -382,7 +493,11 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
                 )}
                 <div className="profile-gallery-meta">
                   <span>{formatDate(entry.createdAt)}</span>
-                  <span>{entry.rarity ? String(entry.rarity).toUpperCase() : 'Unknown'}</span>
+                  <span>
+                    {entry.rarity
+                      ? String(entry.rarity).toUpperCase()
+                      : "Unknown"}
+                  </span>
                 </div>
               </div>
             ))}
@@ -397,7 +512,9 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           aria-label="Home"
           data-label="Home"
         >
-          <span className="bottom-nav-icon" aria-hidden="true">🏠</span>
+          <span className="bottom-nav-icon" aria-hidden="true">
+            🏠
+          </span>
         </Link>
         <Link
           href="/"
@@ -405,7 +522,9 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           aria-label="Gallery"
           data-label="Gallery"
         >
-          <span className="bottom-nav-icon" aria-hidden="true">🖼️</span>
+          <span className="bottom-nav-icon" aria-hidden="true">
+            🖼️
+          </span>
         </Link>
         <Link
           href="/"
@@ -413,7 +532,9 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           aria-label="Leaderboard"
           data-label="Leaderboard"
         >
-          <span className="bottom-nav-icon" aria-hidden="true">🏆</span>
+          <span className="bottom-nav-icon" aria-hidden="true">
+            🏆
+          </span>
         </Link>
         <Link
           href="/"
@@ -421,7 +542,9 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           aria-label="Challenge"
           data-label="Challenge"
         >
-          <span className="bottom-nav-icon" aria-hidden="true">🎯</span>
+          <span className="bottom-nav-icon" aria-hidden="true">
+            🎯
+          </span>
         </Link>
         <Link
           href={`/profile/${encodeURIComponent(profile.username)}`}
@@ -429,7 +552,9 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           aria-label="Profile"
           data-label="Profile"
         >
-          <span className="bottom-nav-icon" aria-hidden="true">👤</span>
+          <span className="bottom-nav-icon" aria-hidden="true">
+            👤
+          </span>
         </Link>
       </nav>
     </div>
