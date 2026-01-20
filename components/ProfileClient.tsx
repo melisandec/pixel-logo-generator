@@ -50,10 +50,10 @@ const generatePlayerCard = (
   isRarityMaster: boolean,
 ): Promise<string> => {
   return new Promise((resolve) => {
-    // Create canvas (square 600x600)
+    // Create canvas (square 800x900 for better logo display)
     const canvas = document.createElement("canvas");
-    canvas.width = 600;
-    canvas.height = 600;
+    canvas.width = 800;
+    canvas.height = 900;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       resolve("");
@@ -62,10 +62,10 @@ const generatePlayerCard = (
 
     // Background
     ctx.fillStyle = "#0a0e27";
-    ctx.fillRect(0, 0, 600, 600);
+    ctx.fillRect(0, 0, 800, 900);
 
     // Gradient overlay for rarity
-    const gradient = ctx.createLinearGradient(0, 0, 600, 600);
+    const gradient = ctx.createLinearGradient(0, 0, 800, 900);
     let topColor = "rgba(0, 255, 0, 0.1)"; // Common
     let accentColor = "#00ff00";
     let glowColor = "rgba(0, 255, 0, 0.3)";
@@ -91,63 +91,63 @@ const generatePlayerCard = (
     gradient.addColorStop(0, topColor);
     gradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 600, 600);
+    ctx.fillRect(0, 0, 800, 900);
 
     // Border glow
     ctx.strokeStyle = glowColor;
-    ctx.lineWidth = 3;
-    ctx.strokeRect(15, 15, 570, 570);
+    ctx.lineWidth = 4;
+    ctx.strokeRect(15, 15, 770, 870);
 
     // Top section - Title
     ctx.fillStyle = accentColor;
-    ctx.font = "bold 16px 'Courier New', monospace";
+    ctx.font = "bold 18px 'Courier New', monospace";
     ctx.textAlign = "center";
-    ctx.fillText("PIXEL LOGO FORGE", 300, 50);
+    ctx.fillText("PIXEL LOGO FORGE", 400, 50);
 
     // Player card title
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 14px 'Courier New', monospace";
-    ctx.fillText("PLAYER CARD", 300, 80);
+    ctx.fillText("PLAYER CARD", 400, 80);
 
     // Username section
     ctx.fillStyle = accentColor;
-    ctx.font = "bold 32px 'Courier New', monospace";
+    ctx.font = "bold 36px 'Courier New', monospace";
     ctx.textAlign = "center";
-    ctx.fillText(`@${username}`, 300, 130);
+    ctx.fillText(`@${username}`, 400, 135);
 
-    // Stats section - left side
-    ctx.fillStyle = "#cccccc";
-    ctx.font = "bold 12px 'Courier New', monospace";
-    ctx.textAlign = "left";
-    ctx.fillText("LEVEL", 40, 180);
-    ctx.fillStyle = accentColor;
-    ctx.font = "bold 28px 'Courier New', monospace";
-    ctx.fillText(`${level}`, 40, 220);
-
-    // Forge Rank - center
-    ctx.fillStyle = "#cccccc";
-    ctx.font = "bold 12px 'Courier New', monospace";
+    // Stats section - compact layout on top
+    ctx.fillStyle = "#999999";
+    ctx.font = "bold 10px 'Courier New', monospace";
     ctx.textAlign = "center";
-    ctx.fillText("FORGE RANK", 300, 180);
+    
+    // Level
+    ctx.fillText("LEVEL", 150, 160);
     ctx.fillStyle = accentColor;
-    ctx.font = "bold 32px 'Courier New', monospace";
-    ctx.fillText(forgeRank, 300, 220);
-
-    // Best Rarity - right side
-    ctx.fillStyle = "#cccccc";
-    ctx.font = "bold 12px 'Courier New', monospace";
-    ctx.textAlign = "right";
-    ctx.fillText("BEST RARITY", 560, 180);
+    ctx.font = "bold 20px 'Courier New', monospace";
+    ctx.fillText(`${level}`, 150, 185);
+    
+    // Forge Rank
+    ctx.fillStyle = "#999999";
+    ctx.font = "bold 10px 'Courier New', monospace";
+    ctx.fillText("FORGE RANK", 400, 160);
     ctx.fillStyle = accentColor;
-    ctx.font = "bold 22px 'Courier New', monospace";
-    ctx.fillText(bestRarity, 560, 220);
+    ctx.font = "bold 20px 'Courier New', monospace";
+    ctx.fillText(forgeRank, 400, 185);
+    
+    // Best Rarity
+    ctx.fillStyle = "#999999";
+    ctx.font = "bold 10px 'Courier New', monospace";
+    ctx.fillText("BEST RARITY", 650, 160);
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 20px 'Courier New', monospace";
+    ctx.fillText(bestRarity, 650, 185);
 
     // Divider line
     ctx.strokeStyle = glowColor;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(30, 240);
-    ctx.lineTo(570, 240);
+    ctx.moveTo(30, 210);
+    ctx.lineTo(770, 210);
     ctx.stroke();
 
     // Signature logo section - use raw logo image (not card)
@@ -158,18 +158,21 @@ const generatePlayerCard = (
       const imgElement = typeof window !== "undefined" ? new (window as any).Image() : null;
       if (!imgElement) {
         // Fallback: no image support
-        ctx.fillStyle = "#333333";
-        ctx.fillRect(65, 275, 470, 270);
-        ctx.fillStyle = "#888888";
-        ctx.font = "14px 'Courier New', monospace";
+        ctx.fillStyle = "#1a1a3a";
+        ctx.fillRect(50, 250, 700, 450);
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(50, 250, 700, 450);
+        ctx.fillStyle = "#666666";
+        ctx.font = "16px 'Courier New', monospace";
         ctx.textAlign = "center";
-        ctx.fillText("SIGNATURE LOGO", 300, 410);
+        ctx.fillText("SIGNATURE LOGO", 400, 480);
 
         if (isRarityMaster) {
           ctx.fillStyle = "#ffaa00";
-          ctx.font = "bold 11px 'Courier New', monospace";
+          ctx.font = "bold 12px 'Courier New', monospace";
           ctx.textAlign = "right";
-          ctx.fillText("★ RARITY MASTER", 530, 560);
+          ctx.fillText("★ RARITY MASTER", 750, 850);
         }
 
         resolve(canvas.toDataURL("image/png"));
@@ -178,27 +181,50 @@ const generatePlayerCard = (
 
       imgElement.crossOrigin = "anonymous";
       imgElement.onload = () => {
-        // Draw signature logo frame
+        // Draw signature logo frame with glow border
         ctx.fillStyle = glowColor;
-        ctx.fillRect(60, 270, 480, 280);
+        ctx.fillRect(45, 245, 710, 460);
         ctx.fillStyle = "#0a0e27";
-        ctx.fillRect(65, 275, 470, 270);
+        ctx.fillRect(50, 250, 700, 450);
 
-        // Draw image
-        ctx.drawImage(imgElement, 65, 275, 470, 270);
+        // Calculate dimensions to fit logo properly with aspect ratio preserved
+        const logoWidth = 700;
+        const logoHeight = 450;
+        const imgAspect = imgElement.width / imgElement.height;
+        let drawWidth = logoWidth;
+        let drawHeight = logoWidth / imgAspect;
+        let startX = 50;
+        let startY = 250;
 
-        // Label
-        ctx.fillStyle = "#cccccc";
-        ctx.font = "bold 11px 'Courier New', monospace";
+        if (drawHeight > logoHeight) {
+          drawHeight = logoHeight;
+          drawWidth = logoHeight * imgAspect;
+          startX = 50 + (logoWidth - drawWidth) / 2;
+        } else {
+          startY = 250 + (logoHeight - drawHeight) / 2;
+        }
+
+        // Draw image centered
+        ctx.drawImage(imgElement, startX, startY, drawWidth, drawHeight);
+
+        // Label below
+        ctx.fillStyle = "#888888";
+        ctx.font = "bold 12px 'Courier New', monospace";
         ctx.textAlign = "left";
-        ctx.fillText("SIGNATURE LOGO", 70, 560);
+        ctx.fillText("SIGNATURE LOGO", 60, 730);
+
+        // Text label centered
+        ctx.fillStyle = accentColor;
+        ctx.font = "bold 14px 'Courier New', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(signatureLogo.text.toUpperCase(), 400, 760);
 
         // Rarity Master badge
         if (isRarityMaster) {
           ctx.fillStyle = "#ffaa00";
-          ctx.font = "bold 11px 'Courier New', monospace";
+          ctx.font = "bold 12px 'Courier New', monospace";
           ctx.textAlign = "right";
-          ctx.fillText("★ RARITY MASTER", 530, 560);
+          ctx.fillText("★ RARITY MASTER", 750, 850);
         }
 
         // Convert canvas to data URL
@@ -206,17 +232,20 @@ const generatePlayerCard = (
       };
       imgElement.onerror = () => {
         // If image fails to load, show placeholder
-        ctx.fillStyle = "#333333";
-        ctx.fillRect(65, 275, 470, 270);
-        ctx.fillStyle = "#888888";
-        ctx.font = "14px 'Courier New', monospace";
+        ctx.fillStyle = "#1a1a3a";
+        ctx.fillRect(50, 250, 700, 450);
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(50, 250, 700, 450);
+        ctx.fillStyle = "#666666";
+        ctx.font = "16px 'Courier New', monospace";
         ctx.textAlign = "center";
-        ctx.fillText("SIGNATURE LOGO", 300, 410);
+        ctx.fillText("SIGNATURE LOGO", 400, 480);
         if (isRarityMaster) {
           ctx.fillStyle = "#ffaa00";
-          ctx.font = "bold 11px 'Courier New', monospace";
+          ctx.font = "bold 12px 'Courier New', monospace";
           ctx.textAlign = "right";
-          ctx.fillText("★ RARITY MASTER", 530, 560);
+          ctx.fillText("★ RARITY MASTER", 750, 850);
         }
 
         resolve(canvas.toDataURL("image/png"));
@@ -224,36 +253,42 @@ const generatePlayerCard = (
       imgElement.src = logoToDisplay;
       } else {
         // Logo data not available, show placeholder
-        ctx.fillStyle = "#333333";
-        ctx.fillRect(65, 275, 470, 270);
-        ctx.fillStyle = "#888888";
-        ctx.font = "14px 'Courier New', monospace";
+        ctx.fillStyle = "#1a1a3a";
+        ctx.fillRect(50, 250, 700, 450);
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(50, 250, 700, 450);
+        ctx.fillStyle = "#666666";
+        ctx.font = "16px 'Courier New', monospace";
         ctx.textAlign = "center";
-        ctx.fillText("SIGNATURE LOGO", 300, 410);
+        ctx.fillText("SELECT A SIGNATURE LOGO", 400, 480);
 
         if (isRarityMaster) {
           ctx.fillStyle = "#ffaa00";
-          ctx.font = "bold 11px 'Courier New', monospace";
+          ctx.font = "bold 12px 'Courier New', monospace";
           ctx.textAlign = "right";
-          ctx.fillText("★ RARITY MASTER", 530, 560);
+          ctx.fillText("★ RARITY MASTER", 750, 850);
         }
 
         resolve(canvas.toDataURL("image/png"));
       }
     } else {
       // No signature logo - show placeholder
-      ctx.fillStyle = "#333333";
-      ctx.fillRect(65, 275, 470, 270);
-      ctx.fillStyle = "#888888";
-      ctx.font = "14px 'Courier New', monospace";
+      ctx.fillStyle = "#1a1a3a";
+      ctx.fillRect(50, 250, 700, 450);
+      ctx.strokeStyle = glowColor;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(50, 250, 700, 450);
+      ctx.fillStyle = "#666666";
+      ctx.font = "16px 'Courier New', monospace";
       ctx.textAlign = "center";
-      ctx.fillText("SELECT A SIGNATURE LOGO", 300, 410);
+      ctx.fillText("SELECT A SIGNATURE LOGO", 400, 480);
 
       if (isRarityMaster) {
         ctx.fillStyle = "#ffaa00";
-        ctx.font = "bold 11px 'Courier New', monospace";
+        ctx.font = "bold 12px 'Courier New', monospace";
         ctx.textAlign = "right";
-        ctx.fillText("★ RARITY MASTER", 530, 560);
+        ctx.fillText("★ RARITY MASTER", 750, 850);
       }
 
       resolve(canvas.toDataURL("image/png"));
