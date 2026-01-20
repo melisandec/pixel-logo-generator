@@ -78,6 +78,38 @@ const getProfileEmblems = (
   return emblems;
 };
 
+const getForgeRank = (casts: number, bestRarity: string, legendaryCount: number): string => {
+  // Scoring algorithm
+  let score = 0;
+  score += Math.min(casts, 50); // Max 50 points for casts
+  
+  // Rarity bonuses
+  switch (bestRarity.toUpperCase()) {
+    case "LEGENDARY":
+      score += 40;
+      break;
+    case "EPIC":
+      score += 25;
+      break;
+    case "RARE":
+      score += 10;
+      break;
+    case "COMMON":
+      score += 5;
+      break;
+  }
+  
+  score += legendaryCount * 15; // 15 points per legendary
+  
+  // Rank tiers
+  if (score >= 120) return "S+";
+  if (score >= 100) return "S";
+  if (score >= 75) return "A";
+  if (score >= 50) return "B";
+  if (score >= 25) return "C";
+  return "D";
+};
+
 const getProfileLevel = (casts: number): number => {
   return Math.floor(casts / 5) + 1;
 };
@@ -95,6 +127,26 @@ export default function ProfileClient({
   };
 }) {
   const [userBadges, setUserBadges] = useState<Array<any>>(initialBadges ?? []);
+  const [signatureLogo, setSignatureLogo] = useState<LeaderboardEntry | null>(null);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [showSignatureSelector, setShowSignatureSelector] = useState(false);
+  const [initialAnimationDone, setInitialAnimationDone] = useState(false);
+
+  useEffect(() => {
+    // Detect if viewing own profile
+    if (typeof window !== "undefined") {
+      const currentUsername = localStorage.getItem("farcasterUsername") || "";
+      setIsOwnProfile(currentUsername === profile.username);
+    }
+  }, [profile.username]);
+
+  useEffect(() => {
+    // Trigger initial animations
+    const timer = setTimeout(() => {
+      setInitialAnimationDone(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (initialBadges && Array.isArray(initialBadges)) return;
@@ -150,6 +202,21 @@ export default function ProfileClient({
     const raritySet = new Set(
       profile.entries.map((e) => String(e.rarity).toUpperCase()),
     );
+
+    // Calculate rarity counts
+    const rarityCounts = {
+      COMMON: profile.entries.filter(
+        (e) => String(e.rarity).toUpperCase() === "COMMON",
+      ).length,
+      RARE: profile.entries.filter(
+        (e) => String(e.rarity).toUpperCase() === "RARE",
+      ).length,
+      EPIC: profile.entries.filter(
+        (e) => String(e.rarity).toUpperCase() === "EPIC",
+      ).length,
+      LEGENDARY: legendaryCount,
+    };
+
     return {
       totalCasts,
       totalLikes,
@@ -158,6 +225,8 @@ export default function ProfileClient({
       topPreset: presetLabelMap[topPresetKey] ?? topPresetKey,
       raritySet,
       level: getProfileLevel(totalCasts),
+      forgeRank: getForgeRank(totalCasts, bestRarity, legendaryCount),
+      rarityCounts,
     };
   }, [presetLabelMap, profile.best?.rarity, profile.entries]);
 
@@ -266,13 +335,26 @@ export default function ProfileClient({
 
   return (
     <div className="profile-page">
-      <div className="profile-header">
+      <div 
+        className={`profile-header profile-aura-${String(stats.bestRarity).toLowerCase()}`}
+        style={{
+          animation: initialAnimationDone ? "none" : "slideInDown 0.6s ease-out",
+        }}
+      >
+        <div className="profile-visit-state">
+          {isOwnProfile ? "YOUR FORGE" : `VIEWING @${profile.username.toUpperCase()}'S FORGE`}
+        </div>
         <Link href="/" className="profile-back">
           &larr; Back
         </Link>
         <div className="profile-name-badge">
           <span className="profile-username">@{profile.username}</span>
-          <span className="profile-emblems">
+          <span 
+            className="profile-emblems"
+            style={{
+              animation: initialAnimationDone ? "slideInRight 0.4s ease-out" : "none",
+            }}
+          >
             {getProfileEmblems(stats.legendaryCount, topEntries).join(" ")}
           </span>
         </div>
@@ -282,7 +364,7 @@ export default function ProfileClient({
             stats.legendaryCount,
             stats.raritySet,
           )}{" "}
-          Lv. {stats.level}
+          Lv. {stats.level} • {stats.forgeRank}
         </div>
       </div>
       <div className="profile-actions">
@@ -300,7 +382,110 @@ export default function ProfileClient({
         >
           Copy profile link
         </button>
+        {!isOwnProfile && (
+          <button
+            type="button"
+            className="profile-follow-button"
+          >
+            Follow
+          </button>
+        )}
       </div>
+
+      {/* Signature Logo Section */}
+      {signatureLogo ? (
+        <div className={`signature-logo-section signature-rarity-${String(signatureLogo.rarity).toLowerCase()}`}>
+          <div className="signature-logo-header">
+            <div className="signature-logo-title">SIGNATURE LOGO</div>
+            {isOwnProfile && (
+              <button
+                type="button"
+                className="signature-logo-edit"
+                onClick={() => setShowSignatureSelector(!showSignatureSelector)}
+              >
+                CHANGE
+              </button>
+            )}
+          </div>
+          {signatureLogo.imageUrl ? (
+            <Image
+              src={signatureLogo.imageUrl}
+              alt={`Signature logo: ${signatureLogo.text}`}
+              className="signature-logo-image"
+              width={360}
+              height={240}
+              unoptimized
+              priority
+            />
+          ) : (
+            <div className="signature-logo-text">{signatureLogo.text}</div>
+          )}
+          <div className="signature-logo-quote">&quot;This is my identity.&quot;</div>
+          <div className="signature-logo-meta">
+            <span>{signatureLogo.text}</span>
+            <span className={`rarity-${String(signatureLogo.rarity).toLowerCase()}`}>
+              {signatureLogo.rarity
+                ? String(signatureLogo.rarity).toUpperCase()
+                : "UNKNOWN"}
+            </span>
+          </div>
+        </div>
+      ) : isOwnProfile ? (
+        <div className="signature-logo-empty">
+          <div className="signature-logo-title">SIGNATURE LOGO</div>
+          <p>Choose your signature logo to showcase your masterpiece.</p>
+          <button
+            type="button"
+            className="signature-logo-set"
+            onClick={() => setShowSignatureSelector(true)}
+          >
+            Select Logo
+          </button>
+        </div>
+      ) : null}
+
+      {showSignatureSelector && isOwnProfile && (
+        <div className="signature-selector-modal">
+          <div className="signature-selector-content">
+            <div className="signature-selector-title">Select Signature Logo</div>
+            <div className="signature-selector-grid">
+              {profile.entries.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className="signature-selector-card"
+                  onClick={() => {
+                    setSignatureLogo(entry);
+                    setShowSignatureSelector(false);
+                  }}
+                >
+                  {entry.imageUrl ? (
+                    <Image
+                      src={entry.imageUrl}
+                      alt={entry.text}
+                      width={120}
+                      height={80}
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="signature-selector-text">{entry.text}</div>
+                  )}
+                  <div className="signature-selector-label">
+                    {entry.text}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="signature-selector-close"
+              onClick={() => setShowSignatureSelector(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="profile-stats">
         <div className="profile-stat">
@@ -308,8 +493,8 @@ export default function ProfileClient({
           <strong className="stat-value">{String(stats.totalCasts).padStart(3, "0")}</strong>
         </div>
         <div className="profile-stat">
-          <span className="stat-label">TOTAL LIKES</span>
-          <strong className="stat-value">{String(stats.totalLikes).padStart(3, "0")}</strong>
+          <span className="stat-label">FORGE RANK</span>
+          <strong className="stat-value forge-rank">{stats.forgeRank}</strong>
         </div>
         <div className="profile-stat">
           <span className="stat-label">BEST RARITY</span>
@@ -325,7 +510,7 @@ export default function ProfileClient({
 
       <div className="profile-section">
         <div className="leaderboard-title">Rarity Collection</div>
-        <div className="rarity-progress-console">
+        <div className="rarity-progress-console-compact">
           {["COMMON", "RARE", "EPIC", "LEGENDARY"].map((r) => {
             const has = profile.entries.some(
               (e) => String(e.rarity).toUpperCase() === r,
@@ -333,10 +518,10 @@ export default function ProfileClient({
             return (
               <div
                 key={`rarity-${r}`}
-                className={`rarity-progress-item ${has ? "unlocked" : ""} ${r.toLowerCase()}`}
+                className={`rarity-progress-item-compact ${has ? "unlocked" : ""} ${r.toLowerCase()}`}
               >
-                <span className="rarity-check">{has ? "✔" : "☐"}</span>
-                <span className="rarity-label">
+                <span className="rarity-check-compact">{has ? "✔" : "☐"}</span>
+                <span className="rarity-label-compact">
                   {r.charAt(0) + r.slice(1).toLowerCase()}
                 </span>
               </div>
@@ -353,6 +538,25 @@ export default function ProfileClient({
         </div>
         <div className="rarity-progress-text">
           {stats.raritySet.size} / 4 COMPLETE
+        </div>
+
+        <div className="rarity-stats">
+          <div className="rarity-stat-row">
+            <span className="rarity-stat-label">Common:</span>
+            <span className="rarity-stat-count">{stats.rarityCounts.COMMON}</span>
+          </div>
+          <div className="rarity-stat-row">
+            <span className="rarity-stat-label">Rare:</span>
+            <span className="rarity-stat-count">{stats.rarityCounts.RARE}</span>
+          </div>
+          <div className="rarity-stat-row">
+            <span className="rarity-stat-label">Epic:</span>
+            <span className="rarity-stat-count epic">{stats.rarityCounts.EPIC}</span>
+          </div>
+          <div className="rarity-stat-row">
+            <span className="rarity-stat-label">Legendary:</span>
+            <span className="rarity-stat-count legendary">{stats.rarityCounts.LEGENDARY}</span>
+          </div>
         </div>
 
         {userBadges.some(

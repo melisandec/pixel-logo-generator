@@ -2492,6 +2492,59 @@ body {
   background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(0, 255, 0, 0.05) 100%);
   box-shadow: 0 0 12px rgba(0, 255, 0, 0.15), inset 0 0 8px rgba(0, 255, 0, 0.05);
   position: relative;
+  transition: all 0.3s;
+}
+
+.profile-header.profile-aura-epic {
+  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(170, 0, 255, 0.08) 100%);
+  box-shadow: 0 0 16px rgba(170, 0, 255, 0.2), inset 0 0 8px rgba(170, 0, 255, 0.05);
+  border-color: rgba(170, 0, 255, 0.3);
+}
+
+.profile-header.profile-aura-legendary {
+  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(255, 170, 0, 0.1) 100%);
+  box-shadow: 0 0 16px rgba(255, 170, 0, 0.25), inset 0 0 8px rgba(255, 170, 0, 0.08);
+  border-color: rgba(255, 170, 0, 0.3);
+}
+
+.profile-header.profile-aura-rare {
+  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(0, 170, 255, 0.08) 100%);
+  box-shadow: 0 0 16px rgba(0, 170, 255, 0.2), inset 0 0 8px rgba(0, 170, 255, 0.05);
+  border-color: rgba(0, 170, 255, 0.3);
+}
+
+.profile-visit-state {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-secondary);
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+  margin-bottom: 4px;
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .profile-name-badge {
@@ -2566,7 +2619,8 @@ body {
   transform: translateY(-2px);
 }
 
-.profile-copy-link {
+.profile-copy-link,
+.profile-follow-button {
   border: 1px solid var(--border-color);
   background: transparent;
   color: var(--text-secondary);
@@ -2578,7 +2632,236 @@ body {
   transition: all 0.2s;
 }
 
-.profile-copy-link:hover {
+.profile-copy-link:hover,
+.profile-follow-button:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+/* Signature Logo Section */
+.signature-logo-section {
+  border: 2px solid var(--text-primary);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(0, 255, 0, 0.05) 0%, rgba(0, 255, 0, 0.02) 100%);
+  box-shadow: 0 0 16px rgba(0, 255, 0, 0.3);
+  position: relative;
+}
+
+.signature-logo-section.signature-rarity-epic {
+  border-color: #aa00ff;
+  background: linear-gradient(135deg, rgba(170, 0, 255, 0.08) 0%, rgba(170, 0, 255, 0.02) 100%);
+  box-shadow: 0 0 20px rgba(170, 0, 255, 0.4);
+}
+
+.signature-logo-section.signature-rarity-legendary {
+  border-color: #ffaa00;
+  background: linear-gradient(135deg, rgba(255, 170, 0, 0.1) 0%, rgba(255, 170, 0, 0.03) 100%);
+  box-shadow: 0 0 24px rgba(255, 170, 0, 0.5);
+}
+
+.signature-logo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.signature-logo-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-primary);
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+
+.signature-logo-edit {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 8px;
+  padding: 3px 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.signature-logo-edit:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.signature-logo-image {
+  width: 100%;
+  height: auto;
+  border: 2px solid var(--border-color);
+  object-fit: cover;
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.2);
+}
+
+.signature-logo-text {
+  font-size: 10px;
+  color: var(--text-secondary);
+  padding: 40px 20px;
+  border: 2px solid var(--border-color);
+  text-align: center;
+  font-style: italic;
+}
+
+.signature-logo-quote {
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-align: center;
+  font-style: italic;
+  letter-spacing: 0.5px;
+}
+
+.signature-logo-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 6px;
+  border-top: 1px solid var(--border-color);
+  gap: 8px;
+}
+
+.signature-logo-meta span:first-child {
+  flex: 1;
+  color: var(--text-secondary);
+}
+
+.signature-logo-empty {
+  border: 2px dashed var(--border-color);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+  background: rgba(0, 255, 0, 0.02);
+}
+
+.signature-logo-set {
+  border: 1px solid var(--text-primary);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 10px;
+  padding: 6px 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.signature-logo-set:hover {
+  background: rgba(0, 255, 0, 0.1);
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+}
+
+.signature-selector-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.signature-selector-content {
+  background: var(--bg-darker);
+  border: 2px solid var(--border-color);
+  padding: 20px;
+  max-height: 80vh;
+  overflow-y: auto;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.signature-selector-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-primary);
+  font-weight: bold;
+  margin-bottom: 16px;
+  font-family: 'Courier New', monospace;
+}
+
+.signature-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.signature-selector-card {
+  border: 1px solid var(--border-color);
+  background: var(--bg-dark);
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.signature-selector-card:hover {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+}
+
+.signature-selector-card img,
+.signature-selector-text {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  background: var(--bg-darker);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 4px;
+}
+
+.signature-selector-label {
+  font-size: 7px;
+  color: var(--text-secondary);
+  padding: 4px;
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signature-selector-close {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 9px;
+  padding: 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.signature-selector-close:hover {
   border-color: var(--text-primary);
   color: var(--text-primary);
 }
@@ -2624,6 +2907,11 @@ body {
   letter-spacing: 1px;
 }
 
+.stat-value.forge-rank {
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
+
 .stat-value.rarity-epic {
   color: #aa00ff;
   text-shadow: 0 0 8px rgba(170, 0, 255, 0.5);
@@ -2639,75 +2927,52 @@ body {
   text-shadow: 0 0 8px rgba(0, 170, 255, 0.3);
 }
 
-/* Rarity Collection Progress Console */
-.rarity-progress-console {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* Compact Rarity Collection */
+.rarity-progress-console-compact {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
   border: 1px solid var(--border-color);
-  padding: 10px;
+  padding: 8px;
   background: var(--bg-darker);
   font-family: 'Courier New', monospace;
 }
 
-.rarity-progress-item {
+.rarity-progress-item-compact {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
+  gap: 3px;
+  padding: 6px;
   border: 1px solid var(--border-color);
   background: var(--bg-dark);
-  font-size: 10px;
+  font-size: 8px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   color: var(--text-secondary);
   transition: all 0.2s;
 }
 
-.rarity-progress-item.unlocked {
+.rarity-progress-item-compact.unlocked {
   border-color: var(--text-primary);
   background: rgba(0, 255, 0, 0.05);
   color: var(--text-primary);
-  box-shadow: inset 0 0 6px rgba(0, 255, 0, 0.1);
 }
 
-.rarity-progress-item.legendary {
-  position: relative;
-  padding-right: 12px;
+.rarity-check-compact {
+  font-size: 10px;
 }
 
-.rarity-progress-item.legendary::after {
-  content: '★';
-  position: absolute;
-  right: 4px;
-  opacity: 0.3;
-  font-size: 14px;
-}
-
-.rarity-progress-item.legendary.unlocked::after {
-  opacity: 1;
-  animation: sparkle 1.5s ease-in-out infinite;
-}
-
-@keyframes sparkle {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.1); }
-}
-
-.rarity-check {
-  font-size: 12px;
-  min-width: 14px;
-}
-
-.rarity-label {
-  flex: 1;
+.rarity-label-compact {
+  font-size: 7px;
+  letter-spacing: 0.5px;
 }
 
 .rarity-progress-bar-container {
   height: 4px;
   border: 1px solid var(--border-color);
   background: var(--bg-dark);
-  margin: 6px 0;
+  margin: 4px 0;
   overflow: hidden;
 }
 
@@ -2725,6 +2990,46 @@ body {
   color: var(--text-secondary);
   text-align: center;
   font-family: 'Courier New', monospace;
+}
+
+/* Rarity Stats */
+.rarity-stats {
+  border: 1px solid var(--border-color);
+  padding: 8px;
+  background: var(--bg-dark);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.rarity-stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: 'Courier New', monospace;
+}
+
+.rarity-stat-label {
+  color: var(--text-secondary);
+}
+
+.rarity-stat-count {
+  color: var(--text-primary);
+  font-weight: bold;
+  min-width: 20px;
+  text-align: right;
+}
+
+.rarity-stat-count.epic {
+  color: #aa00ff;
+  text-shadow: 0 0 4px rgba(170, 0, 255, 0.5);
+}
+
+.rarity-stat-count.legendary {
+  color: #ffaa00;
+  text-shadow: 0 0 4px rgba(255, 170, 0, 0.5);
 }
 
 /* Next Objective Panel */
