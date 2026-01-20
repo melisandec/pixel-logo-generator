@@ -5,6 +5,7 @@ import NextImage from 'next/image';
 import Link from 'next/link';
 import { generateLogo, LogoResult, Rarity } from '@/lib/logoGenerator';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { EXTRA_BADGE_TYPES } from '@/lib/badgeTypes';
 import dynamic from 'next/dynamic';
 import Toast from './Toast';
 
@@ -68,6 +69,7 @@ const buildWarpcastComposeUrl = (text: string, embeds?: string[], channelKey?: s
 
 
 const TRIES_PER_DAY = 3;
+const BONUS_TRIES_FOR_MASTER = 1;
 const RANDOM_WORDS = [
   'Arcade',
   'Pixel',
@@ -729,6 +731,16 @@ export default function LogoGenerator() {
     }
   }, []);
 
+  useEffect(() => {
+    if (userInfo?.username) {
+      loadUserBadges(userInfo.username);
+    }
+  }, [userInfo?.username, loadUserBadges]);
+
+  const hasBadge = useCallback((badgeType: string) => {
+    return userBadges.some((b) => String(b.badgeType) === String(badgeType));
+  }, [userBadges]);
+
   const loadDailyWinners = useCallback(async () => {
     try {
       const response = await fetch('/api/winners');
@@ -1026,17 +1038,18 @@ export default function LogoGenerator() {
     if (isUnlimitedUser) {
       return { ok: true, normalizedText, todayState };
     }
+    const effectiveTries = TRIES_PER_DAY + (hasBadge(EXTRA_BADGE_TYPES.RARITY_MASTER) ? BONUS_TRIES_FOR_MASTER : 0);
     if (todayState.words.includes(normalizedText)) {
       return { ok: false, message: 'You already tried this word today. Please wait until tomorrow.' };
     }
-    if (todayState.words.length >= TRIES_PER_DAY) {
+    if (todayState.words.length >= effectiveTries) {
       return { ok: false, message: 'Daily limit reached. Please wait until tomorrow.' };
     }
     if (seedProvided && todayState.seedUsed) {
       return { ok: false, message: 'Seed already used today. Please wait until tomorrow.' };
     }
     return { ok: true, normalizedText, todayState };
-  }, [ensureDailyLimit, normalizeWord, userInfo?.username]);
+  }, [ensureDailyLimit, normalizeWord, userInfo?.username, hasBadge]);
 
   const finalizeDailyLimit = useCallback((
     normalizedText: string,
@@ -1305,9 +1318,58 @@ export default function LogoGenerator() {
 
   const commitLogoResult = useCallback((result: LogoResult) => {
     setLogoResult(result);
+    // Add to local history
     addToHistory(result);
     trackForgeMoments(result);
-  }, [addToHistory, trackForgeMoments]);
+
+    try {
+      // Compute collected rarities from profile (server) + local history + this result
+      const collected = new Set<string>();
+      if (profileData?.entries && Array.isArray(profileData.entries)) {
+        profileData.entries.forEach((e) => {
+          if (e.rarity) collected.add(String(e.rarity).toUpperCase());
+        });
+      }
+      logoHistory.forEach((h) => {
+        if (h.result.rarity) collected.add(String(h.result.rarity).toUpperCase());
+      });
+      if (result.rarity) collected.add(String(result.rarity).toUpperCase());
+
+      const hasCommon = collected.has('COMMON');
+      const hasRare = collected.has('RARE');
+      const hasEpic = collected.has('EPIC');
+      const hasLegendary = collected.has('LEGENDARY');
+
+      const previouslyHadAll = (() => {
+        const prev = new Set<string>();
+        if (profileData?.entries) profileData.entries.forEach((e) => e.rarity && prev.add(String(e.rarity).toUpperCase()));
+        logoHistory.forEach((h) => h.result.rarity && prev.add(String(h.result.rarity).toUpperCase()));
+        return prev.has('COMMON') && prev.has('RARE') && prev.has('EPIC') && prev.has('LEGENDARY');
+      })();
+
+      const nowHasAll = hasCommon && hasRare && hasEpic && hasLegendary;
+      if (!previouslyHadAll && nowHasAll && userInfo?.username) {
+        // Trigger completion moment and award server-side badge
+        triggerMoment({
+          id: 'rarity_master',
+          icon: '🎉',
+          title: 'Rarity Master Unlocked',
+          subtitle: "You've collected every rarity. The Forge recognizes you.",
+        });
+
+        // Persist badge server-side
+        fetch('/api/badges', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: userInfo.username, badgeType: EXTRA_BADGE_TYPES.RARITY_MASTER }),
+        }).then(() => {
+          loadUserBadges(userInfo.username!);
+        }).catch((err) => console.error('Failed to award rarity master badge:', err));
+      }
+    } catch (err) {
+      console.error('Failed to evaluate rarity collection:', err);
+    }
+  }, [addToHistory, trackForgeMoments, profileData, logoHistory, userInfo?.username, triggerMoment, loadUserBadges]);
 
   useEffect(() => {
     return () => {

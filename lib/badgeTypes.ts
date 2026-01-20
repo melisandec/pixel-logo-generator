@@ -61,3 +61,22 @@ export const BADGE_INFO: Record<BadgeType, { name: string; description: string; 
   [BADGE_TYPES.DAILY_WINNER]: { name: 'Daily Winner', description: 'Win daily leaderboard', icon: '🏆', rarity: 'epic' },
   [BADGE_TYPES.WEEKLY_CHAMPION]: { name: 'Weekly Champion', description: 'Win weekly leaderboard', icon: '👑', rarity: 'legendary' },
 };
+
+// Rarity collection / progression badges
+export const EXTRA_BADGE_TYPES = {
+  RARITY_COMMON: 'rarity_common',
+  RARITY_RARE: 'rarity_rare',
+  RARITY_EPIC: 'rarity_epic',
+  RARITY_LEGENDARY: 'rarity_legendary',
+  RARITY_MASTER: 'rarity_master',
+} as const;
+
+export type ExtraBadgeType = typeof EXTRA_BADGE_TYPES[keyof typeof EXTRA_BADGE_TYPES];
+
+export const EXTRA_BADGE_INFO: Record<ExtraBadgeType, { name: string; description: string; icon: string; rarity: 'common' | 'rare' | 'epic' | 'legendary' }> = {
+  [EXTRA_BADGE_TYPES.RARITY_COMMON]: { name: 'Common Collector', description: 'Collect at least one COMMON logo', icon: '✔️', rarity: 'common' },
+  [EXTRA_BADGE_TYPES.RARITY_RARE]: { name: 'Rare Collector', description: 'Collect at least one RARE logo', icon: '🔵', rarity: 'rare' },
+  [EXTRA_BADGE_TYPES.RARITY_EPIC]: { name: 'Epic Collector', description: 'Collect at least one EPIC logo', icon: '🟣', rarity: 'epic' },
+  [EXTRA_BADGE_TYPES.RARITY_LEGENDARY]: { name: 'Legendary Collector', description: 'Collect at least one LEGENDARY logo', icon: '🟠', rarity: 'epic' },
+  [EXTRA_BADGE_TYPES.RARITY_MASTER]: { name: 'Rarity Master', description: 'Collected one of each rarity', icon: '🎉', rarity: 'legendary' },
+};

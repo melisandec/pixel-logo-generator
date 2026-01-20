@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { BADGE_TYPES, BadgeType } from '@/lib/badgeTypes';
+import { EXTRA_BADGE_TYPES, ExtraBadgeType } from '@/lib/badgeTypes';
 import { Prisma } from '@prisma/client';
 
 type LeaderboardEntry = {
@@ -64,6 +65,32 @@ export async function checkAndAwardBadges(
       
       if (rarity === 'LEGENDARY' && !existingBadgeTypes.has(BADGE_TYPES.LEGENDARY_HUNTER)) {
         badgesToAward.push(BADGE_TYPES.LEGENDARY_HUNTER);
+      }
+    }
+
+    // Rarity collection: award a per-rarity "collected" badge on first occurrence
+    if (action === 'cast' && data.rarity) {
+      const rarity = String(data.rarity).toUpperCase();
+      const perRarityMap: Record<string, ExtraBadgeType | null> = {
+        COMMON: EXTRA_BADGE_TYPES.RARITY_COMMON,
+        RARE: EXTRA_BADGE_TYPES.RARITY_RARE,
+        EPIC: EXTRA_BADGE_TYPES.RARITY_EPIC,
+        LEGENDARY: EXTRA_BADGE_TYPES.RARITY_LEGENDARY,
+      };
+      const perBadge = perRarityMap[rarity] ?? null;
+      if (perBadge && !existingBadgeTypes.has(perBadge)) {
+        badgesToAward.push(perBadge as unknown as BadgeType);
+      }
+
+      // If awarding this badge completes the set, also award RARITY_MASTER
+      const projected = new Set(existingBadgeTypes);
+      for (const b of badgesToAward) projected.add(b);
+      const hasCommon = projected.has(EXTRA_BADGE_TYPES.RARITY_COMMON);
+      const hasRare = projected.has(EXTRA_BADGE_TYPES.RARITY_RARE);
+      const hasEpic = projected.has(EXTRA_BADGE_TYPES.RARITY_EPIC);
+      const hasLegendary = projected.has(EXTRA_BADGE_TYPES.RARITY_LEGENDARY) || projected.has(BADGE_TYPES.LEGENDARY_HUNTER);
+      if (hasCommon && hasRare && hasEpic && hasLegendary && !existingBadgeTypes.has(EXTRA_BADGE_TYPES.RARITY_MASTER)) {
+        badgesToAward.push(EXTRA_BADGE_TYPES.RARITY_MASTER as unknown as BadgeType);
       }
     }
 

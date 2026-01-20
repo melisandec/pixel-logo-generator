@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { EXTRA_BADGE_TYPES } from '@/lib/badgeTypes';
 
 type LeaderboardEntry = {
   id: string;
@@ -59,6 +60,22 @@ const getProfileTitle = (casts: number, legendaryCount: number) => {
 };
 
 export default function ProfileClient({ profile }: { profile: UserProfile }) {
+  const [userBadges, setUserBadges] = useState<Array<{ badgeType: string }>>([]);
+
+  useEffect(() => {
+    const loadBadges = async () => {
+      try {
+        const response = await fetch(`/api/badges?username=${encodeURIComponent(profile.username)}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (Array.isArray(data.badges)) setUserBadges(data.badges);
+      } catch (err) {
+        console.error('Failed to load badges for profile:', err);
+      }
+    };
+    loadBadges();
+  }, [profile.username]);
+
   const [rarityFilter, setRarityFilter] = useState<string>('all');
   const [presetFilter, setPresetFilter] = useState<string>('all');
   const [recentOnly, setRecentOnly] = useState(false);
@@ -216,6 +233,30 @@ export default function ProfileClient({ profile }: { profile: UserProfile }) {
           <span>Top preset</span>
           <strong>{stats.topPreset}</strong>
         </div>
+      </div>
+
+      <div className="profile-section">
+        <div className="leaderboard-title">Rarity Collection</div>
+        <div className="rarity-collection">
+          {['COMMON', 'RARE', 'EPIC', 'LEGENDARY'].map((r) => {
+            const has = profile.entries.some((e) => String(e.rarity).toUpperCase() === r);
+            return (
+              <div key={`rarity-${r}`} className="rarity-item">
+                <span className="rarity-check">{has ? '✔' : '⬜'}</span>
+                <span className="rarity-label">{r.charAt(0) + r.slice(1).toLowerCase()}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="rarity-progress">{(new Set(profile.entries.map((e) => String(e.rarity).toUpperCase())).size)}/4 unlocked</div>
+        {userBadges.some((b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER) ? (
+          <div className="rarity-master-box">
+            <div className="rarity-master-title">Rarity Master</div>
+            <div className="rarity-master-desc">You unlocked the special frame, background, and +1 daily generate.</div>
+          </div>
+        ) : (
+          <div className="rarity-cta">Collect all 4 rarities to unlock special rewards</div>
+        )}
       </div>
 
       <div className="profile-section">

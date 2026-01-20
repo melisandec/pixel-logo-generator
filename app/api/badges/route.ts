@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { BADGE_TYPES, BADGE_INFO, BadgeType } from '@/lib/badgeTypes';
+import { BADGE_TYPES, BADGE_INFO, BadgeType, EXTRA_BADGE_INFO } from '@/lib/badgeTypes';
 
 const logDebug = (..._args: unknown[]) => {};
 
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
     const badgesWithInfo = badges.map((badge: any) => ({
       ...badge,
-      ...BADGE_INFO[badge.badgeType as BadgeType],
+      ...(BADGE_INFO[badge.badgeType as BadgeType] ?? EXTRA_BADGE_INFO[badge.badgeType as any] ?? {}),
     }));
 
     return NextResponse.json({ badges: badgesWithInfo });
