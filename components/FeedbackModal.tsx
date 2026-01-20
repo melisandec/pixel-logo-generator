@@ -107,7 +107,7 @@ export default function FeedbackModal({
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-2">
+            <div style={{ position: "relative", marginBottom: "8px" }}>
               <div
                 className="text-[#00ff00] font-mono"
                 style={{ fontSize: "11px", fontWeight: "bold" }}
@@ -116,8 +116,20 @@ export default function FeedbackModal({
               </div>
               <button
                 onClick={handleClose}
-                className="text-white/50 hover:text-white"
-                style={{ fontSize: "16px", lineHeight: 1 }}
+                style={{
+                  position: "absolute",
+                  top: "-2px",
+                  right: "0",
+                  fontSize: "16px",
+                  lineHeight: 1,
+                  color: "#888",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "0",
+                  minWidth: "20px",
+                }}
+              >
               >
                 ✕
               </button>
