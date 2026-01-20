@@ -17,6 +17,9 @@ export default function OnboardingWizard({
         lineHeight: "1.3",
         maxWidth: "600px",
         margin: "0 auto",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "auto",
       }}
     >
       <div className="flex items-start gap-2">

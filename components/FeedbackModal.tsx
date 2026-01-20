@@ -31,8 +31,6 @@ export default function FeedbackModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  if (!isOpen) return null;
-
   const handleSubmit = async () => {
     if (!message.trim()) return;
 
@@ -69,13 +67,33 @@ export default function FeedbackModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 bg-black/70"
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 50,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "8px",
+        backgroundColor: "rgba(0, 0, 0, 0.7)",
+      }}
       onClick={handleClose}
     >
       <div
-        className="relative bg-[#0a0e27] border border-[#00ff00] rounded p-3 w-full"
+        style={{
+          position: "relative",
+          backgroundColor: "#0a0e27",
+          border: "1px solid #00ff00",
+          borderRadius: "4px",
+          padding: "12px",
+          width: "100%",
+          maxWidth: "320px",
+          fontSize: "11px",
+        }}
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: "320px", fontSize: "11px" }}
       >
         {submitted ? (
           <div className="text-center py-2">
