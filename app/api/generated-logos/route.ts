@@ -24,6 +24,7 @@ type GeneratedLogo = {
   recasts: number;
   saves: number;
   remixes: number;
+  metadata?: any | null;
   createdAt: string | Date;
   updatedAt?: string | Date;
 };
@@ -146,33 +147,210 @@ export async function GET(request: Request) {
     const limit = clampLimit(limitParam);
 
     if (sort === 'recent') {
-      const entries = await prisma.generatedLogo.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-      });
-      return NextResponse.json({ entries: entries.map(normalize) });
+      // Get from both tables
+      const [genEntries, legacyEntries] = await Promise.all([
+        prisma.generatedLogo.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          take: 500,
+        }),
+        // For legacy entries, apply casted filter if requested
+        (searchParams.get('casted') === 'true')
+          ? prisma.leaderboardEntry.findMany({
+              where: { castUrl: { not: null } },
+              orderBy: { createdAt: 'desc' },
+              take: 500,
+            })
+          : prisma.leaderboardEntry.findMany({
+              orderBy: { createdAt: 'desc' },
+              take: 500,
+            }),
+      ]);
+
+      // Combine and deduplicate by merging data
+      const merged: any[] = [];
+      const seenIds = new Set<string>();
+
+      // Add new entries first
+      for (const entry of genEntries) {
+        if (!seenIds.has(entry.id)) {
+          merged.push(normalize(entry));
+          seenIds.add(entry.id);
+        }
+      }
+
+      // Add legacy entries (if not already in merged)
+      for (const entry of legacyEntries) {
+        if (!seenIds.has(entry.id)) {
+          const converted = {
+            id: entry.id,
+            text: entry.text,
+            seed: entry.seed,
+            imageUrl: entry.imageUrl,
+            logoImageUrl: entry.logoImageUrl || entry.imageUrl,
+            cardImageUrl: entry.cardImageUrl || entry.imageUrl,
+            thumbImageUrl: entry.imageUrl,
+            username: entry.username?.toLowerCase?.() ?? entry.username,
+            displayName: entry.displayName,
+            pfpUrl: entry.pfpUrl,
+            likes: entry.likes,
+            recasts: entry.recasts,
+            rarity: entry.rarity,
+            presetKey: entry.presetKey,
+            createdAt: entry.createdAt,
+            castUrl: entry.castUrl,
+            casted: !!entry.castUrl,
+            userId: null,
+            remixes: 0,
+            saves: 0,
+            metadata: null,
+            updatedAt: entry.createdAt,
+          } as any;
+          merged.push(normalize(converted));
+          seenIds.add(entry.id);
+        }
+      }
+
+      // Sort by recent and limit
+      merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return NextResponse.json({ entries: merged.slice(0, limit) });
     }
 
     if (sort === 'likes') {
-      const entries = await prisma.generatedLogo.findMany({
-        where,
-        orderBy: [
-          { likes: 'desc' },
-          { createdAt: 'desc' },
-        ],
-        take: limit,
-      });
-      return NextResponse.json({ entries: entries.map(normalize) });
+      // Get from both tables
+      const [genEntries, legacyEntries] = await Promise.all([
+        prisma.generatedLogo.findMany({
+          where,
+          orderBy: [{ likes: 'desc' }, { createdAt: 'desc' }],
+          take: 500,
+        }),
+        // For legacy entries, apply casted filter if requested
+        (params.get('casted') === 'true')
+          ? prisma.leaderboardEntry.findMany({
+              where: { castUrl: { not: null } },
+              orderBy: [{ likes: 'desc' }, { createdAt: 'desc' }],
+              take: 500,
+            })
+          : prisma.leaderboardEntry.findMany({
+              orderBy: [{ likes: 'desc' }, { createdAt: 'desc' }],
+              take: 500,
+            }),
+      ]);
+
+      // Combine and deduplicate
+      const merged: any[] = [];
+      const seenIds = new Set<string>();
+
+      // Add new entries first
+      for (const entry of genEntries) {
+        if (!seenIds.has(entry.id)) {
+          merged.push(normalize(entry));
+          seenIds.add(entry.id);
+        }
+      }
+
+      // Add legacy entries
+      for (const entry of legacyEntries) {
+        if (!seenIds.has(entry.id)) {
+          const converted = {
+            id: entry.id,
+            text: entry.text,
+            seed: entry.seed,
+            imageUrl: entry.imageUrl,
+            logoImageUrl: entry.logoImageUrl || entry.imageUrl,
+            cardImageUrl: entry.cardImageUrl || entry.imageUrl,
+            thumbImageUrl: entry.imageUrl,
+            username: entry.username?.toLowerCase?.() ?? entry.username,
+            displayName: entry.displayName,
+            pfpUrl: entry.pfpUrl,
+            likes: entry.likes,
+            recasts: entry.recasts,
+            rarity: entry.rarity,
+            presetKey: entry.presetKey,
+            createdAt: entry.createdAt,
+            castUrl: entry.castUrl,
+            casted: !!entry.castUrl,
+            userId: null,
+            remixes: 0,
+            saves: 0,
+            metadata: null,
+            updatedAt: entry.createdAt,
+          } as any;
+          merged.push(normalize(converted));
+          seenIds.add(entry.id);
+        }
+      }
+
+      // Sort by likes
+      merged.sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
+      return NextResponse.json({ entries: merged.slice(0, limit) });
     }
 
     // Score-based (default)
-    const pool = await prisma.generatedLogo.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-    });
-    const scored = pool
+    const [pool, legacyPool] = await Promise.all([
+      prisma.generatedLogo.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      }),
+      // For legacy entries, apply casted filter if requested
+      (params.get('casted') === 'true')
+        ? prisma.leaderboardEntry.findMany({
+            where: { castUrl: { not: null } },
+            orderBy: { createdAt: 'desc' },
+            take: 500,
+          })
+        : prisma.leaderboardEntry.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 500,
+          }),
+    ]);
+
+    // Combine and deduplicate
+    let dataPool: any[] = [];
+    const seenIds = new Set<string>();
+
+    // Add new entries
+    for (const entry of pool) {
+      if (!seenIds.has(entry.id)) {
+        dataPool.push(entry);
+        seenIds.add(entry.id);
+      }
+    }
+
+    // Add legacy entries
+    for (const entry of legacyPool) {
+      if (!seenIds.has(entry.id)) {
+        const converted = {
+          id: entry.id,
+          text: entry.text,
+          seed: entry.seed,
+          imageUrl: entry.imageUrl,
+          logoImageUrl: entry.logoImageUrl || entry.imageUrl,
+          cardImageUrl: entry.cardImageUrl || entry.imageUrl,
+          thumbImageUrl: entry.imageUrl,
+          username: entry.username?.toLowerCase?.() ?? entry.username,
+          displayName: entry.displayName,
+          pfpUrl: entry.pfpUrl,
+          likes: entry.likes,
+          recasts: entry.recasts,
+          rarity: entry.rarity,
+          presetKey: entry.presetKey,
+          createdAt: entry.createdAt,
+          castUrl: entry.castUrl,
+          casted: !!entry.castUrl,
+          userId: null,
+          remixes: 0,
+          saves: 0,
+          metadata: null,
+          updatedAt: entry.createdAt,
+        } as any;
+        dataPool.push(converted);
+        seenIds.add(entry.id);
+      }
+    }
+    
+    const scored = dataPool
       .map((entry) => ({ ...entry, score: computeScore(entry) }))
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
       .slice(0, limit);
