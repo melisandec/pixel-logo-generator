@@ -372,6 +372,7 @@ export default function LogoGenerator() {
   const [hasNewGallery, setHasNewGallery] = useState(false);
   const [hasNewProfile, setHasNewProfile] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [expandedStat, setExpandedStat] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     "home" | "gallery" | "leaderboard" | "rewards" | "profile"
   >("home");
@@ -3986,17 +3987,28 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
             const presetValue = entry.presetKey
               ? (presetLabelMap[entry.presetKey] ?? entry.presetKey)
               : "Unknown";
-            // Use logo image for gallery display context
-            const galleryImageUrl = getImageForContext(
-              {
-                logoImageUrl: entry.logoImageUrl,
-                cardImageUrl: entry.cardImageUrl,
-                thumbImageUrl: entry.thumbImageUrl,
-                mediumImageUrl: entry.mediumImageUrl,
-                imageUrl: entry.imageUrl,
-              },
-              "gallery",
-            );
+            // Use card image for cast gallery, logo image for logo gallery
+            const galleryImageUrl = galleryViewMode === "casts" 
+              ? getImageForContext(
+                  {
+                    logoImageUrl: entry.logoImageUrl,
+                    cardImageUrl: entry.cardImageUrl,
+                    thumbImageUrl: entry.thumbImageUrl,
+                    mediumImageUrl: entry.mediumImageUrl,
+                    imageUrl: entry.imageUrl,
+                  },
+                  "share",
+                )
+              : getImageForContext(
+                  {
+                    logoImageUrl: entry.logoImageUrl,
+                    cardImageUrl: entry.cardImageUrl,
+                    thumbImageUrl: entry.thumbImageUrl,
+                    mediumImageUrl: entry.mediumImageUrl,
+                    imageUrl: entry.imageUrl,
+                  },
+                  "gallery",
+                );
             const CardBody = (
               <>
                 {galleryImageUrl ? (
@@ -4014,34 +4026,36 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
                     {entry.text || "View cast"}
                   </div>
                 )}
-                <div className="gallery-card-meta">
-                  <span>@{entry.username}</span>
-                  <span>
-                    {formatHistoryTime(
-                      typeof entry.createdAt === "string"
-                        ? new Date(entry.createdAt).getTime()
-                        : entry.createdAt,
-                    )}
-                  </span>
-                </div>
-                <div className="gallery-card-tags">
-                  <span className="gallery-chip">{rarityValue}</span>
-                  <span className="gallery-chip">{presetValue}</span>
-                </div>
-                <div className="gallery-card-seed">Seed: {entry.seed}</div>
-                <div className="gallery-actions">
-                  <button
-                    type="button"
-                    className="gallery-share-button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      openWarpcastShare(entry);
-                    }}
-                    aria-label={`Share cast by ${entry.username}`}
-                  >
-                    Share to Warpcast
-                  </button>
+                <div className="gallery-card-content">
+                  <div className="gallery-card-meta">
+                    <span>@{entry.username}</span>
+                    <span>
+                      {formatHistoryTime(
+                        typeof entry.createdAt === "string"
+                          ? new Date(entry.createdAt).getTime()
+                          : entry.createdAt,
+                      )}
+                    </span>
+                  </div>
+                  <div className="gallery-card-tags">
+                    <span className="gallery-chip">{rarityValue}</span>
+                    <span className="gallery-chip">{presetValue}</span>
+                  </div>
+                  <div className="gallery-card-seed">Seed: {entry.seed}</div>
+                  <div className="gallery-actions">
+                    <button
+                      type="button"
+                      className="gallery-share-button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        openWarpcastShare(entry);
+                      }}
+                      aria-label={`Share cast by ${entry.username}`}
+                    >
+                      Share to Warpcast
+                    </button>
+                  </div>
                 </div>
               </>
             );
@@ -4429,137 +4443,170 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
       <div className="leaderboard-title" style={{ fontSize: "16px" }}>
         ⚡ Forge Arena
       </div>
+      {/* Compact Player Badge */}
       <div
         style={{
-          border: "1px solid #00ff00",
-          padding: "10px",
-          background: "#050a15",
-          display: "grid",
-          gridTemplateColumns: "1fr auto",
-          gap: "8px",
+          border: "2px solid #00ff00",
+          padding: "5px 10px",
+          background: "linear-gradient(90deg, #0a0e27, #050a15)",
+          display: "flex",
+          justifyContent: "space-between",
           alignItems: "center",
+          boxShadow: "0 0 10px rgba(0, 255, 0, 0.3)",
         }}
       >
-        <div>
-          <div style={{ color: "#00aa00", fontSize: "10px" }}>YOUR FORGE POWER</div>
-          <div style={{ fontSize: "22px", fontWeight: "bold" }}>{totalPower.toLocaleString()}</div>
-          <div style={{ color: "#008800", fontSize: "10px" }}>
-            Engagement fuels power: likes given/received, creations, discovery
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
+            style={{
+              border: "2px solid #00ff00",
+              padding: "3px 6px",
+              background: "#000",
+              fontSize: "14px",
+              fontWeight: "bold",
+              minWidth: "32px",
+              textAlign: "center",
+            }}
+          >
+            {powerRank}
           </div>
-        </div>
-        <div
-          style={{
-            border: "1px solid #00ff00",
-            padding: "8px 10px",
-            textAlign: "center",
-            minWidth: "90px",
-            background: "#0a0e27",
-          }}
-        >
-          <div style={{ color: "#00aa00", fontSize: "10px" }}>RANK</div>
-          <div style={{ fontSize: "24px", fontWeight: "bold" }}>{powerRank}</div>
+          <div>
+            <div style={{ fontSize: "16px", fontWeight: "bold" }}>{totalPower.toLocaleString()} ⚡</div>
+            <div style={{ color: "#00aa00", fontSize: "8px" }}>FORGE POWER</div>
+          </div>
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "10px",
-        }}
-      >
+      {/* Compact Pixel Stat Rows */}
+      <div style={{ display: "grid", gap: "4px" }}>
         {[{
-          title: "Support Meter",
-          icon: "❤️",
+          icon: "♥",
+          name: "Support",
           value: supportPower,
+          max: 300,
           tier: getTierLabel(supportPower, [
             { min: 250, label: "Gold Heart" },
             { min: 50, label: "Silver Heart" },
             { min: 0, label: "Bronze Heart" },
           ]),
-          description: "Likes you&apos;ve given",
+          color: "#ff3366",
           unlocks: "Frame accents, glow effects, badge types",
-          max: 300,
+          description: "Likes you've given to other creators",
         },
         {
-          title: "Influence Meter",
-          icon: "⭐",
+          icon: "★",
+          name: "Influence",
           value: influencePower,
+          max: 150,
           tier: getTierLabel(influencePower, [
             { min: 100, label: "Legendary Glow" },
             { min: 10, label: "Neon Aura" },
             { min: 0, label: "Pixel Spark" },
           ]),
-          description: "Likes your logos earned",
+          color: "#ffdd00",
           unlocks: "Aura colors, highlights, animations",
-          max: 150,
+          description: "Likes your logos have earned",
         },
         {
-          title: "Creation Meter",
           icon: "🎨",
+          name: "Creation",
           value: creationPower,
+          max: 200,
           tier: getTierLabel(creationPower, [
             { min: 150, label: "Master Crafter" },
             { min: 50, label: "Steady Artisan" },
             { min: 0, label: "New Forger" },
           ]),
-          description: "Logos generated",
+          color: "#ff9900",
           unlocks: "Palettes, backgrounds, badge styles",
-          max: 200,
+          description: "Total logos you've generated",
         },
         {
-          title: "Discovery Meter",
           icon: "🔁",
+          name: "Discovery",
           value: discoveryPower,
+          max: 120,
           tier: getTierLabel(discoveryPower, [
             { min: 100, label: "Legendary Signal" },
             { min: 25, label: "Neon Signal" },
             { min: 0, label: "Spark" },
           ]),
-          description: "People interacting with your logos",
+          color: "#00ddff",
           unlocks: "Profile highlights, share boosts",
-          max: 120,
-        }].map((card) => {
-          const pct = Math.min(100, Math.round((card.value / card.max) * 100));
+          description: "People interacting with your logos",
+        }].map((stat) => {
+          const pct = Math.min(100, Math.round((stat.value / stat.max) * 100));
+          const segments = 8;
+          const filled = Math.round((pct / 100) * segments);
+          const barString = "■".repeat(filled) + "□".repeat(segments - filled);
+          const isExpanded = expandedStat === stat.name;
+          
           return (
-            <div
-              key={card.title}
-              style={{
-                border: "1px solid #00ff00",
-                padding: "10px",
-                background: "#050a15",
-                display: "grid",
-                gap: "6px",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontWeight: "bold" }}>
-                  {card.icon} {card.title}
-                </div>
-                <div style={{ fontSize: "10px", color: "#00aa00" }}>{card.tier}</div>
-              </div>
-              <div style={{ fontSize: "22px", fontWeight: "bold" }}>{card.value.toLocaleString()}</div>
-              <div style={{ fontSize: "10px", color: "#00aa00" }}>{card.description}</div>
+            <div key={stat.name} style={{ display: "grid", gap: "2px" }}>
+              {/* Main Row */}
               <div
+                onClick={() => setExpandedStat(isExpanded ? null : stat.name)}
                 style={{
-                  height: "10px",
-                  border: "1px solid #00ff00",
-                  background: "#0a0e27",
-                  overflow: "hidden",
+                  border: "0.7px solid #00ff00",
+                  borderColor: isExpanded ? stat.color : "#00ff00",
+                  padding: "6px 10px",
+                  background: isExpanded ? "rgba(0,255,0,0.05)" : "#050a15",
+                  display: "grid",
+                  gridTemplateColumns: "auto 1fr auto auto",
+                  gap: "10px",
+                  alignItems: "center",
+                  fontSize: "11px",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
                 }}
+                title="Tap to see what this unlocks"
               >
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", minWidth: "85px" }}>
+                  <span style={{ fontSize: "13px" }}>{stat.icon}</span>
+                  <span style={{ fontWeight: "bold", color: "#00aa00" }}>{stat.name}</span>
+                </div>
+                <div style={{ fontSize: "20px", fontWeight: "bold", textAlign: "center", color: "#00ff00", textShadow: `0 0 4px ${stat.color}` }}>
+                  {stat.value}
+                </div>
+                <div style={{ 
+                  fontFamily: "monospace", 
+                  color: stat.color,
+                  fontSize: "11px",
+                  letterSpacing: "1px",
+                }}>
+                  {barString}
+                </div>
                 <div
                   style={{
-                    height: "100%",
-                    width: `${pct}%`,
-                    background: "linear-gradient(90deg, #00ff00, #00ffaa)",
-                    transition: "width 0.4s",
+                    fontSize: "8px",
+                    color: "#00aa00",
+                    border: `0.7px solid ${stat.color}`,
+                    padding: "2px 5px",
+                    whiteSpace: "nowrap",
                   }}
-                />
+                >
+                  {stat.tier}
+                </div>
               </div>
-              <div style={{ fontSize: "10px", color: "#00aa00" }}>
-                Unlocks: {card.unlocks}
-              </div>
+              
+              {/* Expanded Info Panel */}
+              {isExpanded && (
+                <div
+                  style={{
+                    border: `0.7px solid ${stat.color}`,
+                    borderTop: "none",
+                    padding: "8px 10px",
+                    background: "rgba(5,10,21,0.95)",
+                    display: "grid",
+                    gap: "6px",
+                    fontSize: "9px",
+                    color: "#00aa00",
+                  }}
+                >
+                  <div style={{ color: stat.color, fontWeight: "bold", fontSize: "10px" }}>What it unlocks</div>
+                  <div>{stat.unlocks}</div>
+                  <div style={{ color: "#007700", fontSize: "8px", marginTop: "2px" }}>↳ {stat.description}</div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -4567,69 +4614,76 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
 
       <div
         style={{
-          border: "1px solid #00ff00",
-          padding: "10px",
+          border: "0.7px solid #00ff00",
+          padding: "8px",
           background: "#050a15",
           display: "grid",
           gap: "8px",
         }}
       >
-        <div style={{ fontWeight: "bold" }}>Arcade Missions</div>
-        <div style={{ fontSize: "10px", color: "#00aa00" }}>
-          Optional quests that drop cosmetic rewards
-        </div>
-        <div style={{ display: "grid", gap: "6px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+        <div style={{ fontWeight: "bold", fontSize: "13px", color: "#00ff00", textShadow: "0 0 6px rgba(0,255,0,0.5)" }}>🎯 ARCADE MISSIONS</div>
+        <div style={{ display: "grid", gap: "4px" }}>
           {[{
-            title: "Like 10 logos today",
-            reward: "Unlock Pixel Spark badge",
+            icon: "❤️",
+            title: "Like 10 logos",
+            rewardIcon: "🎁",
+            reward: "Pixel Spark",
             progress: Math.min(10, supportPower % 10),
             target: 10,
           },
           {
-            title: "Receive 5 likes on one logo",
-            reward: "Unlock Neon Frame",
+            icon: "⭐",
+            title: "Receive 5 likes",
+            rewardIcon: "🎁",
+            reward: "Neon Frame",
             progress: Math.min(5, Math.round(influencePower / 5)),
             target: 5,
           },
           {
+            icon: "🎨",
             title: "Generate 3 logos",
-            reward: "Unlock new background variation",
+            rewardIcon: "🎁",
+            reward: "New background",
             progress: Math.min(3, creationPower % 3),
             target: 3,
           }].map((mission) => {
             const pct = Math.min(100, Math.round((mission.progress / mission.target) * 100));
+            const segments = 6;
+            const filled = Math.round((pct / 100) * segments);
+            const barString = "■".repeat(filled) + "□".repeat(segments - filled);
+            
             return (
               <div
                 key={mission.title}
                 style={{
-                  border: "1px solid #00ff00",
-                  padding: "8px",
+                  border: "0.7px solid #00ff00",
+                  padding: "5px 8px",
                   background: "#0a0e27",
                   display: "grid",
-                  gap: "4px",
+                  gridTemplateColumns: "auto 1fr auto auto",
+                  gap: "10px",
+                  alignItems: "center",
+                  fontSize: "10px",
                 }}
+                title={mission.reward}
               >
-                <div style={{ fontWeight: "bold" }}>{mission.title}</div>
-                <div style={{ fontSize: "10px", color: "#00aa00" }}>
-                  Reward: {mission.reward}
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: "100px" }}>
+                  <span style={{ fontSize: "12px" }}>{mission.icon}</span>
+                  <span style={{ fontWeight: "bold", color: "#00aa00" }}>{mission.title}</span>
                 </div>
-                <div
-                  style={{
-                    height: "8px",
-                    border: "1px solid #00ff00",
-                    background: "#050a15",
-                  }}
-                >
-                  <div
-                    style={{
-                      height: "100%",
-                      width: `${pct}%`,
-                      background: "#00ff00",
-                    }}
-                  />
-                </div>
-                <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                <div style={{ fontSize: "12px", color: "#00dd00", textAlign: "center", fontWeight: "bold" }}>
                   {mission.progress}/{mission.target}
+                </div>
+                <div style={{ 
+                  fontFamily: "monospace", 
+                  color: "#00dd00",
+                  fontSize: "11px",
+                  letterSpacing: "2px",
+                }}>
+                  {barString}
+                </div>
+                <div style={{ fontSize: "13px" }} title={mission.reward}>
+                  {mission.rewardIcon}
                 </div>
               </div>
             );
@@ -4640,22 +4694,22 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
       {rewardRegistry.length > 0 && (
         <div
           style={{
-            border: "1px solid #00ff00",
-            padding: "10px",
+            border: "0.7px solid #00ff00",
+            padding: "8px",
             background: "#050a15",
             display: "grid",
             gap: "8px",
           }}
         >
-          <div style={{ fontWeight: "bold" }}>Unlocks</div>
-          <div style={{ fontSize: "10px", color: "#00aa00" }}>
+          <div style={{ fontWeight: "bold", fontSize: "13px", color: "#00ff00", textShadow: "0 0 6px rgba(0,255,0,0.5)" }}>🔓 UNLOCKS</div>
+          <div style={{ fontSize: "9px", color: "#00aa00" }}>
             Earn these by growing your forge stats
           </div>
           <div
             style={{
               display: "grid",
               gap: "6px",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
             }}
           >
             {rewardRegistry.map((reward) => {
@@ -4666,7 +4720,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
                 <div
                   key={reward.rewardType}
                   style={{
-                    border: "1px solid #00ff00",
+                    border: "0.7px solid #00ff00",
                     padding: "8px",
                     background: unlocked ? "#0a1b0a" : "#0a0e27",
                     opacity: unlocked ? 1 : 0.65,
@@ -4696,36 +4750,36 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
       {trendingData && (
         <div
           style={{
-            border: "1px solid #00ff00",
-            padding: "10px",
+            border: "0.7px solid #00ff00",
+            padding: "4px",
             background: "#050a15",
             display: "grid",
-            gap: "8px",
+            gap: "4px",
           }}
         >
-          <div style={{ fontWeight: "bold" }}>Trending (last {trendingData.windowDays}d)</div>
-          <div style={{ display: "grid", gap: "6px", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-            <div style={{ border: "1px solid #00ff00", padding: "8px", background: "#0a0e27" }}>
-              <div style={{ fontWeight: "bold" }}>Top Prompts</div>
-              <div style={{ fontSize: "10px", color: "#00aa00" }}>
+          <div style={{ fontWeight: "bold", fontSize: "13px", color: "#00ff00", textShadow: "0 0 6px rgba(0,255,0,0.5)" }}>📊 TRENDING ({trendingData.windowDays}d)</div>
+          <div style={{ display: "grid", gap: "4px", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+            <div style={{ border: "0.7px solid #00ff00", padding: "4px", background: "#0a0e27" }}>
+              <div style={{ fontWeight: "bold", fontSize: "9px", color: "#00dd00" }}>Top Prompts</div>
+              <div style={{ fontSize: "8px", color: "#00aa00" }}>
                 {trendingData.mostUsedWords.slice(0, 5).map((w) => `${w.word} (${w.count})`).join(", ") || "--"}
               </div>
             </div>
-            <div style={{ border: "1px solid #00ff00", padding: "8px", background: "#0a0e27" }}>
-              <div style={{ fontWeight: "bold" }}>Popular Seeds</div>
-              <div style={{ fontSize: "10px", color: "#00aa00" }}>
+            <div style={{ border: "0.7px solid #00ff00", padding: "4px", background: "#0a0e27" }}>
+              <div style={{ fontWeight: "bold", fontSize: "9px", color: "#00dd00" }}>Popular Seeds</div>
+              <div style={{ fontSize: "8px", color: "#00aa00" }}>
                 {trendingData.popularSeeds.slice(0, 5).map((s) => `${s.seed} (${s.count})`).join(", ") || "--"}
               </div>
             </div>
-            <div style={{ border: "1px solid #00ff00", padding: "8px", background: "#0a0e27" }}>
-              <div style={{ fontWeight: "bold" }}>Rarity Mix</div>
-              <div style={{ fontSize: "10px", color: "#00aa00" }}>
+            <div style={{ border: "0.7px solid #00ff00", padding: "4px", background: "#0a0e27" }}>
+              <div style={{ fontWeight: "bold", fontSize: "9px", color: "#00dd00" }}>Rarity Mix</div>
+              <div style={{ fontSize: "8px", color: "#00aa00" }}>
                 {trendingData.rarityDistribution.slice(0, 5).map((r) => `${r.rarity}: ${r.count}`).join(", ") || "--"}
               </div>
             </div>
-            <div style={{ border: "1px solid #00ff00", padding: "8px", background: "#0a0e27" }}>
-              <div style={{ fontWeight: "bold" }}>Most Liked Logos</div>
-              <div style={{ fontSize: "10px", color: "#00aa00" }}>
+            <div style={{ border: "0.7px solid #00ff00", padding: "4px", background: "#0a0e27" }}>
+              <div style={{ fontWeight: "bold", fontSize: "9px", color: "#00dd00" }}>Most Liked Logos</div>
+              <div style={{ fontSize: "8px", color: "#00aa00" }}>
                 {trendingData.mostLikedLogos.slice(0, 3).map((l) => `#${l.seed} ${l.text} (${l.likes}❤)`).join(" • ") || "--"}
               </div>
             </div>

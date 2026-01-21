@@ -92,7 +92,8 @@ export const applyScoreActions = async (
 
   const existing = await prisma.userStats.findUnique({ where: { username: username.toLowerCase() } });
 
-  const nextStats: Prisma.UserStatsUncheckedCreateInput = {
+  const nextStats = {
+    id: existing?.id ?? `user-${username.toLowerCase()}-${Date.now()}`,
     userId: userId ?? existing?.userId ?? null,
     username: username.toLowerCase(),
     support: clampNonNegative((existing?.support ?? 0) + (merged.support ?? 0)),
@@ -122,10 +123,10 @@ export const applyScoreActions = async (
     if (!existingReward) {
       await prisma.userReward.create({
         data: {
+          id: `reward-${saved.username}-${reward.rewardType}-${Date.now()}`,
           username: saved.username,
           userId: saved.userId ?? null,
           rewardType: reward.rewardType,
-          metadata: { title: reward.title, description: reward.description, threshold: reward.threshold },
         },
       });
       unlockedRewards.push(reward.rewardType);
