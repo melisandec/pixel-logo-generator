@@ -108,8 +108,12 @@ const buildWhere = (params: URLSearchParams) => {
   if (presetKey && presetKey !== 'all') {
     where.presetKey = presetKey;
   }
+  // If casted filter is requested, include both explicit casted flag AND any logos with castUrl
   if (casted === 'true') {
-    where.casted = true;
+    where.OR = [
+      { casted: true },
+      { castUrl: { not: null } }
+    ];
   }
   const scope = params.get('scope');
   const dateKey = params.get('date');
