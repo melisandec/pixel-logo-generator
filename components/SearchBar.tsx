@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 
 interface SearchBarProps {
   onSearch?: (query: string, type: "username" | "seed" | "text") => void;
+  onRandom?: (entry: any) => void;
   placeholder?: string;
   showRandomButton?: boolean;
 }
 
 export default function SearchBar({
   onSearch,
+  onRandom,
   placeholder = "Search by username, seed, or text...",
   showRandomButton = true,
 }: SearchBarProps) {
@@ -42,18 +44,22 @@ export default function SearchBar({
 
   const handleRandomCast = useCallback(async () => {
     try {
-      const response = await fetch("/api/leaderboard/random");
-      if (!response.ok) throw new Error("Failed to fetch random cast");
+      const response = await fetch("/api/generated-logos/random");
+      if (!response.ok) throw new Error("Failed to fetch random logo");
 
       const data = await response.json();
       if (data.entry) {
-        // Navigate to a detail view or profile
+        if (onRandom) {
+          onRandom(data.entry);
+          return;
+        }
+        // Fallback: navigate to profile detail
         router.push(`/profile/${data.entry.username}?seed=${data.entry.seed}`);
       }
     } catch (error) {
-      console.error("Random cast error:", error);
+      console.error("Random logo error:", error);
     }
-  }, [router]);
+  }, [onRandom, router]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {

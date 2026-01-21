@@ -54,11 +54,16 @@ type LeaderboardEntry = {
   imageUrl: string; // Legacy field
   logoImageUrl?: string; // Raw pixel logo
   cardImageUrl?: string; // Framed card
+  thumbImageUrl?: string; // Smallest variant for lists
+  mediumImageUrl?: string; // Mid-size variant for grids
+  userId?: string | null;
   username: string;
   displayName: string;
   pfpUrl: string;
   likes: number;
   recasts?: number;
+  saves?: number;
+  remixes?: number;
   rarity?: Rarity | string | null;
   presetKey?: string | null;
   createdAt: number | string;
@@ -265,6 +270,7 @@ export default function LogoGenerator() {
   const [customSeed, setCustomSeed] = useState<string>("");
   const [seedError, setSeedError] = useState<string>("");
   const [logoResult, setLogoResult] = useState<LogoResult | null>(null);
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [isCasting, setIsCasting] = useState(false);
@@ -313,6 +319,37 @@ export default function LogoGenerator() {
   const [castTargetRemixSeed, setCastTargetRemixSeed] = useState<
     number | undefined
   >(undefined);
+  const [includeCastOverlays, setIncludeCastOverlays] = useState(true);
+  const [userStats, setUserStats] = useState<
+    | {
+        username: string;
+        rank?: string | null;
+        support?: number;
+        influence?: number;
+        creation?: number;
+        discovery?: number;
+        totalPower?: number;
+        bestRarity?: string | null;
+      }
+    | null
+  >(null);
+  const [userRewards, setUserRewards] = useState<
+    Array<{ rewardType: string; unlockedAt?: string; metadata?: Record<string, unknown> }>
+  >([]);
+  const [rewardRegistry, setRewardRegistry] = useState<
+    Array<{ rewardType: string; title?: string; description?: string; threshold?: number; stat?: string }>
+  >([]);
+  const previousRewardTypes = useRef<Set<string>>(new Set());
+  const [trendingData, setTrendingData] = useState<
+    | {
+        mostUsedWords: Array<{ word: string; count: number }>;
+        popularSeeds: Array<{ seed: number; count: number }>;
+        rarityDistribution: Array<{ rarity: string; count: number }>;
+        mostLikedLogos: Array<{ id: string; text: string; seed: number; rarity: string | null; logoImageUrl: string | null; imageUrl: string | null; cardImageUrl: string | null; likes: number; recasts: number; saves: number; remixes: number; username: string | null }>;
+        windowDays: number;
+      }
+    | null
+  >(null);
   const [logoHistory, setLogoHistory] = useState<LogoHistoryItem[]>([]);
   const [favorites, setFavorites] = useState<LogoHistoryItem[]>([]);
   const [remixMode, setRemixMode] = useState(false);
@@ -324,6 +361,7 @@ export default function LogoGenerator() {
   const [galleryEntries, setGalleryEntries] = useState<LeaderboardEntry[]>([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
+  const [galleryViewMode, setGalleryViewMode] = useState<"logos" | "casts">("logos");
   const [galleryRarityFilter, setGalleryRarityFilter] = useState<string>("all");
   const [galleryPresetFilter, setGalleryPresetFilter] = useState<string>("all");
   const [galleryPage, setGalleryPage] = useState(1);
@@ -335,7 +373,7 @@ export default function LogoGenerator() {
   const [hasNewProfile, setHasNewProfile] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "home" | "gallery" | "leaderboard" | "challenge" | "profile"
+    "home" | "gallery" | "leaderboard" | "rewards" | "profile"
   >("home");
   const [miniappAdded, setMiniappAdded] = useState(false);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
@@ -453,9 +491,7 @@ export default function LogoGenerator() {
         cursor.setDate(cursor.getDate() - 1);
       }
       return count;
-    },
-    [getDayKeyFromTimestamp],
-  );
+    }, [getDayKeyFromTimestamp]);
 
   const calculateTimeUntilReset = useCallback(() => {
     const now = new Date();
@@ -646,6 +682,10 @@ export default function LogoGenerator() {
           (item.id && /^0x[a-fA-F0-9]{64}$/.test(item.id)
             ? `https://warpcast.com/~/cast/${item.id}`
             : undefined);
+        const logoImageUrl = item.logoImageUrl || item.mediumImageUrl || item.imageUrl;
+        const thumbImageUrl = item.thumbImageUrl || logoImageUrl;
+        const mediumImageUrl = item.mediumImageUrl || logoImageUrl;
+        const cardImageUrl = item.cardImageUrl;
         const createdAtValue =
           typeof item.createdAt === "string"
             ? new Date(item.createdAt).getTime()
@@ -654,6 +694,13 @@ export default function LogoGenerator() {
           ...item,
           castUrl,
           recasts: item.recasts ?? 0,
+          saves: item.saves ?? 0,
+          remixes: item.remixes ?? 0,
+          imageUrl: thumbImageUrl || logoImageUrl || item.imageUrl || cardImageUrl || "",
+          logoImageUrl,
+          thumbImageUrl,
+          mediumImageUrl,
+          cardImageUrl,
           createdAt: createdAtValue,
         };
       });
@@ -697,7 +744,9 @@ export default function LogoGenerator() {
 
   const loadLeaderboard = useCallback(async () => {
     try {
-      const response = await fetch(`/api/leaderboard?scope=global`);
+      const response = await fetch(
+        `/api/generated-logos?sort=score&scope=recent&limit=50`,
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch leaderboard");
       }
@@ -744,7 +793,10 @@ export default function LogoGenerator() {
     setGalleryLoading(true);
     setGalleryError(null);
     try {
-      const response = await fetch(`/api/leaderboard?scope=recent&limit=80`);
+      const castedParam = galleryViewMode === "casts" ? "&casted=true" : "";
+      const response = await fetch(
+        `/api/generated-logos?sort=recent&scope=recent&limit=80${castedParam}`,
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch gallery");
       }
@@ -774,7 +826,7 @@ export default function LogoGenerator() {
     } finally {
       setGalleryLoading(false);
     }
-  }, [activeTab, getSeenTimestamp, normalizeLeaderboardEntries]);
+  }, [activeTab, galleryViewMode, getSeenTimestamp, normalizeLeaderboardEntries]);
 
   const loadProfileData = useCallback(
     async (username: string) => {
@@ -822,6 +874,49 @@ export default function LogoGenerator() {
     },
     [activeTab, getSeenTimestamp],
   );
+
+  const loadUserStatsInfo = useCallback(async () => {
+    if (!userInfo?.username) return;
+    try {
+      const response = await fetch(
+        `/api/user-stats?username=${encodeURIComponent(userInfo.username)}`,
+      );
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        stats?: typeof userStats;
+        rewards?: Array<{ rewardType: string; unlockedAt?: string; metadata?: Record<string, unknown> }>;
+        registry?: Array<{
+          rewardType: string;
+          title?: string;
+          description?: string;
+          threshold?: number;
+          stat?: string;
+        }>;
+      };
+      if (data.stats) {
+        setUserStats(data.stats);
+      }
+      if (Array.isArray(data.rewards)) {
+        setUserRewards(data.rewards);
+        const current = new Set(data.rewards.map((r) => r.rewardType));
+        data.rewards.forEach((reward) => {
+          if (!previousRewardTypes.current.has(reward.rewardType)) {
+            setRewardAnimation({
+              type: "achievement",
+              title: reward.rewardType,
+              subtitle: reward.metadata?.description as string | undefined,
+            });
+          }
+        });
+        previousRewardTypes.current = current;
+      }
+      if (Array.isArray(data.registry)) {
+        setRewardRegistry(data.registry);
+      }
+    } catch (error) {
+      console.error("Failed to load user stats:", error);
+    }
+  }, [userInfo?.username]);
 
   const loadChallenge = useCallback(() => {
     try {
@@ -1012,6 +1107,101 @@ export default function LogoGenerator() {
     [saveHistory],
   );
 
+  const persistGeneratedLogo = useCallback(
+    async (
+      result: LogoResult,
+      overrides?: Partial<LeaderboardEntry> & { cardDataUrl?: string },
+    ) => {
+      try {
+        const id = overrides?.id ?? currentEntryId ?? crypto.randomUUID();
+        let logoImageUrl = overrides?.logoImageUrl;
+        let cardImageUrl = overrides?.cardImageUrl;
+        let imageUrl = overrides?.imageUrl;
+        let thumbImageUrl = overrides?.thumbImageUrl;
+        let mediumImageUrl = overrides?.mediumImageUrl;
+
+        if (!logoImageUrl || !cardImageUrl || !imageUrl) {
+          try {
+            const uploadResponse = await fetch("/api/logo-image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                dataUrl: result.dataUrl,
+                cardDataUrl: overrides?.cardDataUrl,
+                text: result.config.text,
+                seed: result.seed,
+                isCardImage: Boolean(overrides?.cardDataUrl),
+              }),
+            });
+
+            if (uploadResponse.ok) {
+              const uploadData = await uploadResponse.json();
+              logoImageUrl =
+                uploadData.logoImageUrl || uploadData.imageUrl || logoImageUrl;
+              cardImageUrl =
+                uploadData.cardImageUrl || uploadData.imageUrl || cardImageUrl;
+              imageUrl = uploadData.imageUrl || imageUrl;
+              thumbImageUrl = uploadData.thumbImageUrl || thumbImageUrl;
+              mediumImageUrl = uploadData.mediumImageUrl || mediumImageUrl;
+            }
+          } catch (uploadError) {
+            console.error("Logo upload failed:", uploadError);
+          }
+        }
+
+        const payload = {
+          id,
+          text: result.config.text,
+          seed: result.seed,
+          rarity: result.rarity,
+          presetKey: overrides?.presetKey ?? selectedPreset ?? null,
+          username:
+            overrides?.username?.toLowerCase?.() ??
+            userInfo?.username?.toLowerCase?.() ??
+            undefined,
+          userId: overrides?.userId ?? (userInfo?.fid ? String(userInfo.fid) : undefined),
+          displayName:
+            overrides?.displayName ??
+            userInfo?.username ??
+            (overrides?.username ?? undefined) ??
+            undefined,
+          pfpUrl: overrides?.pfpUrl ?? undefined,
+          imageUrl: imageUrl ?? logoImageUrl ?? cardImageUrl ?? "",
+          thumbImageUrl: thumbImageUrl ?? imageUrl ?? logoImageUrl ?? undefined,
+          mediumImageUrl: mediumImageUrl ?? cardImageUrl ?? logoImageUrl ?? undefined,
+          logoImageUrl: logoImageUrl ?? undefined,
+          cardImageUrl: cardImageUrl ?? undefined,
+          castUrl: overrides?.castUrl ?? undefined,
+          likes: overrides?.likes ?? 0,
+          recasts: overrides?.recasts ?? 0,
+          saves: overrides?.saves ?? 0,
+          remixes: overrides?.remixes ?? 0,
+          createdAt: overrides?.createdAt ?? Date.now(),
+        } satisfies Partial<LeaderboardEntry>;
+
+        const response = await fetch("/api/generated-logos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to persist generated logo");
+        }
+
+        const data = (await response.json()) as { entry?: LeaderboardEntry };
+        if (data.entry?.id) {
+          setCurrentEntryId(data.entry.id);
+        }
+        return data.entry;
+      } catch (error) {
+        console.error("persistGeneratedLogo error:", error);
+        return undefined;
+      }
+    },
+    [currentEntryId, selectedPreset, userInfo?.username, userInfo?.fid],
+  );
+
   const toggleFavorite = (result: LogoResult) => {
     setFavorites((prev) => {
       const exists = prev.some(
@@ -1045,31 +1235,55 @@ export default function LogoGenerator() {
 
   const addToLeaderboard = useCallback(
     async (entry: LeaderboardEntry) => {
+      const payload: LeaderboardEntry = {
+        ...entry,
+        id: entry.id || currentEntryId || crypto.randomUUID(),
+        username: entry.username?.toLowerCase?.() ?? entry.username,
+        recasts: entry.recasts ?? 0,
+        saves: entry.saves ?? 0,
+        remixes: entry.remixes ?? 0,
+      };
       try {
-        const response = await fetch("/api/leaderboard", {
+        const response = await fetch("/api/generated-logos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(entry),
+          body: JSON.stringify(payload),
         });
         if (!response.ok) {
           throw new Error("Failed to save leaderboard entry");
         }
-        const data = (await response.json()) as {
-          entries?: LeaderboardEntry[];
-        };
-        if (Array.isArray(data.entries)) {
-          const normalized = normalizeLeaderboardEntries(data.entries);
-          setLeaderboard(normalized);
-          saveLeaderboard(normalized);
-          return;
+        const data = (await response.json()) as { entry?: LeaderboardEntry };
+        const savedEntry = data.entry ?? payload;
+        const normalized = normalizeLeaderboardEntries([savedEntry]);
+        if (normalized[0]?.id) {
+          setCurrentEntryId(normalized[0].id);
         }
+
+        setLeaderboard((prev) => {
+          const merged = normalizeLeaderboardEntries([
+            ...normalized,
+            ...prev,
+          ]);
+          const trimmed = merged.slice(0, 50);
+          saveLeaderboard(trimmed);
+          return trimmed;
+        });
+
+        setGalleryEntries((prev) => {
+          const merged = normalizeLeaderboardEntries([
+            ...normalized,
+            ...prev,
+          ]);
+          return merged.slice(0, 80);
+        });
+        return;
       } catch (error) {
         console.error("Failed to save leaderboard entry:", error);
       }
 
       const todayKey = getTodayKey();
       setLeaderboard((prev) => {
-        const merged = [entry, ...prev].filter((item) => {
+        const merged = [payload, ...prev].filter((item) => {
           const createdAtValue =
             typeof item.createdAt === "string"
               ? new Date(item.createdAt).getTime()
@@ -1080,8 +1294,14 @@ export default function LogoGenerator() {
         saveLeaderboard(trimmed);
         return trimmed;
       });
+
+      setGalleryEntries((prev) => {
+        const merged = normalizeLeaderboardEntries([payload, ...prev]);
+        return merged.slice(0, 80);
+      });
     },
     [
+      currentEntryId,
       getDayKeyFromTimestamp,
       getTodayKey,
       normalizeLeaderboardEntries,
@@ -1102,10 +1322,15 @@ export default function LogoGenerator() {
       setLikedEntryIds(nextLiked);
       saveLikedEntries(nextLiked);
       try {
-        const response = await fetch("/api/leaderboard", {
+        const response = await fetch("/api/generated-logos", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: entryId, delta }),
+          body: JSON.stringify({
+            id: entryId,
+            deltaLikes: delta,
+            actorUsername: userInfo?.username?.toLowerCase?.(),
+            actorUserId: userInfo?.fid ? String(userInfo.fid) : undefined,
+          }),
         });
         if (!response.ok) {
           throw new Error("Failed to update like");
@@ -1121,13 +1346,19 @@ export default function LogoGenerator() {
           return;
         }
         if (data.entry) {
+          const normalizedEntry = normalizeLeaderboardEntries([data.entry])[0];
           setLeaderboard((prev) => {
             const next = prev.map((item) =>
-              item.id === entryId ? data.entry! : item,
+              item.id === entryId ? { ...item, ...normalizedEntry } : item,
             );
             saveLeaderboard(next);
             return next;
           });
+          setGalleryEntries((prev) =>
+            prev.map((item) =>
+              item.id === entryId ? { ...item, ...normalizedEntry } : item,
+            ),
+          );
           return;
         }
       } catch (error) {
@@ -1143,12 +1374,21 @@ export default function LogoGenerator() {
         saveLeaderboard(next);
         return next;
       });
+      setGalleryEntries((prev) =>
+        prev.map((item) =>
+          item.id === entryId
+            ? { ...item, likes: Math.max(0, item.likes + delta) }
+            : item,
+        ),
+      );
     },
     [
       likedEntryIds,
       normalizeLeaderboardEntries,
       saveLeaderboard,
       saveLikedEntries,
+      userInfo?.username,
+      userInfo?.fid,
     ],
   );
 
@@ -2034,13 +2274,28 @@ export default function LogoGenerator() {
     if (activeTab === "gallery") {
       loadGallery();
     }
-  }, [activeTab, loadGallery]);
+  }, [activeTab, galleryViewMode, loadGallery]);
 
   useEffect(() => {
     if (userInfo?.username) {
       loadProfileData(userInfo.username);
+      loadUserStatsInfo();
     }
-  }, [loadProfileData, userInfo?.username]);
+  }, [loadProfileData, loadUserStatsInfo, userInfo?.username]);
+
+  useEffect(() => {
+    const loadTrending = async () => {
+      try {
+        const response = await fetch("/api/analytics/trending?days=7");
+        if (!response.ok) return;
+        const data = await response.json();
+        setTrendingData(data);
+      } catch (error) {
+        console.error("Failed to load trending analytics:", error);
+      }
+    };
+    loadTrending();
+  }, []);
 
   useEffect(() => {
     const streak = getChallengeStreak(challengeDays);
@@ -2138,6 +2393,8 @@ export default function LogoGenerator() {
       return;
     }
 
+    setCurrentEntryId(null);
+
     const seedValue = customSeed.trim();
     let seed: number | undefined = undefined;
     if (seedValue) {
@@ -2164,6 +2421,7 @@ export default function LogoGenerator() {
       setIsGenerating(true);
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
+        void persistGeneratedLogo(result);
         if (limitCheck.ok) {
           finalizeDailyLimit(
             limitCheck.normalizedText,
@@ -2234,6 +2492,8 @@ export default function LogoGenerator() {
     setSelectedPreset(null);
     setRemixMode(false);
 
+    setCurrentEntryId(null);
+
     const limitCheck = checkDailyLimits(randomText, false);
     if (!limitCheck.ok) {
       setToast({ message: limitCheck.message, type: "info" });
@@ -2246,6 +2506,7 @@ export default function LogoGenerator() {
       setIsGenerating(true);
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
+        void persistGeneratedLogo(result);
         if (limitCheck.ok) {
           finalizeDailyLimit(
             limitCheck.normalizedText,
@@ -2297,6 +2558,8 @@ export default function LogoGenerator() {
       return;
     }
 
+    setCurrentEntryId(null);
+
     try {
       const result = createLogoResult(
         inputText.trim(),
@@ -2306,6 +2569,7 @@ export default function LogoGenerator() {
       setIsGenerating(true);
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
+        void persistGeneratedLogo(result);
         finalizeDailyLimit(
           limitCheck.normalizedText,
           limitCheck.todayState,
@@ -2674,6 +2938,8 @@ export default function LogoGenerator() {
         {
           logoImageUrl: entry.logoImageUrl,
           cardImageUrl: entry.cardImageUrl,
+          thumbImageUrl: entry.thumbImageUrl,
+          mediumImageUrl: entry.mediumImageUrl,
           imageUrl: entry.imageUrl,
         },
         "share",
@@ -2719,6 +2985,34 @@ export default function LogoGenerator() {
       return prev.includes("Tag a friend: @") ? prev : `${prev}${suffix}`;
     });
   }, []);
+
+  const buildCastPreviewText = useCallback(
+    (
+      activeResult: LogoResult,
+      remixSeed?: number,
+      overlaysEnabled: boolean = true,
+    ) => {
+      const rarityEmoji =
+        {
+          COMMON: "⚪",
+          RARE: "🔵",
+          EPIC: "🟣",
+          LEGENDARY: "🟠",
+        }[activeResult.rarity] || "🎮";
+
+      const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : "";
+      const overlaysLine = overlaysEnabled
+        ? ""
+        : "🪶 Overlays: off for this cast";
+
+      return `${rarityEmoji} ${remixSeed ? "Remixed" : "Forged"} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
+
+✨ Rarity: ${activeResult.rarity}
+🎲 Seed: ${activeResult.seed}
+${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo`;
+    },
+    [],
+  );
 
   const handleAddMiniapp = async () => {
     if (!sdkReady) {
@@ -2773,22 +3067,15 @@ export default function LogoGenerator() {
 
     // Generate preview first
     try {
-      const previewImage = await generateCastImage(activeResult);
+      const previewImage = await generateCastImage(activeResult, {
+        includeOverlays: includeCastOverlays,
+      });
 
-      const rarityEmoji =
-        {
-          COMMON: "⚪",
-          RARE: "🔵",
-          EPIC: "🟣",
-          LEGENDARY: "🟠",
-        }[activeResult.rarity] || "🎮";
-
-      const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : "";
-      const previewText = `${rarityEmoji} ${remixSeed ? "Remixed" : "Forged"} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
-
-✨ Rarity: ${activeResult.rarity}
-🎲 Seed: ${activeResult.seed}
-${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo`;
+      const previewText = buildCastPreviewText(
+        activeResult,
+        remixSeed,
+        includeCastOverlays,
+      );
 
       setCastPreviewImage(previewImage);
       setCastPreviewText(previewText);
@@ -2828,7 +3115,9 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo`
 
       try {
         console.log("Generating cast image...");
-        const castImageDataUrl = await generateCastImage(activeResult);
+        const castImageDataUrl = await generateCastImage(activeResult, {
+          includeOverlays: includeCastOverlays,
+        });
         console.log("Cast image generated, length:", castImageDataUrl.length);
 
         // Upload the composite image to get a shareable URL
@@ -2870,21 +3159,11 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo`
       if (sdkReady) {
         try {
           // Keep the full cast metadata, but do not embed the share link
-          const rarityEmoji =
-            {
-              COMMON: "⚪",
-              RARE: "🔵",
-              EPIC: "🟣",
-              LEGENDARY: "🟠",
-            }[activeResult.rarity] || "🎮";
-
-          const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : "";
-          const defaultText = `${rarityEmoji} ${remixSeed ? "Remixed" : "Forged"} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
-
-✨ Rarity: ${activeResult.rarity}
-🎲 Seed: ${activeResult.seed}
-${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
-`;
+          const defaultText = buildCastPreviewText(
+            activeResult,
+            remixSeed,
+            includeCastOverlays,
+          );
           const castText = textOverride?.trim() ? textOverride : defaultText;
 
           // Farcaster embeds - build as tuple type
@@ -2921,16 +3200,34 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
             const entryId =
               (result.cast as { hash?: string })?.hash ??
               `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const persistId = currentEntryId ?? entryId;
             const castHash = (result.cast as { hash?: string })?.hash;
             const castUrl =
               castHash && /^0x[a-fA-F0-9]{64}$/.test(castHash)
                 ? `https://warpcast.com/~/cast/${castHash}`
                 : undefined;
+            
+            // Mark logo as casted in the database
+            try {
+              await fetch("/api/generated-logos", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  id: persistId,
+                  casted: true,
+                }),
+              });
+            } catch (patchError) {
+              console.error("Failed to mark logo as casted:", patchError);
+            }
+
             addToLeaderboard({
-              id: entryId,
+              id: persistId,
               text: activeResult.config.text,
               seed: activeResult.seed,
               imageUrl: castImageUrl,
+              logoImageUrl: castImageUrl,
+              cardImageUrl: castImageUrl,
               username: userInfo?.username ?? "unknown",
               displayName: userInfo?.username ?? "Unknown",
               pfpUrl: "",
@@ -2968,21 +3265,11 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
       } else {
         console.log("SDK not ready, using Warpcast fallback");
         // Fallback: open Warpcast compose URL
-        const rarityEmoji =
-          {
-            COMMON: "⚪",
-            RARE: "🔵",
-            EPIC: "🟣",
-            LEGENDARY: "🟠",
-          }[activeResult.rarity] || "🎮";
-
-        const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : "";
-        const defaultText = `${rarityEmoji} ${remixSeed ? "Remixed" : "Forged"} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
-
-✨ Rarity: ${activeResult.rarity}
-🎲 Seed: ${activeResult.seed}
-${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
-`;
+        const defaultText = buildCastPreviewText(
+          activeResult,
+          remixSeed,
+          includeCastOverlays,
+        );
         const castText = textOverride?.trim() ? textOverride : defaultText;
 
         const warpcastUrl = buildWarpcastComposeUrl(
@@ -3014,6 +3301,38 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
     }
   };
 
+  const handleToggleCastOverlays = async (nextValue?: boolean) => {
+    const target = castTarget ?? logoResult;
+    const nextInclude =
+      typeof nextValue === "boolean" ? nextValue : !includeCastOverlays;
+    setIncludeCastOverlays(nextInclude);
+
+    if (!target) return;
+
+    try {
+      const updatedImage = await generateCastImage(target, {
+        includeOverlays: nextInclude,
+      });
+      setCastPreviewImage(updatedImage);
+      const updatedText = buildCastPreviewText(
+        target,
+        castTargetRemixSeed,
+        nextInclude,
+      );
+      setCastPreviewText(updatedText);
+      setCastDraftText((prev) => {
+        if (!prev || prev === castPreviewText) return updatedText;
+        return prev;
+      });
+    } catch (error) {
+      console.error("Failed to toggle cast overlays:", error);
+      setToast({
+        message: "Could not update cast overlays right now.",
+        type: "error",
+      });
+    }
+  };
+
   const getRarityColor = (rarity: Rarity): string => {
     switch (rarity) {
       case "COMMON":
@@ -3029,7 +3348,14 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
     }
   };
 
-  const generateCastImage = async (logoResult: LogoResult): Promise<string> => {
+  const generateCastImage = async (
+    logoResult: LogoResult,
+    options?: { includeOverlays?: boolean },
+  ): Promise<string> => {
+    const rarityMasterUnlocked = userRewards.some(
+      (reward) => reward.rewardType === "rarity-master-badge",
+    );
+    const rankLabel = userStats?.rank ?? "Rookie";
     return new Promise((resolve, reject) => {
       try {
         // Create a larger canvas for the card
@@ -3039,6 +3365,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
           reject(new Error("Could not create canvas context"));
           return;
         }
+
+        const includeOverlays = options?.includeOverlays ?? true;
 
         // Load the logo image
         const logoImg = new Image();
@@ -3070,34 +3398,37 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
             cardCtx.fillRect(0, y, cardWidth, 1);
           }
 
-          // Draw border + glow
           const borderWidth = 10;
           const rarityColor = getRarityColor(logoResult.rarity);
-          cardCtx.shadowColor = rarityColor;
-          cardCtx.shadowBlur = 18;
-          cardCtx.strokeStyle = rarityColor;
-          cardCtx.lineWidth = borderWidth;
-          cardCtx.strokeRect(
-            borderWidth / 2,
-            borderWidth / 2,
-            cardWidth - borderWidth,
-            cardHeight - borderWidth,
-          );
-          cardCtx.shadowBlur = 0;
 
-          // Title bar
-          cardCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
-          cardCtx.fillRect(0, 0, cardWidth, 70);
-          cardCtx.fillStyle = rarityColor;
-          cardCtx.font = 'bold 22px "Press Start 2P", monospace';
-          cardCtx.textAlign = "left";
-          cardCtx.textBaseline = "middle";
-          cardCtx.fillText("PIXEL LOGO FORGE", 32, 38);
+          if (includeOverlays) {
+            // Draw border + glow when overlays are on
+            cardCtx.shadowColor = rarityColor;
+            cardCtx.shadowBlur = 18;
+            cardCtx.strokeStyle = rarityColor;
+            cardCtx.lineWidth = borderWidth;
+            cardCtx.strokeRect(
+              borderWidth / 2,
+              borderWidth / 2,
+              cardWidth - borderWidth,
+              cardHeight - borderWidth,
+            );
+            cardCtx.shadowBlur = 0;
+
+            // Title bar
+            cardCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            cardCtx.fillRect(0, 0, cardWidth, 70);
+            cardCtx.fillStyle = rarityColor;
+            cardCtx.font = 'bold 22px "Press Start 2P", monospace';
+            cardCtx.textAlign = "left";
+            cardCtx.textBaseline = "middle";
+            cardCtx.fillText("PIXEL LOGO FORGE", 32, 38);
+          }
 
           // Calculate logo size and position (larger + centered in main area)
-          const logoPadding = 30;
-          const titleBarHeight = 70;
-          const footerHeight = 80;
+          const logoPadding = includeOverlays ? 30 : 60;
+          const titleBarHeight = includeOverlays ? 70 : 0;
+          const footerHeight = includeOverlays ? 80 : 0;
           const maxLogoWidth = cardWidth - logoPadding * 2;
           const maxLogoHeight =
             cardHeight - logoPadding * 2 - titleBarHeight - footerHeight;
@@ -3119,50 +3450,87 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
           const availableHeight = cardHeight - titleBarHeight - footerHeight;
           const logoY = titleBarHeight + (availableHeight - logoHeight) / 2;
 
-          // Draw logo with a subtle glow
-          cardCtx.shadowColor = "rgba(0, 255, 0, 0.35)";
-          cardCtx.shadowBlur = 12;
+          // Draw logo with optional glow
+          cardCtx.shadowColor = includeOverlays
+            ? "rgba(0, 255, 0, 0.35)"
+            : "rgba(0, 0, 0, 0.6)";
+          cardCtx.shadowBlur = includeOverlays ? 12 : 6;
           cardCtx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
           cardCtx.shadowBlur = 0;
 
-          // Draw rarity badge (top-right)
-          const rarityY = 16;
-          const rarityX = cardWidth - 220;
-          cardCtx.fillStyle = "rgba(0, 0, 0, 0.8)";
-          cardCtx.fillRect(rarityX - 10, rarityY - 8, 200, 56);
-          cardCtx.strokeStyle = rarityColor;
-          cardCtx.lineWidth = 4;
-          cardCtx.strokeRect(rarityX - 10, rarityY - 8, 200, 56);
+          if (includeOverlays) {
+            // Draw rarity badge (top-right)
+            const rarityY = 16;
+            const rarityX = cardWidth - 220;
+            cardCtx.fillStyle = "rgba(0, 0, 0, 0.8)";
+            cardCtx.fillRect(rarityX - 10, rarityY - 8, 200, 56);
+            cardCtx.strokeStyle = rarityColor;
+            cardCtx.lineWidth = 4;
+            cardCtx.strokeRect(rarityX - 10, rarityY - 8, 200, 56);
 
-          cardCtx.fillStyle = rarityColor;
-          cardCtx.font = 'bold 16px "Press Start 2P", monospace';
-          cardCtx.textAlign = "center";
-          cardCtx.textBaseline = "middle";
-          cardCtx.fillText("RARITY", rarityX + 90, rarityY + 14);
-          cardCtx.fillText(logoResult.rarity, rarityX + 90, rarityY + 36);
+            cardCtx.fillStyle = rarityColor;
+            cardCtx.font = 'bold 16px "Press Start 2P", monospace';
+            cardCtx.textAlign = "center";
+            cardCtx.textBaseline = "middle";
+            cardCtx.fillText("RARITY", rarityX + 90, rarityY + 14);
+            cardCtx.fillText(logoResult.rarity, rarityX + 90, rarityY + 36);
 
-          // Draw owner info at bottom
-          const ownerY = cardHeight - 70;
-          const ownerText = userInfo?.username
-            ? `Generated by @${userInfo.username}`
-            : userInfo?.fid
-              ? `Generated by FID ${userInfo.fid}`
-              : "Generated by Pixel Logo Forge";
+            // Forge rank + rarity master overlays
+            const infoX = 32;
+            const infoY = cardHeight - 210;
+            const infoWidth = 320;
+            const infoHeight = 110;
+            cardCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            cardCtx.fillRect(infoX, infoY, infoWidth, infoHeight);
+            cardCtx.strokeStyle = rarityColor;
+            cardCtx.lineWidth = 3;
+            cardCtx.strokeRect(infoX, infoY, infoWidth, infoHeight);
 
-          cardCtx.fillStyle = "#9adf9a";
-          cardCtx.font = '15px "Courier New", monospace';
-          cardCtx.textAlign = "center";
-          cardCtx.textBaseline = "middle";
-          cardCtx.fillText(ownerText, cardWidth / 2, ownerY);
+            cardCtx.fillStyle = "#9adf9a";
+            cardCtx.font = '14px "Courier New", monospace';
+            cardCtx.textAlign = "left";
+            cardCtx.textBaseline = "top";
+            cardCtx.fillText(
+              `Forge Rank: ${rankLabel}`,
+              infoX + 12,
+              infoY + 10,
+            );
+            const bestRarity =
+              userStats?.bestRarity || logoResult.rarity || "UNKNOWN";
+            cardCtx.fillText(
+              `Best Rarity: ${bestRarity}`,
+              infoX + 12,
+              infoY + 32,
+            );
+            cardCtx.fillText(
+              `Rarity Master: ${rarityMasterUnlocked ? "UNLOCKED" : "LOCKED"}`,
+              infoX + 12,
+              infoY + 54,
+            );
 
-          // Draw seed info
-          cardCtx.fillStyle = "#6fae6f";
-          cardCtx.font = '12px "Courier New", monospace';
-          cardCtx.fillText(
-            `Seed: ${logoResult.seed}`,
-            cardWidth / 2,
-            ownerY + 24,
-          );
+            // Draw owner info at bottom
+            const ownerY = cardHeight - 70;
+            const ownerText = userInfo?.username
+              ? `Generated by @${userInfo.username}`
+              : userInfo?.fid
+                ? `Generated by FID ${userInfo.fid}`
+                : "Generated by Pixel Logo Forge";
+
+            cardCtx.fillStyle = "#9adf9a";
+            cardCtx.font = '15px "Courier New", monospace';
+            cardCtx.textAlign = "center";
+            cardCtx.textBaseline = "middle";
+            cardCtx.fillText(ownerText, cardWidth / 2, ownerY);
+
+            // Draw seed info
+            cardCtx.fillStyle = "#6fae6f";
+            cardCtx.font = '12px "Courier New", monospace';
+            cardCtx.fillText(
+              `Seed: ${logoResult.seed}`,
+              cardWidth / 2,
+              ownerY + 24,
+            );
+          }
 
           // Convert to data URL
           resolve(cardCanvas.toDataURL("image/png"));
@@ -3219,6 +3587,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                   className="history-image"
                   width={64}
                   height={64}
+                  loading="lazy"
                   unoptimized
                 />
                 <span className="history-time">
@@ -3250,6 +3619,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                   className="history-image"
                   width={64}
                   height={64}
+                  loading="lazy"
                   unoptimized
                 />
                 <span className="history-time">
@@ -3375,6 +3745,40 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
     [commitLogoResult, createLogoResult, setActiveTab, setInputText],
   );
 
+  const handleRandomEntry = useCallback(
+    (entry: Partial<LeaderboardEntry>) => {
+      if (!entry?.text || typeof entry.seed !== "number") {
+        setToast({ message: "Random cast not available.", type: "info" });
+        return;
+      }
+      const normalized: LeaderboardEntry = {
+        id: entry.id || crypto.randomUUID(),
+        text: entry.text,
+        seed: entry.seed,
+        imageUrl: entry.imageUrl || "",
+        logoImageUrl: entry.logoImageUrl,
+        cardImageUrl: entry.cardImageUrl,
+        thumbImageUrl: entry.thumbImageUrl,
+        mediumImageUrl: entry.mediumImageUrl,
+        username: entry.username || "unknown",
+        displayName: entry.displayName || entry.username || "Unknown",
+        pfpUrl: entry.pfpUrl || "",
+        likes: entry.likes ?? 0,
+        recasts: entry.recasts ?? 0,
+        saves: entry.saves ?? 0,
+        remixes: entry.remixes ?? 0,
+        rarity: entry.rarity ?? null,
+        presetKey: entry.presetKey ?? null,
+        createdAt: entry.createdAt || Date.now(),
+        castUrl: entry.castUrl,
+        score: entry.score,
+        userId: entry.userId ?? null,
+      };
+      openGalleryEntry(normalized, "Random cast loaded!");
+    },
+    [openGalleryEntry],
+  );
+
   const handleRandomLegendary = useCallback(() => {
     const legendaryEntries = galleryEntries.filter((entry) => {
       const rarityValue = entry.rarity
@@ -3425,15 +3829,63 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
 
   const castGalleryContent = (
     <div className="cast-gallery">
-      <div className="leaderboard-title">Cast Gallery</div>
+      <div className="leaderboard-title">{galleryViewMode === "logos" ? "Logo Gallery" : "Cast Gallery"}</div>
       <div className="gallery-meta">
-        Recent casts from the community - {filteredGalleryEntries.length} shown
+        {galleryViewMode === "logos" 
+          ? `All generated logos - ${filteredGalleryEntries.length} shown`
+          : `Recent casts from the community - ${filteredGalleryEntries.length} shown`}
+      </div>
+
+      <div className="gallery-view-toggle" style={{ display: "flex", gap: "8px", justifyContent: "center", marginBottom: "8px" }}>
+        <button
+          type="button"
+          className={`gallery-toggle-button${galleryViewMode === "logos" ? " active" : ""}`}
+          onClick={() => {
+            setGalleryViewMode("logos");
+            setGalleryPage(1);
+          }}
+          style={{
+            padding: "4px 12px",
+            fontSize: "11px",
+            border: `1px solid ${galleryViewMode === "logos" ? "#0a0" : "#444"}`,
+            background: galleryViewMode === "logos" ? "#0a0" : "transparent",
+            color: galleryViewMode === "logos" ? "#000" : "#0a0",
+            borderRadius: "2px",
+            cursor: "pointer",
+            fontFamily: "monospace",
+            textTransform: "uppercase",
+          }}
+        >
+          🎨 Logos
+        </button>
+        <button
+          type="button"
+          className={`gallery-toggle-button${galleryViewMode === "casts" ? " active" : ""}`}
+          onClick={() => {
+            setGalleryViewMode("casts");
+            setGalleryPage(1);
+          }}
+          style={{
+            padding: "4px 12px",
+            fontSize: "11px",
+            border: `1px solid ${galleryViewMode === "casts" ? "#0a0" : "#444"}`,
+            background: galleryViewMode === "casts" ? "#0a0" : "transparent",
+            color: galleryViewMode === "casts" ? "#000" : "#0a0",
+            borderRadius: "2px",
+            cursor: "pointer",
+            fontFamily: "monospace",
+            textTransform: "uppercase",
+          }}
+        >
+          📢 Casts
+        </button>
       </div>
 
       {/* NEW: Search Bar */}
       <div style={{ padding: "4px 0", margin: "0 auto" }}>
         <SearchBar
           showRandomButton={true}
+          onRandom={handleRandomEntry}
           onSearch={async (query, type) => {
             try {
               const response = await fetch(
@@ -3539,6 +3991,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
               {
                 logoImageUrl: entry.logoImageUrl,
                 cardImageUrl: entry.cardImageUrl,
+                thumbImageUrl: entry.thumbImageUrl,
+                mediumImageUrl: entry.mediumImageUrl,
                 imageUrl: entry.imageUrl,
               },
               "gallery",
@@ -3552,6 +4006,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                     className="gallery-image"
                     width={320}
                     height={200}
+                    loading="lazy"
                     unoptimized
                   />
                 ) : (
@@ -3649,6 +4104,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                 {
                   logoImageUrl: winner.entry.logoImageUrl,
                   cardImageUrl: winner.entry.cardImageUrl,
+                  thumbImageUrl: winner.entry.thumbImageUrl,
+                  mediumImageUrl: winner.entry.mediumImageUrl,
                   imageUrl: winner.entry.imageUrl,
                 },
                 "leaderboard",
@@ -3666,6 +4123,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                       className="daily-winner-image"
                       width={200}
                       height={120}
+                      loading="lazy"
                       unoptimized
                     />
                   ) : (
@@ -3758,6 +4216,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                       className="leaderboard-avatar"
                       width={28}
                       height={28}
+                      loading="lazy"
                       unoptimized
                     />
                   ) : (
@@ -3780,6 +4239,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                     {
                       logoImageUrl: entry.logoImageUrl,
                       cardImageUrl: entry.cardImageUrl,
+                      thumbImageUrl: entry.thumbImageUrl,
+                      mediumImageUrl: entry.mediumImageUrl,
                       imageUrl: entry.imageUrl,
                     },
                     "leaderboard",
@@ -3791,6 +4252,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                       className="leaderboard-image"
                       width={400}
                       height={120}
+                      loading="lazy"
                       unoptimized
                     />
                   ) : (
@@ -3939,144 +4401,334 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
     </div>
   );
 
-  const challengeProgress =
-    dailyChallenges.length > 0
-      ? Object.values(challengeDone).filter(Boolean).length /
-        dailyChallenges.length
-      : 0;
-  const topPercent = Math.max(5, Math.round(40 - challengeProgress * 30));
+  const supportPower = userStats?.support ?? likedEntryIds.size;
+  const influencePower = userStats?.influence ??
+    (profileData?.entries?.reduce(
+      (sum, entry) =>
+        sum + (entry.likes ?? 0) + ((entry.recasts ?? 0) ? (entry.recasts ?? 0) * 2 : 0),
+      0,
+    ) ?? 0);
+  const creationPower = userStats?.creation ?? generationCount;
+  const discoveryPower = userStats?.discovery ?? (profileData?.entries?.length ?? 0);
+  const totalPower = userStats?.totalPower ?? (supportPower + influencePower + creationPower + discoveryPower);
+  const powerRank = userStats?.rank ?? (totalPower >= 500 ? "S" : totalPower >= 250 ? "A" : totalPower >= 100 ? "B" : "C");
 
-  const challengeContent = (
-    <div className="challenge">
-      <div className="leaderboard-title">Mini‑Series Challenge</div>
-      <div className="leaderboard-status">
-        Complete all 6 prompts: Generate a logo for each brand below, then cast
-        your favorites to earn the Daily Champion badge!
+  const getTierLabel = (
+    value: number,
+    tiers: Array<{ min: number; label: string }>,
+  ): string => {
+    const found = tiers
+      .slice()
+      .sort((a, b) => b.min - a.min)
+      .find((tier) => value >= tier.min);
+    return found ? found.label : tiers[tiers.length - 1]?.label || "";
+  };
+
+  const rewardContent = (
+    <div className="challenge" style={{ gap: "12px" }}>
+      <div className="leaderboard-title" style={{ fontSize: "16px" }}>
+        ⚡ Forge Arena
       </div>
-      <div className="challenge-stats">
-        <div className="challenge-streak">
-          <span className="challenge-streak-icon" aria-hidden="true">
-            🔥
-          </span>
-          Streak: {getChallengeStreak(challengeDays)} day
-          {getChallengeStreak(challengeDays) === 1 ? "" : "s"}
-        </div>
-        <div className="challenge-progress">
-          Progress: {Object.values(challengeDone).filter(Boolean).length} /{" "}
-          {dailyChallenges.length} prompts
-        </div>
-      </div>
-      <div className="challenge-progress-ring" aria-hidden="true">
-        <svg viewBox="0 0 100 100" role="img">
-          <circle className="challenge-ring-track" cx="50" cy="50" r="42" />
-          <circle
-            className="challenge-ring-fill"
-            cx="50"
-            cy="50"
-            r="42"
-            style={{
-              strokeDasharray: 264,
-              strokeDashoffset: 264 - 264 * challengeProgress,
-            }}
-          />
-        </svg>
-        <span>{Math.round(challengeProgress * 100)}%</span>
-      </div>
-      <div className="challenge-top-percent">
-        You&apos;re in the top {topPercent}% today
-      </div>
-      {timeUntilReset && (
-        <div className="challenge-reset-timer">
-          ⏰ Resets in: {timeUntilReset}
-        </div>
-      )}
-      <div className="challenge-progress-bar">
-        <div
-          className="challenge-progress-fill"
-          style={{
-            width: `${dailyChallenges.length > 0 ? (Object.values(challengeDone).filter(Boolean).length / dailyChallenges.length) * 100 : 0}%`,
-          }}
-        />
-      </div>
-      {dailyChallenges.length > 0 ? (
-        <div className="challenge-list">
-          {dailyChallenges.map(
-            (prompt: (typeof ALL_CHALLENGE_PROMPTS)[number]) => {
-              const promptName = prompt.name;
-              return (
-                <div
-                  key={promptName}
-                  className={`challenge-item ${challengeDone[promptName] ? "completed" : ""}`}
-                >
-                  <div className="challenge-item-content">
-                    <label className="challenge-label">
-                      <input
-                        type="checkbox"
-                        checked={!!challengeDone[promptName]}
-                        onChange={() => toggleChallengeDone(promptName)}
-                      />
-                      <div className="challenge-info">
-                        <span className="challenge-name">{promptName}</span>
-                        <span className="challenge-description">
-                          {prompt.description}
-                        </span>
-                      </div>
-                      {challengeDone[promptName] && (
-                        <span className="challenge-check">✓</span>
-                      )}
-                    </label>
-                  </div>
-                  <button
-                    type="button"
-                    className="challenge-button"
-                    onClick={() => {
-                      setInputText(promptName);
-                      setActiveTab("home");
-                      // Note: Seed field remains available - you can use any seed with prompts
-                    }}
-                  >
-                    Generate
-                  </button>
-                </div>
-              );
-            },
-          )}
-        </div>
-      ) : (
-        <div className="challenge-loading">
-          Loading today&apos;s challenges...
-        </div>
-      )}
-      {Object.values(challengeDone).every(Boolean) && (
-        <div className="challenge-complete">
-          <div className="challenge-confetti" aria-hidden="true">
-            {Array.from({ length: 12 }).map((_, index) => (
-              <span key={`confetti-${index}`} />
-            ))}
+      <div
+        style={{
+          border: "1px solid #00ff00",
+          padding: "10px",
+          background: "#050a15",
+          display: "grid",
+          gridTemplateColumns: "1fr auto",
+          gap: "8px",
+          alignItems: "center",
+        }}
+      >
+        <div>
+          <div style={{ color: "#00aa00", fontSize: "10px" }}>YOUR FORGE POWER</div>
+          <div style={{ fontSize: "22px", fontWeight: "bold" }}>{totalPower.toLocaleString()}</div>
+          <div style={{ color: "#008800", fontSize: "10px" }}>
+            Engagement fuels power: likes given/received, creations, discovery
           </div>
-          🎉 Challenge complete! You earned the Daily Champion badge! ✅
         </div>
-      )}
-      {challengeHistory.length > 0 && (
-        <div className="challenge-history-section">
-          <div className="leaderboard-title">Recent History</div>
-          <div className="challenge-history-grid">
-            {challengeHistory.map((item) => (
-              <div
-                key={item.date}
-                className={`challenge-history-item ${item.completed ? "completed" : "incomplete"}`}
-              >
-                <div className="challenge-history-date">
-                  {new Date(item.date).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                  })}
+        <div
+          style={{
+            border: "1px solid #00ff00",
+            padding: "8px 10px",
+            textAlign: "center",
+            minWidth: "90px",
+            background: "#0a0e27",
+          }}
+        >
+          <div style={{ color: "#00aa00", fontSize: "10px" }}>RANK</div>
+          <div style={{ fontSize: "24px", fontWeight: "bold" }}>{powerRank}</div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: "10px",
+        }}
+      >
+        {[{
+          title: "Support Meter",
+          icon: "❤️",
+          value: supportPower,
+          tier: getTierLabel(supportPower, [
+            { min: 250, label: "Gold Heart" },
+            { min: 50, label: "Silver Heart" },
+            { min: 0, label: "Bronze Heart" },
+          ]),
+          description: "Likes you&apos;ve given",
+          unlocks: "Frame accents, glow effects, badge types",
+          max: 300,
+        },
+        {
+          title: "Influence Meter",
+          icon: "⭐",
+          value: influencePower,
+          tier: getTierLabel(influencePower, [
+            { min: 100, label: "Legendary Glow" },
+            { min: 10, label: "Neon Aura" },
+            { min: 0, label: "Pixel Spark" },
+          ]),
+          description: "Likes your logos earned",
+          unlocks: "Aura colors, highlights, animations",
+          max: 150,
+        },
+        {
+          title: "Creation Meter",
+          icon: "🎨",
+          value: creationPower,
+          tier: getTierLabel(creationPower, [
+            { min: 150, label: "Master Crafter" },
+            { min: 50, label: "Steady Artisan" },
+            { min: 0, label: "New Forger" },
+          ]),
+          description: "Logos generated",
+          unlocks: "Palettes, backgrounds, badge styles",
+          max: 200,
+        },
+        {
+          title: "Discovery Meter",
+          icon: "🔁",
+          value: discoveryPower,
+          tier: getTierLabel(discoveryPower, [
+            { min: 100, label: "Legendary Signal" },
+            { min: 25, label: "Neon Signal" },
+            { min: 0, label: "Spark" },
+          ]),
+          description: "People interacting with your logos",
+          unlocks: "Profile highlights, share boosts",
+          max: 120,
+        }].map((card) => {
+          const pct = Math.min(100, Math.round((card.value / card.max) * 100));
+          return (
+            <div
+              key={card.title}
+              style={{
+                border: "1px solid #00ff00",
+                padding: "10px",
+                background: "#050a15",
+                display: "grid",
+                gap: "6px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontWeight: "bold" }}>
+                  {card.icon} {card.title}
                 </div>
-                <div className="challenge-history-status">
-                  {item.completed ? "✅" : "⏳"}
+                <div style={{ fontSize: "10px", color: "#00aa00" }}>{card.tier}</div>
+              </div>
+              <div style={{ fontSize: "22px", fontWeight: "bold" }}>{card.value.toLocaleString()}</div>
+              <div style={{ fontSize: "10px", color: "#00aa00" }}>{card.description}</div>
+              <div
+                style={{
+                  height: "10px",
+                  border: "1px solid #00ff00",
+                  background: "#0a0e27",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${pct}%`,
+                    background: "linear-gradient(90deg, #00ff00, #00ffaa)",
+                    transition: "width 0.4s",
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                Unlocks: {card.unlocks}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          border: "1px solid #00ff00",
+          padding: "10px",
+          background: "#050a15",
+          display: "grid",
+          gap: "8px",
+        }}
+      >
+        <div style={{ fontWeight: "bold" }}>Arcade Missions</div>
+        <div style={{ fontSize: "10px", color: "#00aa00" }}>
+          Optional quests that drop cosmetic rewards
+        </div>
+        <div style={{ display: "grid", gap: "6px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+          {[{
+            title: "Like 10 logos today",
+            reward: "Unlock Pixel Spark badge",
+            progress: Math.min(10, supportPower % 10),
+            target: 10,
+          },
+          {
+            title: "Receive 5 likes on one logo",
+            reward: "Unlock Neon Frame",
+            progress: Math.min(5, Math.round(influencePower / 5)),
+            target: 5,
+          },
+          {
+            title: "Generate 3 logos",
+            reward: "Unlock new background variation",
+            progress: Math.min(3, creationPower % 3),
+            target: 3,
+          }].map((mission) => {
+            const pct = Math.min(100, Math.round((mission.progress / mission.target) * 100));
+            return (
+              <div
+                key={mission.title}
+                style={{
+                  border: "1px solid #00ff00",
+                  padding: "8px",
+                  background: "#0a0e27",
+                  display: "grid",
+                  gap: "4px",
+                }}
+              >
+                <div style={{ fontWeight: "bold" }}>{mission.title}</div>
+                <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                  Reward: {mission.reward}
+                </div>
+                <div
+                  style={{
+                    height: "8px",
+                    border: "1px solid #00ff00",
+                    background: "#050a15",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${pct}%`,
+                      background: "#00ff00",
+                    }}
+                  />
+                </div>
+                <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                  {mission.progress}/{mission.target}
                 </div>
               </div>
-            ))}
+            );
+          })}
+        </div>
+      </div>
+
+      {rewardRegistry.length > 0 && (
+        <div
+          style={{
+            border: "1px solid #00ff00",
+            padding: "10px",
+            background: "#050a15",
+            display: "grid",
+            gap: "8px",
+          }}
+        >
+          <div style={{ fontWeight: "bold" }}>Unlocks</div>
+          <div style={{ fontSize: "10px", color: "#00aa00" }}>
+            Earn these by growing your forge stats
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gap: "6px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            }}
+          >
+            {rewardRegistry.map((reward) => {
+              const unlocked = userRewards.some(
+                (r) => r.rewardType === reward.rewardType,
+              );
+              return (
+                <div
+                  key={reward.rewardType}
+                  style={{
+                    border: "1px solid #00ff00",
+                    padding: "8px",
+                    background: unlocked ? "#0a1b0a" : "#0a0e27",
+                    opacity: unlocked ? 1 : 0.65,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <div style={{ fontWeight: "bold" }}>
+                      {reward.title ?? reward.rewardType}
+                    </div>
+                    <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                      {unlocked ? "Unlocked" : "Locked"}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                    {reward.description ?? "Earn by boosting your stats"}
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                    Unlocks at {reward.threshold ?? "?"} {reward.stat ?? "power"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {trendingData && (
+        <div
+          style={{
+            border: "1px solid #00ff00",
+            padding: "10px",
+            background: "#050a15",
+            display: "grid",
+            gap: "8px",
+          }}
+        >
+          <div style={{ fontWeight: "bold" }}>Trending (last {trendingData.windowDays}d)</div>
+          <div style={{ display: "grid", gap: "6px", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+            <div style={{ border: "1px solid #00ff00", padding: "8px", background: "#0a0e27" }}>
+              <div style={{ fontWeight: "bold" }}>Top Prompts</div>
+              <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                {trendingData.mostUsedWords.slice(0, 5).map((w) => `${w.word} (${w.count})`).join(", ") || "--"}
+              </div>
+            </div>
+            <div style={{ border: "1px solid #00ff00", padding: "8px", background: "#0a0e27" }}>
+              <div style={{ fontWeight: "bold" }}>Popular Seeds</div>
+              <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                {trendingData.popularSeeds.slice(0, 5).map((s) => `${s.seed} (${s.count})`).join(", ") || "--"}
+              </div>
+            </div>
+            <div style={{ border: "1px solid #00ff00", padding: "8px", background: "#0a0e27" }}>
+              <div style={{ fontWeight: "bold" }}>Rarity Mix</div>
+              <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                {trendingData.rarityDistribution.slice(0, 5).map((r) => `${r.rarity}: ${r.count}`).join(", ") || "--"}
+              </div>
+            </div>
+            <div style={{ border: "1px solid #00ff00", padding: "8px", background: "#0a0e27" }}>
+              <div style={{ fontWeight: "bold" }}>Most Liked Logos</div>
+              <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                {trendingData.mostLikedLogos.slice(0, 3).map((l) => `#${l.seed} ${l.text} (${l.likes}❤)`).join(" • ") || "--"}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -4257,6 +4909,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
         <CastPreviewModal
           previewImage={castPreviewImage}
           castText={castDraftText || castPreviewText}
+          includeCastOverlays={includeCastOverlays}
+          onToggleOverlays={handleToggleCastOverlays}
           onConfirm={() =>
             handleCast(
               castTarget ?? undefined,
@@ -4911,6 +5565,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                         {
                           logoImageUrl: entry.logoImageUrl,
                           cardImageUrl: entry.cardImageUrl,
+                          thumbImageUrl: entry.thumbImageUrl,
+                          mediumImageUrl: entry.mediumImageUrl,
                           imageUrl: entry.imageUrl,
                         },
                         "preview",
@@ -4922,6 +5578,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                           className="home-top-cast-image"
                           width={160}
                           height={110}
+                          loading="lazy"
                           unoptimized
                         />
                       ) : (
@@ -4953,8 +5610,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
         <div className="output-section">{leaderboardContent}</div>
       )}
 
-      {activeTab === "challenge" && (
-        <div className="output-section">{challengeContent}</div>
+      {activeTab === "rewards" && (
+        <div className="output-section">{rewardContent}</div>
       )}
 
       {activeTab === "profile" && (
@@ -5001,14 +5658,14 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
         </button>
         <button
           type="button"
-          className={`bottom-nav-button${activeTab === "challenge" ? " active" : ""}`}
-          onClick={() => setActiveTab("challenge")}
-          aria-pressed={activeTab === "challenge"}
-          aria-label="Challenge"
-          data-label="Challenge"
+          className={`bottom-nav-button${activeTab === "rewards" ? " active" : ""}`}
+          onClick={() => setActiveTab("rewards")}
+          aria-pressed={activeTab === "rewards"}
+          aria-label="Rewards"
+          data-label="Rewards"
         >
           <span className="bottom-nav-icon" aria-hidden="true">
-            🎯
+            ⚡
           </span>
         </button>
         <button

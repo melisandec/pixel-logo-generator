@@ -14,6 +14,9 @@ type LeaderboardEntry = {
   imageUrl: string; // Legacy field
   logoImageUrl?: string; // Raw pixel logo
   cardImageUrl?: string; // Framed card
+  thumbImageUrl?: string; // Smallest variant for lists
+  mediumImageUrl?: string; // Mid-size variant for grids
+  userId?: string | null;
   username: string;
   displayName: string;
   pfpUrl: string;
@@ -543,9 +546,19 @@ export default function ProfileClient({
   const handleCastBest = () => {
     if (!profile.best) return;
     const text = `My best pixel logo: "${profile.best.text}"`;
+    const bestImageUrl = getImageForContext(
+      {
+        logoImageUrl: profile.best.logoImageUrl,
+        cardImageUrl: profile.best.cardImageUrl,
+        thumbImageUrl: profile.best.thumbImageUrl,
+        mediumImageUrl: profile.best.mediumImageUrl,
+        imageUrl: profile.best.imageUrl,
+      },
+      "share",
+    );
     const url = buildWarpcastComposeUrl(
       text,
-      profile.best.imageUrl ? [profile.best.imageUrl] : undefined,
+      bestImageUrl ? [bestImageUrl] : undefined,
     );
     window.open(url, "_blank", "noopener,noreferrer");
   };
@@ -598,6 +611,8 @@ export default function ProfileClient({
           {
             logoImageUrl: entry.logoImageUrl,
             cardImageUrl: entry.cardImageUrl,
+            thumbImageUrl: entry.thumbImageUrl,
+            mediumImageUrl: entry.mediumImageUrl,
             imageUrl: entry.imageUrl,
           },
           "share"
@@ -720,19 +735,31 @@ export default function ProfileClient({
               </button>
             )}
           </div>
-          {signatureLogo.imageUrl ? (
-            <Image
-              src={signatureLogo.imageUrl}
-              alt={`Signature logo: ${signatureLogo.text}`}
-              className="signature-logo-image"
-              width={360}
-              height={240}
-              unoptimized
-              priority
-            />
-          ) : (
-            <div className="signature-logo-text">{signatureLogo.text}</div>
-          )}
+          {(() => {
+            const signatureImageUrl = getImageForContext(
+              {
+                logoImageUrl: signatureLogo.logoImageUrl,
+                cardImageUrl: signatureLogo.cardImageUrl,
+                thumbImageUrl: signatureLogo.thumbImageUrl,
+                mediumImageUrl: signatureLogo.mediumImageUrl,
+                imageUrl: signatureLogo.imageUrl,
+              },
+              "profile",
+            );
+            return signatureImageUrl ? (
+              <Image
+                src={signatureImageUrl}
+                alt={`Signature logo: ${signatureLogo.text}`}
+                className="signature-logo-image"
+                width={360}
+                height={240}
+                loading="lazy"
+                unoptimized
+              />
+            ) : (
+              <div className="signature-logo-text">{signatureLogo.text}</div>
+            );
+          })()}
           <div className="signature-logo-quote">&quot;This is my identity.&quot;</div>
           <div className="signature-logo-meta">
             <span>{signatureLogo.text}</span>
@@ -772,17 +799,30 @@ export default function ProfileClient({
                     setShowSignatureSelector(false);
                   }}
                 >
-                  {entry.imageUrl ? (
-                    <Image
-                      src={entry.imageUrl}
-                      alt={entry.text}
-                      width={120}
-                      height={80}
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="signature-selector-text">{entry.text}</div>
-                  )}
+                  {(() => {
+                    const selectorImageUrl = getImageForContext(
+                      {
+                        logoImageUrl: entry.logoImageUrl,
+                        cardImageUrl: entry.cardImageUrl,
+                        thumbImageUrl: entry.thumbImageUrl,
+                        mediumImageUrl: entry.mediumImageUrl,
+                        imageUrl: entry.imageUrl,
+                      },
+                      "profile",
+                    );
+                    return selectorImageUrl ? (
+                      <Image
+                        src={selectorImageUrl}
+                        alt={entry.text}
+                        width={120}
+                        height={80}
+                        loading="lazy"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="signature-selector-text">{entry.text}</div>
+                    );
+                  })()}
                   <div className="signature-selector-label">
                     {entry.text}
                   </div>
@@ -950,6 +990,8 @@ export default function ProfileClient({
                 {
                   logoImageUrl: latestEntry.logoImageUrl,
                   cardImageUrl: latestEntry.cardImageUrl,
+                  thumbImageUrl: latestEntry.thumbImageUrl,
+                  mediumImageUrl: latestEntry.mediumImageUrl,
                   imageUrl: latestEntry.imageUrl,
                 },
                 "share"
@@ -961,6 +1003,7 @@ export default function ProfileClient({
                 className="profile-latest-image"
                 width={360}
                 height={240}
+                loading="lazy"
                 unoptimized
               />
             ) : (
@@ -988,18 +1031,31 @@ export default function ProfileClient({
         <div className="leaderboard-title">Personal Best</div>
         {profile.best ? (
           <div className="profile-best-card">
-            {profile.best.imageUrl ? (
-              <Image
-                src={profile.best.imageUrl}
-                alt={`Best logo by ${profile.best.username}`}
-                className="profile-best-image"
-                width={360}
-                height={240}
-                unoptimized
-              />
-            ) : (
-              <div className="profile-best-text">{profile.best.text}</div>
-            )}
+            {(() => {
+              const bestImageUrl = getImageForContext(
+                {
+                  logoImageUrl: profile.best.logoImageUrl,
+                  cardImageUrl: profile.best.cardImageUrl,
+                  thumbImageUrl: profile.best.thumbImageUrl,
+                  mediumImageUrl: profile.best.mediumImageUrl,
+                  imageUrl: profile.best.imageUrl,
+                },
+                "profile",
+              );
+              return bestImageUrl ? (
+                <Image
+                  src={bestImageUrl}
+                  alt={`Best logo by ${profile.best.username}`}
+                  className="profile-best-image"
+                  width={360}
+                  height={240}
+                  loading="lazy"
+                  unoptimized
+                />
+              ) : (
+                <div className="profile-best-text">{profile.best.text}</div>
+              );
+            })()}
             <div className="profile-best-meta">
               <span>❤️ {profile.best.likes}</span>
               <span>🔁 {profile.best.recasts ?? 0}</span>
@@ -1083,6 +1139,8 @@ export default function ProfileClient({
                 {
                   logoImageUrl: entry.logoImageUrl,
                   cardImageUrl: entry.cardImageUrl,
+                  thumbImageUrl: entry.thumbImageUrl,
+                  mediumImageUrl: entry.mediumImageUrl,
                   imageUrl: entry.imageUrl,
                 },
                 "profile"
@@ -1096,6 +1154,7 @@ export default function ProfileClient({
                     className="profile-gallery-image"
                     width={200}
                     height={140}
+                    loading="lazy"
                     unoptimized
                   />
                 ) : (

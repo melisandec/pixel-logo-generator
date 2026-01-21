@@ -8,12 +8,14 @@ export type ImageRenderContext = "gallery" | "leaderboard" | "profile" | "share"
 export interface ImageUrls {
   logoImageUrl?: string;
   cardImageUrl?: string;
+  thumbImageUrl?: string;
+  mediumImageUrl?: string;
   imageUrl?: string; // Legacy fallback
 }
 
 /**
  * Get the appropriate image URL based on render context
- * - Gallery/Leaderboard/Profile contexts → logoImageUrl (clean art)
+ * - Gallery/Leaderboard/Profile contexts → clean logo (prefer smaller variants when available)
  * - Share context → cardImageUrl (framed, branded)
  * 
  * @param urls Object containing logoImageUrl, cardImageUrl, and legacy imageUrl
@@ -21,15 +23,30 @@ export interface ImageUrls {
  * @returns The appropriate image URL for the context
  */
 export function getImageForContext(urls: ImageUrls, context: ImageRenderContext): string | null {
-  if (context === "share" || context === "preview") {
-    // For sharing contexts, prefer card image (framed, branded)
-    // Fallback to logo, then to legacy imageUrl
-    return urls.cardImageUrl || urls.logoImageUrl || urls.imageUrl || null;
+  const { cardImageUrl, logoImageUrl, thumbImageUrl, mediumImageUrl, imageUrl } = urls;
+
+  if (context === "share") {
+    // Sharing prefers branded card; fall back to the best available resolution
+    return cardImageUrl || mediumImageUrl || logoImageUrl || thumbImageUrl || imageUrl || null;
   }
 
-  // For gallery/leaderboard/profile viewing contexts, show clean logo
-  // Fallback to card image, then to legacy imageUrl
-  return urls.logoImageUrl || urls.cardImageUrl || urls.imageUrl || null;
+  if (context === "preview") {
+    // Preview surfaces (home highlights) can use card for polish, then highest available logo size
+    return cardImageUrl || mediumImageUrl || logoImageUrl || thumbImageUrl || imageUrl || null;
+  }
+
+  if (context === "leaderboard") {
+    // Leaderboard tiles are mid-size; prefer medium, then full logo, then thumb
+    return mediumImageUrl || logoImageUrl || thumbImageUrl || cardImageUrl || imageUrl || null;
+  }
+
+  if (context === "gallery" || context === "profile") {
+    // Gallery/profile views show clean logos; lean on smaller variants first for perf
+    return thumbImageUrl || mediumImageUrl || logoImageUrl || cardImageUrl || imageUrl || null;
+  }
+
+  // Default fallback path
+  return logoImageUrl || cardImageUrl || mediumImageUrl || thumbImageUrl || imageUrl || null;
 }
 
 /**
@@ -46,6 +63,8 @@ export function hasCompleteImages(urls: ImageUrls): boolean {
 export function normalizeImageUrls(urls: ImageUrls): Required<ImageUrls> {
   const fallback = urls.imageUrl || "";
   return {
+    thumbImageUrl: urls.thumbImageUrl || urls.logoImageUrl || fallback,
+    mediumImageUrl: urls.mediumImageUrl || urls.logoImageUrl || fallback,
     logoImageUrl: urls.logoImageUrl || fallback,
     cardImageUrl: urls.cardImageUrl || fallback,
     imageUrl: urls.imageUrl || fallback,

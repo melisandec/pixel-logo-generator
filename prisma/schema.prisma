@@ -92,6 +92,68 @@ model Analytics {
   @@index([userId])
 }
 
+// New: persistent records for every generated logo
+model GeneratedLogo {
+  id           String   @id @default(cuid())
+  text         String
+  seed         Int
+  rarity       String?
+  presetKey    String?
+  userId       String?
+  username     String?
+  displayName  String?
+  pfpUrl       String?
+  imageUrl     String?  // Legacy/compat field (raw logo or card)
+  thumbImageUrl String?
+  mediumImageUrl String?
+  logoImageUrl String?  // Raw pixel logo (preferred)
+  cardImageUrl String?  // Framed/share card
+  castUrl      String?
+  casted       Boolean  @default(false)
+  likes        Int      @default(0)
+  recasts      Int      @default(0)
+  saves        Int      @default(0)
+  remixes      Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  metadata     Json?
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([username])
+  @@index([rarity])
+  @@index([presetKey])
+}
+
+model UserStats {
+  id          String   @id @default(cuid())
+  userId      String?
+  username    String   @unique
+  support     Int      @default(0)
+  influence   Int      @default(0)
+  creation    Int      @default(0)
+  discovery   Int      @default(0)
+  totalPower  Int      @default(0)
+  rank        String   @default("Rookie")
+  bestRarity  String?
+  lastUpdated DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model UserReward {
+  id         String   @id @default(cuid())
+  userId     String?
+  username   String
+  rewardType String
+  unlockedAt DateTime @default(now())
+  metadata   Json?
+
+  @@index([userId])
+  @@index([username])
+  @@unique([username, rewardType])
+}
+
 model UserPreferences {
   id              String   @id @default(cuid())
   userId          String   @unique

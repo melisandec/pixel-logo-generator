@@ -5,6 +5,8 @@ import NextImage from 'next/image';
 interface CastPreviewModalProps {
   previewImage: string;
   castText: string;
+  includeCastOverlays: boolean;
+  onToggleOverlays: (nextValue: boolean) => void;
   onConfirm: () => void;
   onCancel: () => void;
   onTagFriend: () => void;
@@ -14,6 +16,8 @@ interface CastPreviewModalProps {
 export default function CastPreviewModal({
   previewImage,
   castText,
+  includeCastOverlays,
+  onToggleOverlays,
   onConfirm,
   onCancel,
   onTagFriend,
@@ -63,6 +67,46 @@ export default function CastPreviewModal({
         >
           CAST PREVIEW
         </h2>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '10px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span
+            style={{
+              color: '#00ff00',
+              fontFamily: "'Courier New', monospace",
+              fontSize: '12px',
+            }}
+          >
+            Cast image overlays
+          </span>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: '#00ff00',
+              fontFamily: "'Courier New', monospace",
+              fontSize: '12px',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={includeCastOverlays}
+              onChange={(event) => onToggleOverlays(event.target.checked)}
+              disabled={isCasting}
+              style={{ width: '16px', height: '16px' }}
+            />
+            Include rarity + frame overlays
+          </label>
+        </div>
 
         <div
           style={{

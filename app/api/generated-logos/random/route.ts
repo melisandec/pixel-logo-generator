@@ -16,15 +16,14 @@ export async function GET() {
       { status: 503 },
     );
   }
+
   try {
     const count = await prisma.generatedLogo.count();
-
     if (count === 0) {
       return NextResponse.json({ error: "No entries found" }, { status: 404 });
     }
 
     const randomSkip = Math.floor(Math.random() * count);
-
     const entry = await prisma.generatedLogo.findMany({
       take: 1,
       skip: randomSkip,
@@ -41,7 +40,7 @@ export async function GET() {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2021"
     ) {
-      // Fall back to legacy table if new one missing
+      // Fall back to legacy table if new one is missing
       try {
         const count = await prisma.leaderboardEntry.count();
         if (count === 0) {
@@ -64,12 +63,13 @@ export async function GET() {
         }
         return NextResponse.json({ entry: entry[0] });
       } catch (legacyError) {
-        console.error("Random entry legacy fallback error:", legacyError);
+        console.error("Random logo legacy fallback error:", legacyError);
       }
     }
-    console.error("Random entry fetch error:", error);
+
+    console.error("Random logo fetch error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch random entry" },
+      { error: "Failed to fetch random logo" },
       { status: 500 },
     );
   }
