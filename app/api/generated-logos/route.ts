@@ -225,7 +225,7 @@ export async function GET(request: Request) {
           take: 500,
         }),
         // For legacy entries, apply casted filter if requested
-        (params.get('casted') === 'true')
+        (searchParams.get('casted') === 'true')
           ? prisma.leaderboardEntry.findMany({
               where: { castUrl: { not: null } },
               orderBy: [{ likes: 'desc' }, { createdAt: 'desc' }],
@@ -294,7 +294,7 @@ export async function GET(request: Request) {
         take: 500,
       }),
       // For legacy entries, apply casted filter if requested
-      (params.get('casted') === 'true')
+      (searchParams.get('casted') === 'true')
         ? prisma.leaderboardEntry.findMany({
             where: { castUrl: { not: null } },
             orderBy: { createdAt: 'desc' },
