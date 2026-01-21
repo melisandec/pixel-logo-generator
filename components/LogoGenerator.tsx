@@ -796,7 +796,7 @@ export default function LogoGenerator() {
     try {
       const castedParam = galleryViewMode === "casts" ? "&casted=true" : "";
       const response = await fetch(
-        `/api/generated-logos?sort=recent&scope=recent&limit=80${castedParam}`,
+        `/api/generated-logos?sort=recent&limit=200${castedParam}`,
       );
       if (!response.ok) {
         throw new Error("Failed to fetch gallery");
