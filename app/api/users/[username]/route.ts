@@ -46,10 +46,11 @@ export async function GET(
   const username = params.username.toLowerCase();
 
   try {
+    // Retrieve ALL user entries without limiting
     const entries = await prisma.generatedLogo.findMany({
       where: { username },
       orderBy: { createdAt: 'desc' },
-      take: 50,
+      // NO LIMIT - retrieve all historical data
     });
 
     const best =
@@ -63,17 +64,35 @@ export async function GET(
         return entry.createdAt > current.createdAt ? entry : current;
       }, null) ?? null;
     const latest = entries[0] ?? null;
-    return NextResponse.json({ username, best, latest, entries });
+    
+    // Calculate total stats across all entries
+    const totalStats = entries.reduce((acc, entry) => ({
+      totalLikes: acc.totalLikes + (entry.likes ?? 0),
+      totalRecasts: acc.totalRecasts + (entry.recasts ?? 0),
+      totalSaves: acc.totalSaves + ((entry as any).saves ?? 0),
+      totalRemixes: acc.totalRemixes + ((entry as any).remixes ?? 0),
+    }), { totalLikes: 0, totalRecasts: 0, totalSaves: 0, totalRemixes: 0 });
+    
+    return NextResponse.json({ 
+      username, 
+      best, 
+      latest, 
+      entries,
+      stats: {
+        totalLogos: entries.length,
+        ...totalStats,
+      },
+    });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2021'
     ) {
       await ensureGeneratedLogoTable();
+      // Retrieve ALL entries
       const entries = await prisma.generatedLogo.findMany({
         where: { username },
         orderBy: { createdAt: 'desc' },
-        take: 50,
       });
       const best =
         entries.reduce<typeof entries[number] | null>((current, entry) => {
@@ -86,15 +105,33 @@ export async function GET(
           return entry.createdAt > current.createdAt ? entry : current;
         }, null) ?? null;
       const latest = entries[0] ?? null;
-      return NextResponse.json({ username, best, latest, entries });
+      
+      const totalStats = entries.reduce((acc, entry) => ({
+        totalLikes: acc.totalLikes + (entry.likes ?? 0),
+        totalRecasts: acc.totalRecasts + (entry.recasts ?? 0),
+        totalSaves: acc.totalSaves + ((entry as any).saves ?? 0),
+        totalRemixes: acc.totalRemixes + ((entry as any).remixes ?? 0),
+      }), { totalLikes: 0, totalRecasts: 0, totalSaves: 0, totalRemixes: 0 });
+      
+      return NextResponse.json({ 
+        username, 
+        best, 
+        latest, 
+        entries,
+        stats: {
+          totalLogos: entries.length,
+          ...totalStats,
+        },
+      });
     }
 
     // Fallback to legacy table if generated logos missing
     try {
+      // Retrieve ALL legacy entries
       const legacy = await prisma.leaderboardEntry.findMany({
         where: { username },
         orderBy: { createdAt: 'desc' },
-        take: 25,
+        // NO LIMIT
       });
       const bestLegacy =
         legacy.reduce<typeof legacy[number] | null>((current, entry) => {
@@ -107,18 +144,30 @@ export async function GET(
           return entry.createdAt > current.createdAt ? entry : current;
         }, null) ?? null;
       const latestLegacy = legacy[0] ?? null;
+      
+      const totalStats = legacy.reduce((acc, entry) => ({
+        totalLikes: acc.totalLikes + (entry.likes ?? 0),
+        totalRecasts: acc.totalRecasts + (entry.recasts ?? 0),
+        totalSaves: acc.totalSaves + ((entry as any).saves ?? 0),
+        totalRemixes: acc.totalRemixes + ((entry as any).remixes ?? 0),
+      }), { totalLikes: 0, totalRecasts: 0, totalSaves: 0, totalRemixes: 0 });
+      
       return NextResponse.json({
         username,
         best: bestLegacy,
         latest: latestLegacy,
         entries: legacy,
+        stats: {
+          totalLogos: legacy.length,
+          ...totalStats,
+        },
       });
     } catch (legacyError) {
       console.error('Profile fallback failed:', legacyError);
     }
     console.error('Profile load error:', error);
     return NextResponse.json(
-      { username, best: null, latest: null, entries: [] },
+      { username, best: null, latest: null, entries: [], stats: { totalLogos: 0, totalLikes: 0, totalRecasts: 0, totalSaves: 0, totalRemixes: 0 } },
       { status: 200 },
     );
   }
