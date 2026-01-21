@@ -529,3 +529,35 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Failed to update logo' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const id = url.searchParams.get('id');
+    let targetId = id;
+    if (!targetId) {
+      try {
+        const body = await request.json();
+        targetId = body?.id;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!targetId) {
+      return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    }
+
+    await prisma.generatedLogo.delete({ where: { id: targetId } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2025'
+    ) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    console.error('generated-logos DELETE error:', error);
+    return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
+  }
+}
