@@ -8,7 +8,10 @@
     "vercel-build": "prisma migrate deploy && prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "admin:health": "node data-integrity-monitor.js",
+    "admin:recover": "node recover-missing-entry.js",
+    "admin:diagnostic": "node db-diagnostic.js"
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.2.1",
