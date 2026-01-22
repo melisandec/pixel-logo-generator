@@ -21,6 +21,9 @@ import OnboardingWizard from "./OnboardingWizard";
 import FeedbackModal from "./FeedbackModal";
 import RewardAnimation from "./RewardAnimation";
 import SearchBar from "./SearchBar";
+import FilterBar from "./FilterBar";
+import EmptyState from "./EmptyState";
+import ResultCount from "./ResultCount";
 
 const CastPreviewModal = dynamic(() => import("./CastPreviewModal"), {
   ssr: false,
@@ -320,36 +323,53 @@ export default function LogoGenerator() {
     number | undefined
   >(undefined);
   const [includeCastOverlays, setIncludeCastOverlays] = useState(true);
-  const [userStats, setUserStats] = useState<
-    | {
-        username: string;
-        rank?: string | null;
-        support?: number;
-        influence?: number;
-        creation?: number;
-        discovery?: number;
-        totalPower?: number;
-        bestRarity?: string | null;
-      }
-    | null
-  >(null);
+  const [userStats, setUserStats] = useState<{
+    username: string;
+    rank?: string | null;
+    support?: number;
+    influence?: number;
+    creation?: number;
+    discovery?: number;
+    totalPower?: number;
+    bestRarity?: string | null;
+  } | null>(null);
   const [userRewards, setUserRewards] = useState<
-    Array<{ rewardType: string; unlockedAt?: string; metadata?: Record<string, unknown> }>
+    Array<{
+      rewardType: string;
+      unlockedAt?: string;
+      metadata?: Record<string, unknown>;
+    }>
   >([]);
   const [rewardRegistry, setRewardRegistry] = useState<
-    Array<{ rewardType: string; title?: string; description?: string; threshold?: number; stat?: string }>
+    Array<{
+      rewardType: string;
+      title?: string;
+      description?: string;
+      threshold?: number;
+      stat?: string;
+    }>
   >([]);
   const previousRewardTypes = useRef<Set<string>>(new Set());
-  const [trendingData, setTrendingData] = useState<
-    | {
-        mostUsedWords: Array<{ word: string; count: number }>;
-        popularSeeds: Array<{ seed: number; count: number }>;
-        rarityDistribution: Array<{ rarity: string; count: number }>;
-        mostLikedLogos: Array<{ id: string; text: string; seed: number; rarity: string | null; logoImageUrl: string | null; imageUrl: string | null; cardImageUrl: string | null; likes: number; recasts: number; saves: number; remixes: number; username: string | null }>;
-        windowDays: number;
-      }
-    | null
-  >(null);
+  const [trendingData, setTrendingData] = useState<{
+    mostUsedWords: Array<{ word: string; count: number }>;
+    popularSeeds: Array<{ seed: number; count: number }>;
+    rarityDistribution: Array<{ rarity: string; count: number }>;
+    mostLikedLogos: Array<{
+      id: string;
+      text: string;
+      seed: number;
+      rarity: string | null;
+      logoImageUrl: string | null;
+      imageUrl: string | null;
+      cardImageUrl: string | null;
+      likes: number;
+      recasts: number;
+      saves: number;
+      remixes: number;
+      username: string | null;
+    }>;
+    windowDays: number;
+  } | null>(null);
   const [logoHistory, setLogoHistory] = useState<LogoHistoryItem[]>([]);
   const [favorites, setFavorites] = useState<LogoHistoryItem[]>([]);
   const [remixMode, setRemixMode] = useState(false);
@@ -361,9 +381,10 @@ export default function LogoGenerator() {
   const [galleryEntries, setGalleryEntries] = useState<LeaderboardEntry[]>([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
-  const [galleryViewMode, setGalleryViewMode] = useState<"logos" | "casts">("logos");
+  const [galleryViewMode, setGalleryViewMode] = useState<"logos" | "casts">(
+    "logos",
+  );
   const [galleryRarityFilter, setGalleryRarityFilter] = useState<string>("all");
-  const [galleryPresetFilter, setGalleryPresetFilter] = useState<string>("all");
   const [galleryPage, setGalleryPage] = useState(1);
   const [likedEntryIds, setLikedEntryIds] = useState<Set<string>>(new Set());
   const [profileData, setProfileData] = useState<UserProfile | null>(null);
@@ -683,7 +704,8 @@ export default function LogoGenerator() {
           (item.id && /^0x[a-fA-F0-9]{64}$/.test(item.id)
             ? `https://warpcast.com/~/cast/${item.id}`
             : undefined);
-        const logoImageUrl = item.logoImageUrl || item.mediumImageUrl || item.imageUrl;
+        const logoImageUrl =
+          item.logoImageUrl || item.mediumImageUrl || item.imageUrl;
         const thumbImageUrl = item.thumbImageUrl || logoImageUrl;
         const mediumImageUrl = item.mediumImageUrl || logoImageUrl;
         const cardImageUrl = item.cardImageUrl;
@@ -697,7 +719,12 @@ export default function LogoGenerator() {
           recasts: item.recasts ?? 0,
           saves: item.saves ?? 0,
           remixes: item.remixes ?? 0,
-          imageUrl: thumbImageUrl || logoImageUrl || item.imageUrl || cardImageUrl || "",
+          imageUrl:
+            thumbImageUrl ||
+            logoImageUrl ||
+            item.imageUrl ||
+            cardImageUrl ||
+            "",
           logoImageUrl,
           thumbImageUrl,
           mediumImageUrl,
@@ -827,7 +854,12 @@ export default function LogoGenerator() {
     } finally {
       setGalleryLoading(false);
     }
-  }, [activeTab, galleryViewMode, getSeenTimestamp, normalizeLeaderboardEntries]);
+  }, [
+    activeTab,
+    galleryViewMode,
+    getSeenTimestamp,
+    normalizeLeaderboardEntries,
+  ]);
 
   const loadProfileData = useCallback(
     async (username: string) => {
@@ -885,7 +917,11 @@ export default function LogoGenerator() {
       if (!response.ok) return;
       const data = (await response.json()) as {
         stats?: typeof userStats;
-        rewards?: Array<{ rewardType: string; unlockedAt?: string; metadata?: Record<string, unknown> }>;
+        rewards?: Array<{
+          rewardType: string;
+          unlockedAt?: string;
+          metadata?: Record<string, unknown>;
+        }>;
         registry?: Array<{
           rewardType: string;
           title?: string;
@@ -1160,16 +1196,20 @@ export default function LogoGenerator() {
             overrides?.username?.toLowerCase?.() ??
             userInfo?.username?.toLowerCase?.() ??
             undefined,
-          userId: overrides?.userId ?? (userInfo?.fid ? String(userInfo.fid) : undefined),
+          userId:
+            overrides?.userId ??
+            (userInfo?.fid ? String(userInfo.fid) : undefined),
           displayName:
             overrides?.displayName ??
             userInfo?.username ??
-            (overrides?.username ?? undefined) ??
+            overrides?.username ??
+            undefined ??
             undefined,
           pfpUrl: overrides?.pfpUrl ?? undefined,
           imageUrl: imageUrl ?? logoImageUrl ?? cardImageUrl ?? "",
           thumbImageUrl: thumbImageUrl ?? imageUrl ?? logoImageUrl ?? undefined,
-          mediumImageUrl: mediumImageUrl ?? cardImageUrl ?? logoImageUrl ?? undefined,
+          mediumImageUrl:
+            mediumImageUrl ?? cardImageUrl ?? logoImageUrl ?? undefined,
           logoImageUrl: logoImageUrl ?? undefined,
           cardImageUrl: cardImageUrl ?? undefined,
           castUrl: overrides?.castUrl ?? undefined,
@@ -1261,20 +1301,14 @@ export default function LogoGenerator() {
         }
 
         setLeaderboard((prev) => {
-          const merged = normalizeLeaderboardEntries([
-            ...normalized,
-            ...prev,
-          ]);
+          const merged = normalizeLeaderboardEntries([...normalized, ...prev]);
           const trimmed = merged.slice(0, 50);
           saveLeaderboard(trimmed);
           return trimmed;
         });
 
         setGalleryEntries((prev) => {
-          const merged = normalizeLeaderboardEntries([
-            ...normalized,
-            ...prev,
-          ]);
+          const merged = normalizeLeaderboardEntries([...normalized, ...prev]);
           return merged.slice(0, 80);
         });
         return;
@@ -3207,7 +3241,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
               castHash && /^0x[a-fA-F0-9]{64}$/.test(castHash)
                 ? `https://warpcast.com/~/cast/${castHash}`
                 : undefined;
-            
+
             // Mark logo as casted in the database
             try {
               await fetch("/api/generated-logos", {
@@ -3683,35 +3717,17 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
   }, [sortedLeaderboard, triggerMoment, userInfo?.username]);
 
   const galleryRarityOptions = ["all", ...RARITY_OPTIONS, "Unknown"];
-  const galleryPresetOptions = [
-    "all",
-    ...PRESETS.map((preset) => preset.key),
-    "Unknown",
-  ];
-  const presetLabelMap = PRESETS.reduce<Record<string, string>>(
-    (acc, preset) => {
-      acc[preset.key] = preset.label;
-      return acc;
-    },
-    {},
-  );
   const filteredGalleryEntries = galleryEntries
     .filter((entry) => {
       const rarityValue = entry.rarity
         ? String(entry.rarity).toUpperCase()
         : "UNKNOWN";
-      const presetValue = entry.presetKey ?? "Unknown";
       const matchesRarity =
         galleryRarityFilter === "all" ||
         (galleryRarityFilter === "Unknown"
           ? rarityValue === "UNKNOWN"
           : rarityValue === galleryRarityFilter);
-      const matchesPreset =
-        galleryPresetFilter === "all" ||
-        (galleryPresetFilter === "Unknown"
-          ? presetValue === "Unknown"
-          : presetValue === galleryPresetFilter);
-      return matchesRarity && matchesPreset;
+      return matchesRarity;
     })
     .sort((a, b) => {
       const bCreated =
@@ -3811,6 +3827,18 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
     openGalleryEntry(entry, "Surprise cast loaded!");
   }, [filteredGalleryEntries, openGalleryEntry]);
 
+  const handleRandomFromGallery = useCallback(() => {
+    if (filteredGalleryEntries.length === 0) {
+      setToast({ message: "No casts available.", type: "info" });
+      return;
+    }
+    const entry =
+      filteredGalleryEntries[
+        Math.floor(Math.random() * filteredGalleryEntries.length)
+      ];
+    openGalleryEntry(entry, "Random cast loaded!");
+  }, [filteredGalleryEntries, openGalleryEntry]);
+
   const leaderboardTotalPages = Math.max(
     1,
     Math.ceil(sortedLeaderboard.length / leaderboardPageSize),
@@ -3830,14 +3858,24 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
 
   const castGalleryContent = (
     <div className="cast-gallery">
-      <div className="leaderboard-title">{galleryViewMode === "logos" ? "Logo Gallery" : "Cast Gallery"}</div>
+      <div className="leaderboard-title">
+        {galleryViewMode === "logos" ? "Logo Gallery" : "Cast Gallery"}
+      </div>
       <div className="gallery-meta">
-        {galleryViewMode === "logos" 
+        {galleryViewMode === "logos"
           ? `All generated logos - ${filteredGalleryEntries.length} shown`
           : `Recent casts from the community - ${filteredGalleryEntries.length} shown`}
       </div>
 
-      <div className="gallery-view-toggle" style={{ display: "flex", gap: "8px", justifyContent: "center", marginBottom: "8px" }}>
+      <div
+        className="gallery-view-toggle"
+        style={{
+          display: "flex",
+          gap: "8px",
+          justifyContent: "center",
+          marginBottom: "8px",
+        }}
+      >
         <button
           type="button"
           className={`gallery-toggle-button${galleryViewMode === "logos" ? " active" : ""}`}
@@ -3882,86 +3920,49 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
         </button>
       </div>
 
-      {/* NEW: Search Bar */}
-      <div style={{ padding: "4px 0", margin: "0 auto" }}>
-        <SearchBar
-          showRandomButton={true}
-          onRandom={handleRandomEntry}
-          onSearch={async (query, type) => {
-            try {
-              const response = await fetch(
-                `/api/search?q=${encodeURIComponent(query)}&type=${type}&limit=20`,
-              );
-              if (response.ok) {
-                const data = await response.json();
-                if (data.results && data.results.length > 0) {
-                  setGalleryEntries(data.results);
-                  setToast({
-                    message: `Found ${data.results.length} result(s)`,
-                    type: "success",
-                  });
-                } else {
-                  setToast({ message: "No results found", type: "info" });
-                }
+      {/* NEW: Redesigned Filter Bar */}
+      <FilterBar
+        onSearch={async (query) => {
+          if (!query.trim()) {
+            // Reset to full gallery if search is cleared
+            setGalleryPage(1);
+            return;
+          }
+          try {
+            const response = await fetch(
+              `/api/search?q=${encodeURIComponent(query)}&limit=100`,
+            );
+            if (response.ok) {
+              const data = await response.json();
+              if (data.results && data.results.length > 0) {
+                setGalleryEntries(data.results);
+                setToast({
+                  message: `Found ${data.results.length} result(s)`,
+                  type: "success",
+                });
+              } else {
+                setToast({ message: "No results found", type: "info" });
               }
-            } catch (error) {
-              console.error("Search error:", error);
-              setToast({ message: "Search failed", type: "error" });
             }
-          }}
-        />
-      </div>
-
-      <div className="gallery-actions-top">
-        <button
-          type="button"
-          className="gallery-action-button"
-          onClick={handleRandomLegendary}
-        >
-          Random Legendary
-        </button>
-        <button
-          type="button"
-          className="gallery-action-button"
-          onClick={handleSurpriseMe}
-        >
-          Surprise Me
-        </button>
-      </div>
-      <div className="gallery-filters">
-        <label className="gallery-filter">
-          <span>Rarity</span>
-          <select
-            value={galleryRarityFilter}
-            onChange={(event) => {
-              setGalleryRarityFilter(event.target.value);
-              setGalleryPage(1);
-            }}
-          >
-            {galleryRarityOptions.map((option) => (
-              <option key={`rarity-${option}`} value={option}>
-                {option === "all" ? "All" : option}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="gallery-filter">
-          <span>Preset</span>
-          <select
-            value={galleryPresetFilter}
-            onChange={(event) => {
-              setGalleryPresetFilter(event.target.value);
-              setGalleryPage(1);
-            }}
-          >
-            {galleryPresetOptions.map((option) => (
-              <option key={`preset-${option}`} value={option}>
-                {option === "all" ? "All" : (presetLabelMap[option] ?? option)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+          } catch (error) {
+            console.error("Search error:", error);
+            setToast({ message: "Search failed", type: "error" });
+          }
+        }}
+        onRarityChange={(rarity) => {
+          setGalleryRarityFilter(rarity || "all");
+          setGalleryPage(1);
+        }}
+        activeFilters={{
+          rarity: galleryRarityFilter === "all" ? null : galleryRarityFilter,
+        }}
+        resultCount={filteredGalleryEntries.length}
+        totalFilters={galleryRarityFilter !== "all" ? 1 : 0}
+        onClearFilters={() => {
+          setGalleryRarityFilter("all");
+          setGalleryPage(1);
+        }}
+      />
       {galleryLoading && (
         <div className="leaderboard-status">Loading gallery...</div>
       )}
@@ -3969,9 +3970,13 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
       {!galleryLoading &&
         !galleryError &&
         filteredGalleryEntries.length === 0 && (
-          <div className="leaderboard-status">
-            No casts match those filters yet.
-          </div>
+          <EmptyState
+            onClearFilters={() => {
+              setGalleryRarityFilter("all");
+              setGalleryPage(1);
+            }}
+            onTryRandom={handleRandomFromGallery}
+          />
         )}
       {filteredGalleryEntries.length > 0 && (
         <div className="gallery-grid">
@@ -3984,31 +3989,30 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
             const rarityValue = entry.rarity
               ? String(entry.rarity).toUpperCase()
               : "Unknown";
-            const presetValue = entry.presetKey
-              ? (presetLabelMap[entry.presetKey] ?? entry.presetKey)
-              : "Unknown";
+            const presetValue = entry.presetKey ?? "Unknown";
             // Use card image for cast gallery, logo image for logo gallery
-            const galleryImageUrl = galleryViewMode === "casts" 
-              ? getImageForContext(
-                  {
-                    logoImageUrl: entry.logoImageUrl,
-                    cardImageUrl: entry.cardImageUrl,
-                    thumbImageUrl: entry.thumbImageUrl,
-                    mediumImageUrl: entry.mediumImageUrl,
-                    imageUrl: entry.imageUrl,
-                  },
-                  "share",
-                )
-              : getImageForContext(
-                  {
-                    logoImageUrl: entry.logoImageUrl,
-                    cardImageUrl: entry.cardImageUrl,
-                    thumbImageUrl: entry.thumbImageUrl,
-                    mediumImageUrl: entry.mediumImageUrl,
-                    imageUrl: entry.imageUrl,
-                  },
-                  "gallery",
-                );
+            const galleryImageUrl =
+              galleryViewMode === "casts"
+                ? getImageForContext(
+                    {
+                      logoImageUrl: entry.logoImageUrl,
+                      cardImageUrl: entry.cardImageUrl,
+                      thumbImageUrl: entry.thumbImageUrl,
+                      mediumImageUrl: entry.mediumImageUrl,
+                      imageUrl: entry.imageUrl,
+                    },
+                    "share",
+                  )
+                : getImageForContext(
+                    {
+                      logoImageUrl: entry.logoImageUrl,
+                      cardImageUrl: entry.cardImageUrl,
+                      thumbImageUrl: entry.thumbImageUrl,
+                      mediumImageUrl: entry.mediumImageUrl,
+                      imageUrl: entry.imageUrl,
+                    },
+                    "gallery",
+                  );
             const CardBody = (
               <>
                 {galleryImageUrl ? (
@@ -4416,16 +4420,31 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
   );
 
   const supportPower = userStats?.support ?? likedEntryIds.size;
-  const influencePower = userStats?.influence ??
-    (profileData?.entries?.reduce(
+  const influencePower =
+    userStats?.influence ??
+    profileData?.entries?.reduce(
       (sum, entry) =>
-        sum + (entry.likes ?? 0) + ((entry.recasts ?? 0) ? (entry.recasts ?? 0) * 2 : 0),
+        sum +
+        (entry.likes ?? 0) +
+        ((entry.recasts ?? 0) ? (entry.recasts ?? 0) * 2 : 0),
       0,
-    ) ?? 0);
+    ) ??
+    0;
   const creationPower = userStats?.creation ?? generationCount;
-  const discoveryPower = userStats?.discovery ?? (profileData?.entries?.length ?? 0);
-  const totalPower = userStats?.totalPower ?? (supportPower + influencePower + creationPower + discoveryPower);
-  const powerRank = userStats?.rank ?? (totalPower >= 500 ? "S" : totalPower >= 250 ? "A" : totalPower >= 100 ? "B" : "C");
+  const discoveryPower =
+    userStats?.discovery ?? profileData?.entries?.length ?? 0;
+  const totalPower =
+    userStats?.totalPower ??
+    supportPower + influencePower + creationPower + discoveryPower;
+  const powerRank =
+    userStats?.rank ??
+    (totalPower >= 500
+      ? "S"
+      : totalPower >= 250
+        ? "A"
+        : totalPower >= 100
+          ? "B"
+          : "C");
 
   const getTierLabel = (
     value: number,
@@ -4470,7 +4489,9 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
             {powerRank}
           </div>
           <div>
-            <div style={{ fontSize: "16px", fontWeight: "bold" }}>{totalPower.toLocaleString()} ⚡</div>
+            <div style={{ fontSize: "16px", fontWeight: "bold" }}>
+              {totalPower.toLocaleString()} ⚡
+            </div>
             <div style={{ color: "#00aa00", fontSize: "8px" }}>FORGE POWER</div>
           </div>
         </div>
@@ -4478,68 +4499,70 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
 
       {/* Compact Pixel Stat Rows */}
       <div style={{ display: "grid", gap: "4px" }}>
-        {[{
-          icon: "♥",
-          name: "Support",
-          value: supportPower,
-          max: 300,
-          tier: getTierLabel(supportPower, [
-            { min: 250, label: "Gold Heart" },
-            { min: 50, label: "Silver Heart" },
-            { min: 0, label: "Bronze Heart" },
-          ]),
-          color: "#ff3366",
-          unlocks: "Frame accents, glow effects, badge types",
-          description: "Likes you've given to other creators",
-        },
-        {
-          icon: "★",
-          name: "Influence",
-          value: influencePower,
-          max: 150,
-          tier: getTierLabel(influencePower, [
-            { min: 100, label: "Legendary Glow" },
-            { min: 10, label: "Neon Aura" },
-            { min: 0, label: "Pixel Spark" },
-          ]),
-          color: "#ffdd00",
-          unlocks: "Aura colors, highlights, animations",
-          description: "Likes your logos have earned",
-        },
-        {
-          icon: "🎨",
-          name: "Creation",
-          value: creationPower,
-          max: 200,
-          tier: getTierLabel(creationPower, [
-            { min: 150, label: "Master Crafter" },
-            { min: 50, label: "Steady Artisan" },
-            { min: 0, label: "New Forger" },
-          ]),
-          color: "#ff9900",
-          unlocks: "Palettes, backgrounds, badge styles",
-          description: "Total logos you've generated",
-        },
-        {
-          icon: "🔁",
-          name: "Discovery",
-          value: discoveryPower,
-          max: 120,
-          tier: getTierLabel(discoveryPower, [
-            { min: 100, label: "Legendary Signal" },
-            { min: 25, label: "Neon Signal" },
-            { min: 0, label: "Spark" },
-          ]),
-          color: "#00ddff",
-          unlocks: "Profile highlights, share boosts",
-          description: "People interacting with your logos",
-        }].map((stat) => {
+        {[
+          {
+            icon: "♥",
+            name: "Support",
+            value: supportPower,
+            max: 300,
+            tier: getTierLabel(supportPower, [
+              { min: 250, label: "Gold Heart" },
+              { min: 50, label: "Silver Heart" },
+              { min: 0, label: "Bronze Heart" },
+            ]),
+            color: "#ff3366",
+            unlocks: "Frame accents, glow effects, badge types",
+            description: "Likes you've given to other creators",
+          },
+          {
+            icon: "★",
+            name: "Influence",
+            value: influencePower,
+            max: 150,
+            tier: getTierLabel(influencePower, [
+              { min: 100, label: "Legendary Glow" },
+              { min: 10, label: "Neon Aura" },
+              { min: 0, label: "Pixel Spark" },
+            ]),
+            color: "#ffdd00",
+            unlocks: "Aura colors, highlights, animations",
+            description: "Likes your logos have earned",
+          },
+          {
+            icon: "🎨",
+            name: "Creation",
+            value: creationPower,
+            max: 200,
+            tier: getTierLabel(creationPower, [
+              { min: 150, label: "Master Crafter" },
+              { min: 50, label: "Steady Artisan" },
+              { min: 0, label: "New Forger" },
+            ]),
+            color: "#ff9900",
+            unlocks: "Palettes, backgrounds, badge styles",
+            description: "Total logos you've generated",
+          },
+          {
+            icon: "🔁",
+            name: "Discovery",
+            value: discoveryPower,
+            max: 120,
+            tier: getTierLabel(discoveryPower, [
+              { min: 100, label: "Legendary Signal" },
+              { min: 25, label: "Neon Signal" },
+              { min: 0, label: "Spark" },
+            ]),
+            color: "#00ddff",
+            unlocks: "Profile highlights, share boosts",
+            description: "People interacting with your logos",
+          },
+        ].map((stat) => {
           const pct = Math.min(100, Math.round((stat.value / stat.max) * 100));
           const segments = 8;
           const filled = Math.round((pct / 100) * segments);
           const barString = "■".repeat(filled) + "□".repeat(segments - filled);
           const isExpanded = expandedStat === stat.name;
-          
+
           return (
             <div key={stat.name} style={{ display: "grid", gap: "2px" }}>
               {/* Main Row */}
@@ -4560,19 +4583,38 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
                 }}
                 title="Tap to see what this unlocks"
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "4px", minWidth: "85px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    minWidth: "85px",
+                  }}
+                >
                   <span style={{ fontSize: "13px" }}>{stat.icon}</span>
-                  <span style={{ fontWeight: "bold", color: "#00aa00" }}>{stat.name}</span>
+                  <span style={{ fontWeight: "bold", color: "#00aa00" }}>
+                    {stat.name}
+                  </span>
                 </div>
-                <div style={{ fontSize: "20px", fontWeight: "bold", textAlign: "center", color: "#00ff00", textShadow: `0 0 4px ${stat.color}` }}>
+                <div
+                  style={{
+                    fontSize: "20px",
+                    fontWeight: "bold",
+                    textAlign: "center",
+                    color: "#00ff00",
+                    textShadow: `0 0 4px ${stat.color}`,
+                  }}
+                >
                   {stat.value}
                 </div>
-                <div style={{ 
-                  fontFamily: "monospace", 
-                  color: stat.color,
-                  fontSize: "11px",
-                  letterSpacing: "1px",
-                }}>
+                <div
+                  style={{
+                    fontFamily: "monospace",
+                    color: stat.color,
+                    fontSize: "11px",
+                    letterSpacing: "1px",
+                  }}
+                >
                   {barString}
                 </div>
                 <div
@@ -4587,7 +4629,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
                   {stat.tier}
                 </div>
               </div>
-              
+
               {/* Expanded Info Panel */}
               {isExpanded && (
                 <div
@@ -4602,9 +4644,25 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
                     color: "#00aa00",
                   }}
                 >
-                  <div style={{ color: stat.color, fontWeight: "bold", fontSize: "10px" }}>What it unlocks</div>
+                  <div
+                    style={{
+                      color: stat.color,
+                      fontWeight: "bold",
+                      fontSize: "10px",
+                    }}
+                  >
+                    What it unlocks
+                  </div>
                   <div>{stat.unlocks}</div>
-                  <div style={{ color: "#007700", fontSize: "8px", marginTop: "2px" }}>↳ {stat.description}</div>
+                  <div
+                    style={{
+                      color: "#007700",
+                      fontSize: "8px",
+                      marginTop: "2px",
+                    }}
+                  >
+                    ↳ {stat.description}
+                  </div>
                 </div>
               )}
             </div>
@@ -4621,37 +4679,52 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
           gap: "8px",
         }}
       >
-        <div style={{ fontWeight: "bold", fontSize: "13px", color: "#00ff00", textShadow: "0 0 6px rgba(0,255,0,0.5)" }}>🎯 ARCADE MISSIONS</div>
+        <div
+          style={{
+            fontWeight: "bold",
+            fontSize: "13px",
+            color: "#00ff00",
+            textShadow: "0 0 6px rgba(0,255,0,0.5)",
+          }}
+        >
+          🎯 ARCADE MISSIONS
+        </div>
         <div style={{ display: "grid", gap: "4px" }}>
-          {[{
-            icon: "❤️",
-            title: "Like 10 logos",
-            rewardIcon: "🎁",
-            reward: "Pixel Spark",
-            progress: Math.min(10, supportPower % 10),
-            target: 10,
-          },
-          {
-            icon: "⭐",
-            title: "Receive 5 likes",
-            rewardIcon: "🎁",
-            reward: "Neon Frame",
-            progress: Math.min(5, Math.round(influencePower / 5)),
-            target: 5,
-          },
-          {
-            icon: "🎨",
-            title: "Generate 3 logos",
-            rewardIcon: "🎁",
-            reward: "New background",
-            progress: Math.min(3, creationPower % 3),
-            target: 3,
-          }].map((mission) => {
-            const pct = Math.min(100, Math.round((mission.progress / mission.target) * 100));
+          {[
+            {
+              icon: "❤️",
+              title: "Like 10 logos",
+              rewardIcon: "🎁",
+              reward: "Pixel Spark",
+              progress: Math.min(10, supportPower % 10),
+              target: 10,
+            },
+            {
+              icon: "⭐",
+              title: "Receive 5 likes",
+              rewardIcon: "🎁",
+              reward: "Neon Frame",
+              progress: Math.min(5, Math.round(influencePower / 5)),
+              target: 5,
+            },
+            {
+              icon: "🎨",
+              title: "Generate 3 logos",
+              rewardIcon: "🎁",
+              reward: "New background",
+              progress: Math.min(3, creationPower % 3),
+              target: 3,
+            },
+          ].map((mission) => {
+            const pct = Math.min(
+              100,
+              Math.round((mission.progress / mission.target) * 100),
+            );
             const segments = 6;
             const filled = Math.round((pct / 100) * segments);
-            const barString = "■".repeat(filled) + "□".repeat(segments - filled);
-            
+            const barString =
+              "■".repeat(filled) + "□".repeat(segments - filled);
+
             return (
               <div
                 key={mission.title}
@@ -4667,19 +4740,37 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
                 }}
                 title={mission.reward}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: "100px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    minWidth: "100px",
+                  }}
+                >
                   <span style={{ fontSize: "12px" }}>{mission.icon}</span>
-                  <span style={{ fontWeight: "bold", color: "#00aa00" }}>{mission.title}</span>
+                  <span style={{ fontWeight: "bold", color: "#00aa00" }}>
+                    {mission.title}
+                  </span>
                 </div>
-                <div style={{ fontSize: "12px", color: "#00dd00", textAlign: "center", fontWeight: "bold" }}>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "#00dd00",
+                    textAlign: "center",
+                    fontWeight: "bold",
+                  }}
+                >
                   {mission.progress}/{mission.target}
                 </div>
-                <div style={{ 
-                  fontFamily: "monospace", 
-                  color: "#00dd00",
-                  fontSize: "11px",
-                  letterSpacing: "2px",
-                }}>
+                <div
+                  style={{
+                    fontFamily: "monospace",
+                    color: "#00dd00",
+                    fontSize: "11px",
+                    letterSpacing: "2px",
+                  }}
+                >
                   {barString}
                 </div>
                 <div style={{ fontSize: "13px" }} title={mission.reward}>
@@ -4701,7 +4792,16 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
             gap: "8px",
           }}
         >
-          <div style={{ fontWeight: "bold", fontSize: "13px", color: "#00ff00", textShadow: "0 0 6px rgba(0,255,0,0.5)" }}>🔓 UNLOCKS</div>
+          <div
+            style={{
+              fontWeight: "bold",
+              fontSize: "13px",
+              color: "#00ff00",
+              textShadow: "0 0 6px rgba(0,255,0,0.5)",
+            }}
+          >
+            🔓 UNLOCKS
+          </div>
           <div style={{ fontSize: "9px", color: "#00aa00" }}>
             Earn these by growing your forge stats
           </div>
@@ -4726,7 +4826,9 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
                     opacity: unlocked ? 1 : 0.65,
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
                     <div style={{ fontWeight: "bold" }}>
                       {reward.title ?? reward.rewardType}
                     </div>
@@ -4738,7 +4840,8 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
                     {reward.description ?? "Earn by boosting your stats"}
                   </div>
                   <div style={{ fontSize: "10px", color: "#00aa00" }}>
-                    Unlocks at {reward.threshold ?? "?"} {reward.stat ?? "power"}
+                    Unlocks at {reward.threshold ?? "?"}{" "}
+                    {reward.stat ?? "power"}
                   </div>
                 </div>
               );
@@ -4757,30 +4860,113 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
             gap: "4px",
           }}
         >
-          <div style={{ fontWeight: "bold", fontSize: "13px", color: "#00ff00", textShadow: "0 0 6px rgba(0,255,0,0.5)" }}>📊 TRENDING ({trendingData.windowDays}d)</div>
-          <div style={{ display: "grid", gap: "4px", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-            <div style={{ border: "0.7px solid #00ff00", padding: "4px", background: "#0a0e27" }}>
-              <div style={{ fontWeight: "bold", fontSize: "9px", color: "#00dd00" }}>Top Prompts</div>
+          <div
+            style={{
+              fontWeight: "bold",
+              fontSize: "13px",
+              color: "#00ff00",
+              textShadow: "0 0 6px rgba(0,255,0,0.5)",
+            }}
+          >
+            📊 TRENDING ({trendingData.windowDays}d)
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gap: "4px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            }}
+          >
+            <div
+              style={{
+                border: "0.7px solid #00ff00",
+                padding: "4px",
+                background: "#0a0e27",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "9px",
+                  color: "#00dd00",
+                }}
+              >
+                Top Prompts
+              </div>
               <div style={{ fontSize: "8px", color: "#00aa00" }}>
-                {trendingData.mostUsedWords.slice(0, 5).map((w) => `${w.word} (${w.count})`).join(", ") || "--"}
+                {trendingData.mostUsedWords
+                  .slice(0, 5)
+                  .map((w) => `${w.word} (${w.count})`)
+                  .join(", ") || "--"}
               </div>
             </div>
-            <div style={{ border: "0.7px solid #00ff00", padding: "4px", background: "#0a0e27" }}>
-              <div style={{ fontWeight: "bold", fontSize: "9px", color: "#00dd00" }}>Popular Seeds</div>
+            <div
+              style={{
+                border: "0.7px solid #00ff00",
+                padding: "4px",
+                background: "#0a0e27",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "9px",
+                  color: "#00dd00",
+                }}
+              >
+                Popular Seeds
+              </div>
               <div style={{ fontSize: "8px", color: "#00aa00" }}>
-                {trendingData.popularSeeds.slice(0, 5).map((s) => `${s.seed} (${s.count})`).join(", ") || "--"}
+                {trendingData.popularSeeds
+                  .slice(0, 5)
+                  .map((s) => `${s.seed} (${s.count})`)
+                  .join(", ") || "--"}
               </div>
             </div>
-            <div style={{ border: "0.7px solid #00ff00", padding: "4px", background: "#0a0e27" }}>
-              <div style={{ fontWeight: "bold", fontSize: "9px", color: "#00dd00" }}>Rarity Mix</div>
+            <div
+              style={{
+                border: "0.7px solid #00ff00",
+                padding: "4px",
+                background: "#0a0e27",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "9px",
+                  color: "#00dd00",
+                }}
+              >
+                Rarity Mix
+              </div>
               <div style={{ fontSize: "8px", color: "#00aa00" }}>
-                {trendingData.rarityDistribution.slice(0, 5).map((r) => `${r.rarity}: ${r.count}`).join(", ") || "--"}
+                {trendingData.rarityDistribution
+                  .slice(0, 5)
+                  .map((r) => `${r.rarity}: ${r.count}`)
+                  .join(", ") || "--"}
               </div>
             </div>
-            <div style={{ border: "0.7px solid #00ff00", padding: "4px", background: "#0a0e27" }}>
-              <div style={{ fontWeight: "bold", fontSize: "9px", color: "#00dd00" }}>Most Liked Logos</div>
+            <div
+              style={{
+                border: "0.7px solid #00ff00",
+                padding: "4px",
+                background: "#0a0e27",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "9px",
+                  color: "#00dd00",
+                }}
+              >
+                Most Liked Logos
+              </div>
               <div style={{ fontSize: "8px", color: "#00aa00" }}>
-                {trendingData.mostLikedLogos.slice(0, 3).map((l) => `#${l.seed} ${l.text} (${l.likes}❤)`).join(" • ") || "--"}
+                {trendingData.mostLikedLogos
+                  .slice(0, 3)
+                  .map((l) => `#${l.seed} ${l.text} (${l.likes}❤)`)
+                  .join(" • ") || "--"}
               </div>
             </div>
           </div>
