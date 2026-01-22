@@ -4,13 +4,19 @@ import { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { sdk } from "@farcaster/miniapp-sdk";
+import { getImageForContext } from "@/lib/imageContext";
 import { EXTRA_BADGE_TYPES } from "@/lib/badgeTypes";
 
 type LeaderboardEntry = {
   id: string;
   text: string;
   seed: number;
-  imageUrl: string;
+  imageUrl: string; // Legacy field
+  logoImageUrl?: string; // Raw pixel logo
+  cardImageUrl?: string; // Framed card
+  thumbImageUrl?: string; // Smallest variant for lists
+  mediumImageUrl?: string; // Mid-size variant for grids
+  userId?: string | null;
   username: string;
   displayName: string;
   pfpUrl: string;
@@ -38,6 +44,261 @@ const buildWarpcastComposeUrl = (text: string, embeds?: string[]) => {
   return `https://warpcast.com/~/compose?${params.toString()}`;
 };
 
+const generatePlayerCard = (
+  username: string,
+  level: number,
+  bestRarity: string,
+  forgeRank: string,
+  signatureLogo: LeaderboardEntry | null,
+  isRarityMaster: boolean,
+): Promise<string> => {
+  return new Promise((resolve) => {
+    // Create canvas (square 800x900 for better logo display)
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 900;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      resolve("");
+      return;
+    }
+
+    // Background
+    ctx.fillStyle = "#0a0e27";
+    ctx.fillRect(0, 0, 800, 900);
+
+    // Gradient overlay for rarity
+    const gradient = ctx.createLinearGradient(0, 0, 800, 900);
+    let topColor = "rgba(0, 255, 0, 0.1)"; // Common
+    let accentColor = "#00ff00";
+    let glowColor = "rgba(0, 255, 0, 0.3)";
+
+    switch (bestRarity.toUpperCase()) {
+      case "LEGENDARY":
+        topColor = "rgba(255, 170, 0, 0.15)";
+        accentColor = "#ffaa00";
+        glowColor = "rgba(255, 170, 0, 0.4)";
+        break;
+      case "EPIC":
+        topColor = "rgba(170, 0, 255, 0.12)";
+        accentColor = "#aa00ff";
+        glowColor = "rgba(170, 0, 255, 0.35)";
+        break;
+      case "RARE":
+        topColor = "rgba(0, 170, 255, 0.12)";
+        accentColor = "#00aaff";
+        glowColor = "rgba(0, 170, 255, 0.3)";
+        break;
+    }
+
+    gradient.addColorStop(0, topColor);
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 800, 900);
+
+    // Border glow
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 4;
+    ctx.strokeRect(15, 15, 770, 870);
+
+    // Top section - Title
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 18px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("PIXEL LOGO FORGE", 400, 50);
+
+    // Player card title
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 14px 'Courier New', monospace";
+    ctx.fillText("PLAYER CARD", 400, 80);
+
+    // Username section
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 36px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(`@${username}`, 400, 135);
+
+    // Stats section - compact layout on top
+    ctx.fillStyle = "#999999";
+    ctx.font = "bold 10px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    
+    // Level
+    ctx.fillText("LEVEL", 150, 160);
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 20px 'Courier New', monospace";
+    ctx.fillText(`${level}`, 150, 185);
+    
+    // Forge Rank
+    ctx.fillStyle = "#999999";
+    ctx.font = "bold 10px 'Courier New', monospace";
+    ctx.fillText("FORGE RANK", 400, 160);
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 20px 'Courier New', monospace";
+    ctx.fillText(forgeRank, 400, 185);
+    
+    // Best Rarity
+    ctx.fillStyle = "#999999";
+    ctx.font = "bold 10px 'Courier New', monospace";
+    ctx.fillText("BEST RARITY", 650, 160);
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 20px 'Courier New', monospace";
+    ctx.fillText(bestRarity, 650, 185);
+
+    // Divider line
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(30, 210);
+    ctx.lineTo(770, 210);
+    ctx.stroke();
+
+    // Signature logo section - use raw logo image (not card)
+    if (signatureLogo) {
+      // Prefer logoImageUrl (raw logo) over cardImageUrl, fallback to imageUrl
+      const logoToDisplay = signatureLogo.logoImageUrl || signatureLogo.cardImageUrl || signatureLogo.imageUrl;
+      if (logoToDisplay) {
+      const imgElement = typeof window !== "undefined" ? new (window as any).Image() : null;
+      if (!imgElement) {
+        // Fallback: no image support
+        ctx.fillStyle = "#1a1a3a";
+        ctx.fillRect(50, 250, 700, 450);
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(50, 250, 700, 450);
+        ctx.fillStyle = "#666666";
+        ctx.font = "16px 'Courier New', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("SIGNATURE LOGO", 400, 480);
+
+        if (isRarityMaster) {
+          ctx.fillStyle = "#ffaa00";
+          ctx.font = "bold 12px 'Courier New', monospace";
+          ctx.textAlign = "right";
+          ctx.fillText("★ RARITY MASTER", 750, 850);
+        }
+
+        resolve(canvas.toDataURL("image/png"));
+        return;
+      }
+
+      imgElement.crossOrigin = "anonymous";
+      imgElement.onload = () => {
+        // Draw signature logo frame with glow border
+        ctx.fillStyle = glowColor;
+        ctx.fillRect(45, 245, 710, 460);
+        ctx.fillStyle = "#0a0e27";
+        ctx.fillRect(50, 250, 700, 450);
+
+        // Calculate dimensions to fit logo properly with aspect ratio preserved
+        const logoWidth = 700;
+        const logoHeight = 450;
+        const imgAspect = imgElement.width / imgElement.height;
+        let drawWidth = logoWidth;
+        let drawHeight = logoWidth / imgAspect;
+        let startX = 50;
+        let startY = 250;
+
+        if (drawHeight > logoHeight) {
+          drawHeight = logoHeight;
+          drawWidth = logoHeight * imgAspect;
+          startX = 50 + (logoWidth - drawWidth) / 2;
+        } else {
+          startY = 250 + (logoHeight - drawHeight) / 2;
+        }
+
+        // Draw image centered
+        ctx.drawImage(imgElement, startX, startY, drawWidth, drawHeight);
+
+        // Label below
+        ctx.fillStyle = "#888888";
+        ctx.font = "bold 12px 'Courier New', monospace";
+        ctx.textAlign = "left";
+        ctx.fillText("SIGNATURE LOGO", 60, 730);
+
+        // Text label centered
+        ctx.fillStyle = accentColor;
+        ctx.font = "bold 14px 'Courier New', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(signatureLogo.text.toUpperCase(), 400, 760);
+
+        // Rarity Master badge
+        if (isRarityMaster) {
+          ctx.fillStyle = "#ffaa00";
+          ctx.font = "bold 12px 'Courier New', monospace";
+          ctx.textAlign = "right";
+          ctx.fillText("★ RARITY MASTER", 750, 850);
+        }
+
+        // Convert canvas to data URL
+        resolve(canvas.toDataURL("image/png"));
+      };
+      imgElement.onerror = () => {
+        // If image fails to load, show placeholder
+        ctx.fillStyle = "#1a1a3a";
+        ctx.fillRect(50, 250, 700, 450);
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(50, 250, 700, 450);
+        ctx.fillStyle = "#666666";
+        ctx.font = "16px 'Courier New', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("SIGNATURE LOGO", 400, 480);
+        if (isRarityMaster) {
+          ctx.fillStyle = "#ffaa00";
+          ctx.font = "bold 12px 'Courier New', monospace";
+          ctx.textAlign = "right";
+          ctx.fillText("★ RARITY MASTER", 750, 850);
+        }
+
+        resolve(canvas.toDataURL("image/png"));
+      };
+      imgElement.src = logoToDisplay;
+      } else {
+        // Logo data not available, show placeholder
+        ctx.fillStyle = "#1a1a3a";
+        ctx.fillRect(50, 250, 700, 450);
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(50, 250, 700, 450);
+        ctx.fillStyle = "#666666";
+        ctx.font = "16px 'Courier New', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("SELECT A SIGNATURE LOGO", 400, 480);
+
+        if (isRarityMaster) {
+          ctx.fillStyle = "#ffaa00";
+          ctx.font = "bold 12px 'Courier New', monospace";
+          ctx.textAlign = "right";
+          ctx.fillText("★ RARITY MASTER", 750, 850);
+        }
+
+        resolve(canvas.toDataURL("image/png"));
+      }
+    } else {
+      // No signature logo - show placeholder
+      ctx.fillStyle = "#1a1a3a";
+      ctx.fillRect(50, 250, 700, 450);
+      ctx.strokeStyle = glowColor;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(50, 250, 700, 450);
+      ctx.fillStyle = "#666666";
+      ctx.font = "16px 'Courier New', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("SELECT A SIGNATURE LOGO", 400, 480);
+
+      if (isRarityMaster) {
+        ctx.fillStyle = "#ffaa00";
+        ctx.font = "bold 12px 'Courier New', monospace";
+        ctx.textAlign = "right";
+        ctx.fillText("★ RARITY MASTER", 750, 850);
+      }
+
+      resolve(canvas.toDataURL("image/png"));
+    }
+  });
+};
+
 const PRESETS = [
   { key: "arcade", label: "Arcade" },
   { key: "vaporwave", label: "Vaporwave" },
@@ -55,10 +316,63 @@ const formatDate = (timestamp: string) => {
   });
 };
 
-const getProfileTitle = (casts: number, legendaryCount: number) => {
-  if (legendaryCount >= 3) return "Legend Hunter";
-  if (casts >= 20) return "Master Crafter";
+const getProfileTitle = (casts: number, legendaryCount: number, rarity: Set<string>) => {
+  if (rarity.size === 4) return "Rarity Master";
+  if (legendaryCount > 0) return "Master Forger";
+  if (rarity.has("EPIC")) return "Arcade Crafter";
+  if (casts > 0) return "Apprentice Forger";
   return "Pixel Forger";
+};
+
+const getProfileEmblems = (
+  legendaryCount: number,
+  topEntries: LeaderboardEntry[],
+): string[] => {
+  const emblems: string[] = [];
+  if (legendaryCount > 0) emblems.push("⭐"); // Legendary unlocked
+  // Check for streak (3+ casts in last 7 days)
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recentCasts = topEntries.filter(
+    (e) => new Date(e.createdAt).getTime() >= sevenDaysAgo,
+  ).length;
+  if (recentCasts >= 3) emblems.push("🔥"); // On streak
+  return emblems;
+};
+
+const getForgeRank = (casts: number, bestRarity: string, legendaryCount: number): string => {
+  // Scoring algorithm
+  let score = 0;
+  score += Math.min(casts, 50); // Max 50 points for casts
+  
+  // Rarity bonuses
+  switch (bestRarity.toUpperCase()) {
+    case "LEGENDARY":
+      score += 40;
+      break;
+    case "EPIC":
+      score += 25;
+      break;
+    case "RARE":
+      score += 10;
+      break;
+    case "COMMON":
+      score += 5;
+      break;
+  }
+  
+  score += legendaryCount * 15; // 15 points per legendary
+  
+  // Rank tiers
+  if (score >= 120) return "S+";
+  if (score >= 100) return "S";
+  if (score >= 75) return "A";
+  if (score >= 50) return "B";
+  if (score >= 25) return "C";
+  return "D";
+};
+
+const getProfileLevel = (casts: number): number => {
+  return Math.floor(casts / 5) + 1;
 };
 
 export default function ProfileClient({
@@ -74,6 +388,26 @@ export default function ProfileClient({
   };
 }) {
   const [userBadges, setUserBadges] = useState<Array<any>>(initialBadges ?? []);
+  const [signatureLogo, setSignatureLogo] = useState<LeaderboardEntry | null>(null);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [showSignatureSelector, setShowSignatureSelector] = useState(false);
+  const [initialAnimationDone, setInitialAnimationDone] = useState(false);
+
+  useEffect(() => {
+    // Detect if viewing own profile
+    if (typeof window !== "undefined") {
+      const currentUsername = localStorage.getItem("farcasterUsername") || "";
+      setIsOwnProfile(currentUsername === profile.username);
+    }
+  }, [profile.username]);
+
+  useEffect(() => {
+    // Trigger initial animations
+    const timer = setTimeout(() => {
+      setInitialAnimationDone(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (initialBadges && Array.isArray(initialBadges)) return;
@@ -126,12 +460,34 @@ export default function ProfileClient({
     const topPresetKey =
       Object.entries(presetCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ??
       "Unknown";
+    const raritySet = new Set(
+      profile.entries.map((e) => String(e.rarity).toUpperCase()),
+    );
+
+    // Calculate rarity counts
+    const rarityCounts = {
+      COMMON: profile.entries.filter(
+        (e) => String(e.rarity).toUpperCase() === "COMMON",
+      ).length,
+      RARE: profile.entries.filter(
+        (e) => String(e.rarity).toUpperCase() === "RARE",
+      ).length,
+      EPIC: profile.entries.filter(
+        (e) => String(e.rarity).toUpperCase() === "EPIC",
+      ).length,
+      LEGENDARY: legendaryCount,
+    };
+
     return {
       totalCasts,
       totalLikes,
       legendaryCount,
       bestRarity,
       topPreset: presetLabelMap[topPresetKey] ?? topPresetKey,
+      raritySet,
+      level: getProfileLevel(totalCasts),
+      forgeRank: getForgeRank(totalCasts, bestRarity, legendaryCount),
+      rarityCounts,
     };
   }, [presetLabelMap, profile.best?.rarity, profile.entries]);
 
@@ -190,38 +546,105 @@ export default function ProfileClient({
   const handleCastBest = () => {
     if (!profile.best) return;
     const text = `My best pixel logo: "${profile.best.text}"`;
+    const bestImageUrl = getImageForContext(
+      {
+        logoImageUrl: profile.best.logoImageUrl,
+        cardImageUrl: profile.best.cardImageUrl,
+        thumbImageUrl: profile.best.thumbImageUrl,
+        mediumImageUrl: profile.best.mediumImageUrl,
+        imageUrl: profile.best.imageUrl,
+      },
+      "share",
+    );
     const url = buildWarpcastComposeUrl(
       text,
-      profile.best.imageUrl ? [profile.best.imageUrl] : undefined,
+      bestImageUrl ? [bestImageUrl] : undefined,
     );
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleShareCollection = async () => {
     const profileUrl = `${window.location.origin}/profile/${encodeURIComponent(profile.username)}`;
-    const embeds = topEntries
-      .map((entry) => entry.imageUrl)
-      .filter(
-        (url) =>
-          url && (url.startsWith("http://") || url.startsWith("https://")),
-      );
-    const text = `My Pixel Logo Forge collection (top 3)\n${profileUrl}`;
+    
+    // Generate player card image
+    const isRarityMaster = userBadges.some(
+      (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
+    );
+    
+    const playerCardDataUrl = await generatePlayerCard(
+      profile.username,
+      stats.level,
+      stats.bestRarity,
+      stats.forgeRank,
+      signatureLogo,
+      isRarityMaster,
+    );
+
+    const text = `My Pixel Logo Forge player card 🎮\n${profileUrl}`;
+    
     try {
-      const embedsForSdk = embeds.slice(0, 2) as string[];
+      // Try to upload player card image
+      let playerCardImageUrl: string | null = null;
+      try {
+        const cardUploadResponse = await fetch("/api/logo-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            dataUrl: playerCardDataUrl,
+            text: `${profile.username}'s Player Card`,
+            seed: 0,
+          }),
+        });
+        if (cardUploadResponse.ok) {
+          const cardData = await cardUploadResponse.json();
+          playerCardImageUrl = cardData.imageUrl;
+        }
+      } catch (uploadError) {
+        console.error("Player card upload failed:", uploadError);
+      }
+
+      // Prepare embeds with player card + top logos (use card images for sharing)
+      const topLogoEmbeds = topEntries
+        .map((entry) => getImageForContext(
+          {
+            logoImageUrl: entry.logoImageUrl,
+            cardImageUrl: entry.cardImageUrl,
+            thumbImageUrl: entry.thumbImageUrl,
+            mediumImageUrl: entry.mediumImageUrl,
+            imageUrl: entry.imageUrl,
+          },
+          "share"
+        ))
+        .filter(
+          (url) =>
+            url && (url.startsWith("http://") || url.startsWith("https://")),
+        )
+        .slice(0, 1);
+
+      const embedsForSdk = playerCardImageUrl
+        ? [playerCardImageUrl, ...topLogoEmbeds]
+        : topLogoEmbeds;
+
+      const embedsForSDK = embedsForSdk.slice(0, 2) as [string] | [string, string] | [];
+
       await sdk.actions.composeCast({
         text,
         embeds:
-          embedsForSdk.length === 2
-            ? ([embedsForSdk[0], embedsForSdk[1]] as [string, string])
-            : embedsForSdk.length === 1
-              ? ([embedsForSdk[0]] as [string])
+          embedsForSDK.length === 2
+            ? ([embedsForSDK[0], embedsForSDK[1]] as [string, string])
+            : embedsForSDK.length === 1
+              ? ([embedsForSDK[0]] as [string])
               : undefined,
       });
       return;
     } catch (error) {
       console.error("Share collection via SDK failed:", error);
     }
-    const composeUrl = buildWarpcastComposeUrl(text, embeds);
+
+    // Fallback to web share
+    const composeUrl = buildWarpcastComposeUrl(text, [playerCardDataUrl]);
     const opened = window.open(composeUrl, "_blank", "noopener,noreferrer");
     if (!opened) {
       window.location.href = composeUrl;
@@ -240,13 +663,36 @@ export default function ProfileClient({
 
   return (
     <div className="profile-page">
-      <div className="profile-header">
+      <div 
+        className={`profile-header profile-aura-${String(stats.bestRarity).toLowerCase()}`}
+        style={{
+          animation: initialAnimationDone ? "none" : "slideInDown 0.6s ease-out",
+        }}
+      >
+        <div className="profile-visit-state">
+          {isOwnProfile ? "YOUR FORGE" : `VIEWING @${profile.username.toUpperCase()}'S FORGE`}
+        </div>
         <Link href="/" className="profile-back">
           &larr; Back
         </Link>
-        <div className="profile-title">@{profile.username}</div>
-        <div className="profile-title-badge">
-          {getProfileTitle(stats.totalCasts, stats.legendaryCount)}
+        <div className="profile-name-badge">
+          <span className="profile-username">@{profile.username}</span>
+          <span 
+            className="profile-emblems"
+            style={{
+              animation: initialAnimationDone ? "slideInRight 0.4s ease-out" : "none",
+            }}
+          >
+            {getProfileEmblems(stats.legendaryCount, topEntries).join(" ")}
+          </span>
+        </div>
+        <div className="profile-level-subtitle">
+          {getProfileTitle(
+            stats.totalCasts,
+            stats.legendaryCount,
+            stats.raritySet,
+          )}{" "}
+          Lv. {stats.level} • {stats.forgeRank}
         </div>
       </div>
       <div className="profile-actions">
@@ -259,121 +705,318 @@ export default function ProfileClient({
         </button>
         <button
           type="button"
-          className="profile-share-link"
+          className="profile-copy-link"
           onClick={handleCopyProfileLink}
         >
           Copy profile link
         </button>
+        {!isOwnProfile && (
+          <button
+            type="button"
+            className="profile-follow-button"
+          >
+            Follow
+          </button>
+        )}
       </div>
+
+      {/* Signature Logo Section */}
+      {signatureLogo ? (
+        <div className={`signature-logo-section signature-rarity-${String(signatureLogo.rarity).toLowerCase()}`}>
+          <div className="signature-logo-header">
+            <div className="signature-logo-title">SIGNATURE LOGO</div>
+            {isOwnProfile && (
+              <button
+                type="button"
+                className="signature-logo-edit"
+                onClick={() => setShowSignatureSelector(!showSignatureSelector)}
+              >
+                CHANGE
+              </button>
+            )}
+          </div>
+          {(() => {
+            const signatureImageUrl = getImageForContext(
+              {
+                logoImageUrl: signatureLogo.logoImageUrl,
+                cardImageUrl: signatureLogo.cardImageUrl,
+                thumbImageUrl: signatureLogo.thumbImageUrl,
+                mediumImageUrl: signatureLogo.mediumImageUrl,
+                imageUrl: signatureLogo.imageUrl,
+              },
+              "profile",
+            );
+            return signatureImageUrl ? (
+              <Image
+                src={signatureImageUrl}
+                alt={`Signature logo: ${signatureLogo.text}`}
+                className="signature-logo-image"
+                width={360}
+                height={240}
+                loading="lazy"
+                unoptimized
+              />
+            ) : (
+              <div className="signature-logo-text">{signatureLogo.text}</div>
+            );
+          })()}
+          <div className="signature-logo-quote">&quot;This is my identity.&quot;</div>
+          <div className="signature-logo-meta">
+            <span>{signatureLogo.text}</span>
+            <span className={`rarity-${String(signatureLogo.rarity).toLowerCase()}`}>
+              {signatureLogo.rarity
+                ? String(signatureLogo.rarity).toUpperCase()
+                : "UNKNOWN"}
+            </span>
+          </div>
+        </div>
+      ) : isOwnProfile ? (
+        <div className="signature-logo-empty">
+          <div className="signature-logo-title">SIGNATURE LOGO</div>
+          <p>Choose your signature logo to showcase your masterpiece.</p>
+          <button
+            type="button"
+            className="signature-logo-set"
+            onClick={() => setShowSignatureSelector(true)}
+          >
+            Select Logo
+          </button>
+        </div>
+      ) : null}
+
+      {showSignatureSelector && isOwnProfile && (
+        <div className="signature-selector-modal">
+          <div className="signature-selector-content">
+            <div className="signature-selector-title">Select Signature Logo</div>
+            <div className="signature-selector-grid">
+              {profile.entries.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className="signature-selector-card"
+                  onClick={() => {
+                    setSignatureLogo(entry);
+                    setShowSignatureSelector(false);
+                  }}
+                >
+                  {(() => {
+                    const selectorImageUrl = getImageForContext(
+                      {
+                        logoImageUrl: entry.logoImageUrl,
+                        cardImageUrl: entry.cardImageUrl,
+                        thumbImageUrl: entry.thumbImageUrl,
+                        mediumImageUrl: entry.mediumImageUrl,
+                        imageUrl: entry.imageUrl,
+                      },
+                      "profile",
+                    );
+                    return selectorImageUrl ? (
+                      <Image
+                        src={selectorImageUrl}
+                        alt={entry.text}
+                        width={120}
+                        height={80}
+                        loading="lazy"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="signature-selector-text">{entry.text}</div>
+                    );
+                  })()}
+                  <div className="signature-selector-label">
+                    {entry.text}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="signature-selector-close"
+              onClick={() => setShowSignatureSelector(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="profile-stats">
         <div className="profile-stat">
-          <span>Total casts</span>
-          <strong>{stats.totalCasts}</strong>
+          <span className="stat-label">TOTAL CASTS</span>
+          <strong className="stat-value">{String(stats.totalCasts).padStart(3, "0")}</strong>
         </div>
         <div className="profile-stat">
-          <span>Total likes</span>
-          <strong>{stats.totalLikes}</strong>
+          <span className="stat-label">FORGE RANK</span>
+          <strong className="stat-value forge-rank">{stats.forgeRank}</strong>
         </div>
         <div className="profile-stat">
-          <span>Best rarity</span>
-          <strong>{stats.bestRarity}</strong>
+          <span className="stat-label">BEST RARITY</span>
+          <strong className={`stat-value rarity-${String(stats.bestRarity).toLowerCase()}`}>
+            {stats.bestRarity}
+          </strong>
         </div>
         <div className="profile-stat">
-          <span>Top preset</span>
-          <strong>{stats.topPreset}</strong>
+          <span className="stat-label">TOP PRESET</span>
+          <strong className="stat-value">{stats.topPreset}</strong>
         </div>
       </div>
 
       <div className="profile-section">
         <div className="leaderboard-title">Rarity Collection</div>
-        <div className="rarity-collection">
+        <div className="rarity-progress-console-compact">
           {["COMMON", "RARE", "EPIC", "LEGENDARY"].map((r) => {
             const has = profile.entries.some(
               (e) => String(e.rarity).toUpperCase() === r,
             );
             return (
-              <div key={`rarity-${r}`} className="rarity-item">
-                <span className="rarity-check">{has ? "✔" : "⬜"}</span>
-                <span className="rarity-label">
+              <div
+                key={`rarity-${r}`}
+                className={`rarity-progress-item-compact ${has ? "unlocked" : ""} ${r.toLowerCase()}`}
+              >
+                <span className="rarity-check-compact">{has ? "✔" : "☐"}</span>
+                <span className="rarity-label-compact">
                   {r.charAt(0) + r.slice(1).toLowerCase()}
                 </span>
               </div>
             );
           })}
         </div>
-        <div className="rarity-progress">
-          {
-            new Set(profile.entries.map((e) => String(e.rarity).toUpperCase()))
-              .size
-          }
-          /4 unlocked
+        <div className="rarity-progress-bar-container">
+          <div
+            className="rarity-progress-bar"
+            style={{
+              width: `${(stats.raritySet.size / 4) * 100}%`,
+            }}
+          />
         </div>
+        <div className="rarity-progress-text">
+          {stats.raritySet.size} / 4 COMPLETE
+        </div>
+
+        <div className="rarity-stats">
+          <div className="rarity-stat-row">
+            <span className="rarity-stat-label">Common:</span>
+            <span className="rarity-stat-count">{stats.rarityCounts.COMMON}</span>
+          </div>
+          <div className="rarity-stat-row">
+            <span className="rarity-stat-label">Rare:</span>
+            <span className="rarity-stat-count">{stats.rarityCounts.RARE}</span>
+          </div>
+          <div className="rarity-stat-row">
+            <span className="rarity-stat-label">Epic:</span>
+            <span className="rarity-stat-count epic">{stats.rarityCounts.EPIC}</span>
+          </div>
+          <div className="rarity-stat-row">
+            <span className="rarity-stat-label">Legendary:</span>
+            <span className="rarity-stat-count legendary">{stats.rarityCounts.LEGENDARY}</span>
+          </div>
+        </div>
+
         {userBadges.some(
           (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
         ) ? (
-          <div className="rarity-master-box">
-            <div className="rarity-master-title">Rarity Master</div>
+          <div className="rarity-master-panel">
+            <div className="rarity-master-header">✓ RARITY MASTER</div>
             <div className="rarity-master-desc">
-              You unlocked the special frame, background, and +1 daily generate.
+              Unlocked: Mythic Frame, Mythic Background, +1 Daily Generate
             </div>
           </div>
         ) : (
-          <div className="rarity-cta">
-            Collect all 4 rarities to unlock special rewards
+          <div className="next-objective-panel">
+            <div className="next-objective-title">NEXT OBJECTIVE</div>
+            <div className="next-objective-text">
+              Complete the set to unlock Mythic rewards.
+            </div>
           </div>
         )}
+
         <div className="unlocked-rewards">
           <div className="leaderboard-subtitle">Unlocked Rewards</div>
           <div className="reward-list">
-            <div className="reward-item">
-              <input
-                type="checkbox"
-                readOnly
-                checked={Boolean(
+            <div className="reward-card">
+              <div className="reward-card-content">
+                {Boolean(
                   devRewards?.specialFrameUnlocked ||
-                  userBadges.some(
-                    (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
-                  ),
+                    userBadges.some(
+                      (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
+                    ),
+                ) ? (
+                  <div className="reward-unlocked">
+                    <span className="reward-check">✓</span>
+                    <span className="reward-name">Mythic Frame</span>
+                    <span className="reward-badge">UNLOCKED</span>
+                  </div>
+                ) : (
+                  <div className="reward-locked">
+                    <span className="reward-lock">🔒</span>
+                    <span className="reward-name">Mythic Frame</span>
+                  </div>
                 )}
-              />
-              <span>Mythic Frame</span>
+              </div>
             </div>
-            <div className="reward-item">
-              <input
-                type="checkbox"
-                readOnly
-                checked={Boolean(
+            <div className="reward-card">
+              <div className="reward-card-content">
+                {Boolean(
                   devRewards?.specialBackgroundUnlocked ||
-                  userBadges.some(
-                    (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
-                  ),
+                    userBadges.some(
+                      (b) => b.badgeType === EXTRA_BADGE_TYPES.RARITY_MASTER,
+                    ),
+                ) ? (
+                  <div className="reward-unlocked">
+                    <span className="reward-check">✓</span>
+                    <span className="reward-name">Mythic Background</span>
+                    <span className="reward-badge">UNLOCKED</span>
+                  </div>
+                ) : (
+                  <div className="reward-locked">
+                    <span className="reward-lock">🔒</span>
+                    <span className="reward-name">Mythic Background</span>
+                  </div>
                 )}
-              />
-              <span>Mythic Background</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <div className="profile-section">
-        <div className="leaderboard-title">Latest cast</div>
+        <div className="leaderboard-title">Latest Showcase</div>
         {latestEntry ? (
-          <div className="profile-latest-card">
-            {latestEntry.imageUrl ? (
+          <div className="profile-showcase-card">
+            <div className="showcase-tag">SHOWCASE</div>
+            {(() => {
+              // Use card image for showcase/highlight context
+              const showcaseImageUrl = getImageForContext(
+                {
+                  logoImageUrl: latestEntry.logoImageUrl,
+                  cardImageUrl: latestEntry.cardImageUrl,
+                  thumbImageUrl: latestEntry.thumbImageUrl,
+                  mediumImageUrl: latestEntry.mediumImageUrl,
+                  imageUrl: latestEntry.imageUrl,
+                },
+                "share"
+              );
+              return showcaseImageUrl ? (
               <Image
-                src={latestEntry.imageUrl}
+                src={showcaseImageUrl}
                 alt={`Latest logo by ${latestEntry.username}`}
                 className="profile-latest-image"
                 width={360}
                 height={240}
+                loading="lazy"
                 unoptimized
               />
             ) : (
               <div className="profile-best-text">{latestEntry.text}</div>
-            )}
-            <div className="profile-latest-meta">
+            );
+            })()}
+            <div className="showcase-meta">
               <span>{formatDate(latestEntry.createdAt)}</span>
+              <span className={`rarity-${String(latestEntry.rarity).toLowerCase()}`}>
+                {latestEntry.rarity
+                  ? String(latestEntry.rarity).toUpperCase()
+                  : "UNKNOWN"}
+              </span>
               <span>❤️ {latestEntry.likes}</span>
             </div>
           </div>
@@ -385,21 +1028,34 @@ export default function ProfileClient({
       </div>
 
       <div className="profile-section">
-        <div className="leaderboard-title">Personal best</div>
+        <div className="leaderboard-title">Personal Best</div>
         {profile.best ? (
           <div className="profile-best-card">
-            {profile.best.imageUrl ? (
-              <Image
-                src={profile.best.imageUrl}
-                alt={`Best logo by ${profile.best.username}`}
-                className="profile-best-image"
-                width={360}
-                height={240}
-                unoptimized
-              />
-            ) : (
-              <div className="profile-best-text">{profile.best.text}</div>
-            )}
+            {(() => {
+              const bestImageUrl = getImageForContext(
+                {
+                  logoImageUrl: profile.best.logoImageUrl,
+                  cardImageUrl: profile.best.cardImageUrl,
+                  thumbImageUrl: profile.best.thumbImageUrl,
+                  mediumImageUrl: profile.best.mediumImageUrl,
+                  imageUrl: profile.best.imageUrl,
+                },
+                "profile",
+              );
+              return bestImageUrl ? (
+                <Image
+                  src={bestImageUrl}
+                  alt={`Best logo by ${profile.best.username}`}
+                  className="profile-best-image"
+                  width={360}
+                  height={240}
+                  loading="lazy"
+                  unoptimized
+                />
+              ) : (
+                <div className="profile-best-text">{profile.best.text}</div>
+              );
+            })()}
             <div className="profile-best-meta">
               <span>❤️ {profile.best.likes}</span>
               <span>🔁 {profile.best.recasts ?? 0}</span>
@@ -470,22 +1126,35 @@ export default function ProfileClient({
       </div>
 
       <div className="profile-section">
-        <div className="leaderboard-title">Recent logos</div>
+        <div className="leaderboard-title">Recent Logos</div>
         {filteredEntries.length === 0 ? (
           <div className="leaderboard-status">
             No casts match those filters yet.
           </div>
         ) : (
           <div className="profile-gallery-grid">
-            {filteredEntries.map((entry) => (
+            {filteredEntries.map((entry) => {
+              // Use logo image for profile gallery context
+              const profileGalleryImageUrl = getImageForContext(
+                {
+                  logoImageUrl: entry.logoImageUrl,
+                  cardImageUrl: entry.cardImageUrl,
+                  thumbImageUrl: entry.thumbImageUrl,
+                  mediumImageUrl: entry.mediumImageUrl,
+                  imageUrl: entry.imageUrl,
+                },
+                "profile"
+              );
+              return (
               <div key={`profile-${entry.id}`} className="profile-gallery-card">
-                {entry.imageUrl ? (
+                {profileGalleryImageUrl ? (
                   <Image
-                    src={entry.imageUrl}
+                    src={profileGalleryImageUrl}
                     alt={`Logo by ${entry.username}`}
                     className="profile-gallery-image"
                     width={200}
                     height={140}
+                    loading="lazy"
                     unoptimized
                   />
                 ) : (
@@ -500,7 +1169,8 @@ export default function ProfileClient({
                   </span>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>
