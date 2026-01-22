@@ -127,7 +127,7 @@ interface DepthConfig {
 // Badge types
 type BadgeType = 'star' | 'bolt' | 'flame' | 'skull' | 'coin' | 'player1' | 'ready' | 'insert-coin' | 'version' | 'year' | 'rating';
 
-interface LogoConfig {
+export interface LogoConfig {
   text: string;
   seed?: number;
   pixelSize?: number;

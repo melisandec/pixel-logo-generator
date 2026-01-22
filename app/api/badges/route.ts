@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     const badgesWithInfo = badges.map((badge: any) => ({
       ...badge,
       ...(BADGE_INFO[badge.badgeType as BadgeType] ??
-        EXTRA_BADGE_INFO[badge.badgeType as any] ??
+        (EXTRA_BADGE_INFO as any)[badge.badgeType] ??
         {}),
     }));
 
