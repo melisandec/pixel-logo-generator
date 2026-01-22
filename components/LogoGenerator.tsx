@@ -3,11 +3,27 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import NextImage from "next/image";
 import Link from "next/link";
-import { generateLogo, LogoResult, Rarity } from "@/lib/logoGenerator";
+import {
+  generateLogo,
+  type LogoConfig,
+  type LogoResult,
+  type Rarity,
+} from "@/lib/logoGenerator";
+import {
+  getImageForContext,
+  type ImageRenderContext,
+} from "@/lib/imageContext";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { EXTRA_BADGE_TYPES } from "@/lib/badgeTypes";
 import dynamic from "next/dynamic";
 import Toast from "./Toast";
+import OnboardingWizard from "./OnboardingWizard";
+import FeedbackModal from "./FeedbackModal";
+import RewardAnimation from "./RewardAnimation";
+import SearchBar from "./SearchBar";
+import FilterBar from "./FilterBar";
+import EmptyState from "./EmptyState";
+import ResultCount from "./ResultCount";
 
 const CastPreviewModal = dynamic(() => import("./CastPreviewModal"), {
   ssr: false,
@@ -38,12 +54,19 @@ type LeaderboardEntry = {
   id: string;
   text: string;
   seed: number;
-  imageUrl: string;
+  imageUrl: string; // Legacy field
+  logoImageUrl?: string; // Raw pixel logo
+  cardImageUrl?: string; // Framed card
+  thumbImageUrl?: string; // Smallest variant for lists
+  mediumImageUrl?: string; // Mid-size variant for grids
+  userId?: string | null;
   username: string;
   displayName: string;
   pfpUrl: string;
   likes: number;
   recasts?: number;
+  saves?: number;
+  remixes?: number;
   rarity?: Rarity | string | null;
   presetKey?: string | null;
   createdAt: number | string;
@@ -177,7 +200,11 @@ const RANDOM_WORDS = [
   "Filecoin",
   "Arbitrum",
 ];
-const PRESETS = [
+const PRESETS: Array<{
+  key: string;
+  label: string;
+  config: Partial<LogoConfig>;
+}> = [
   {
     key: "arcade",
     label: "Arcade",
@@ -208,7 +235,7 @@ const PRESETS = [
       compositionMode: "centered",
     },
   },
-] as const;
+];
 const RARITY_OPTIONS: Rarity[] = ["COMMON", "RARE", "EPIC", "LEGENDARY"];
 const PRESET_SWATCHES: Record<string, string[]> = {
   arcade: ["#00ff00", "#ff00ff", "#ffff00"],
@@ -229,7 +256,7 @@ const ALL_CHALLENGE_PROMPTS = [
   { name: "Dior", description: "Generate a logo for Dior" },
   { name: "Amazon", description: "Generate a logo for Amazon" },
   { name: "Nintendo", description: "Generate a logo for Nintendo" },
-] as const;
+];
 
 const DAILY_PROMPTS = [
   "Meta",
@@ -239,13 +266,14 @@ const DAILY_PROMPTS = [
   "Dior",
   "Amazon",
   "Nintendo",
-] as const;
+];
 
 export default function LogoGenerator() {
   const [inputText, setInputText] = useState("");
   const [customSeed, setCustomSeed] = useState<string>("");
   const [seedError, setSeedError] = useState<string>("");
   const [logoResult, setLogoResult] = useState<LogoResult | null>(null);
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [isCasting, setIsCasting] = useState(false);
@@ -294,6 +322,54 @@ export default function LogoGenerator() {
   const [castTargetRemixSeed, setCastTargetRemixSeed] = useState<
     number | undefined
   >(undefined);
+  const [includeCastOverlays, setIncludeCastOverlays] = useState(true);
+  const [userStats, setUserStats] = useState<{
+    username: string;
+    rank?: string | null;
+    support?: number;
+    influence?: number;
+    creation?: number;
+    discovery?: number;
+    totalPower?: number;
+    bestRarity?: string | null;
+  } | null>(null);
+  const [userRewards, setUserRewards] = useState<
+    Array<{
+      rewardType: string;
+      unlockedAt?: string;
+      metadata?: Record<string, unknown>;
+    }>
+  >([]);
+  const [rewardRegistry, setRewardRegistry] = useState<
+    Array<{
+      rewardType: string;
+      title?: string;
+      description?: string;
+      threshold?: number;
+      stat?: string;
+    }>
+  >([]);
+  const previousRewardTypes = useRef<Set<string>>(new Set());
+  const [trendingData, setTrendingData] = useState<{
+    mostUsedWords: Array<{ word: string; count: number }>;
+    popularSeeds: Array<{ seed: number; count: number }>;
+    rarityDistribution: Array<{ rarity: string; count: number }>;
+    mostLikedLogos: Array<{
+      id: string;
+      text: string;
+      seed: number;
+      rarity: string | null;
+      logoImageUrl: string | null;
+      imageUrl: string | null;
+      cardImageUrl: string | null;
+      likes: number;
+      recasts: number;
+      saves: number;
+      remixes: number;
+      username: string | null;
+    }>;
+    windowDays: number;
+  } | null>(null);
   const [logoHistory, setLogoHistory] = useState<LogoHistoryItem[]>([]);
   const [favorites, setFavorites] = useState<LogoHistoryItem[]>([]);
   const [remixMode, setRemixMode] = useState(false);
@@ -305,8 +381,10 @@ export default function LogoGenerator() {
   const [galleryEntries, setGalleryEntries] = useState<LeaderboardEntry[]>([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
+  const [galleryViewMode, setGalleryViewMode] = useState<"logos" | "casts">(
+    "logos",
+  );
   const [galleryRarityFilter, setGalleryRarityFilter] = useState<string>("all");
-  const [galleryPresetFilter, setGalleryPresetFilter] = useState<string>("all");
   const [galleryPage, setGalleryPage] = useState(1);
   const [likedEntryIds, setLikedEntryIds] = useState<Set<string>>(new Set());
   const [profileData, setProfileData] = useState<UserProfile | null>(null);
@@ -315,8 +393,9 @@ export default function LogoGenerator() {
   const [hasNewGallery, setHasNewGallery] = useState(false);
   const [hasNewProfile, setHasNewProfile] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [expandedStat, setExpandedStat] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "home" | "gallery" | "leaderboard" | "challenge" | "profile"
+    "home" | "gallery" | "leaderboard" | "rewards" | "profile"
   >("home");
   const [miniappAdded, setMiniappAdded] = useState(false);
   const [dailyLimit, setDailyLimit] = useState<DailyLimitState>({
@@ -326,6 +405,19 @@ export default function LogoGenerator() {
   });
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const initRef = useRef(false);
+
+  // NEW UX ENHANCEMENT STATES
+  const [uiMode, setUiMode] = useState<"simple" | "advanced">("simple");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [rewardAnimation, setRewardAnimation] = useState<{
+    type: "rarity-master" | "forge-rank" | "level-up" | "achievement";
+    title: string;
+    subtitle?: string;
+  } | null>(null);
+  const [generationCount, setGenerationCount] = useState(0);
+  const [showSearch, setShowSearch] = useState(false);
 
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [challengeDone, setChallengeDone] = useState<Record<string, boolean>>(
@@ -360,7 +452,6 @@ export default function LogoGenerator() {
   const [pastWinners, setPastWinners] = useState<
     Array<{ date: string; winners: Array<{ rank: number } & LeaderboardEntry> }>
   >([]);
-
   const getTodayKey = useCallback(() => {
     const now = new Date();
     const year = now.getFullYear();
@@ -615,6 +706,11 @@ export default function LogoGenerator() {
           (item.id && /^0x[a-fA-F0-9]{64}$/.test(item.id)
             ? `https://warpcast.com/~/cast/${item.id}`
             : undefined);
+        const logoImageUrl =
+          item.logoImageUrl || item.mediumImageUrl || item.imageUrl;
+        const thumbImageUrl = item.thumbImageUrl || logoImageUrl;
+        const mediumImageUrl = item.mediumImageUrl || logoImageUrl;
+        const cardImageUrl = item.cardImageUrl;
         const createdAtValue =
           typeof item.createdAt === "string"
             ? new Date(item.createdAt).getTime()
@@ -623,6 +719,18 @@ export default function LogoGenerator() {
           ...item,
           castUrl,
           recasts: item.recasts ?? 0,
+          saves: item.saves ?? 0,
+          remixes: item.remixes ?? 0,
+          imageUrl:
+            thumbImageUrl ||
+            logoImageUrl ||
+            item.imageUrl ||
+            cardImageUrl ||
+            "",
+          logoImageUrl,
+          thumbImageUrl,
+          mediumImageUrl,
+          cardImageUrl,
           createdAt: createdAtValue,
         };
       });
@@ -666,7 +774,9 @@ export default function LogoGenerator() {
 
   const loadLeaderboard = useCallback(async () => {
     try {
-      const response = await fetch(`/api/leaderboard?scope=global`);
+      const response = await fetch(
+        `/api/generated-logos?sort=score&scope=recent&limit=50`,
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch leaderboard");
       }
@@ -713,7 +823,10 @@ export default function LogoGenerator() {
     setGalleryLoading(true);
     setGalleryError(null);
     try {
-      const response = await fetch(`/api/leaderboard?scope=recent&limit=80`);
+      const castedParam = galleryViewMode === "casts" ? "&casted=true" : "";
+      const response = await fetch(
+        `/api/generated-logos?sort=recent&limit=200${castedParam}`,
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch gallery");
       }
@@ -743,7 +856,12 @@ export default function LogoGenerator() {
     } finally {
       setGalleryLoading(false);
     }
-  }, [activeTab, getSeenTimestamp, normalizeLeaderboardEntries]);
+  }, [
+    activeTab,
+    galleryViewMode,
+    getSeenTimestamp,
+    normalizeLeaderboardEntries,
+  ]);
 
   const loadProfileData = useCallback(
     async (username: string) => {
@@ -791,6 +909,53 @@ export default function LogoGenerator() {
     },
     [activeTab, getSeenTimestamp],
   );
+
+  const loadUserStatsInfo = useCallback(async () => {
+    if (!userInfo?.username) return;
+    try {
+      const response = await fetch(
+        `/api/user-stats?username=${encodeURIComponent(userInfo.username)}`,
+      );
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        stats?: typeof userStats;
+        rewards?: Array<{
+          rewardType: string;
+          unlockedAt?: string;
+          metadata?: Record<string, unknown>;
+        }>;
+        registry?: Array<{
+          rewardType: string;
+          title?: string;
+          description?: string;
+          threshold?: number;
+          stat?: string;
+        }>;
+      };
+      if (data.stats) {
+        setUserStats(data.stats);
+      }
+      if (Array.isArray(data.rewards)) {
+        setUserRewards(data.rewards);
+        const current = new Set(data.rewards.map((r) => r.rewardType));
+        data.rewards.forEach((reward) => {
+          if (!previousRewardTypes.current.has(reward.rewardType)) {
+            setRewardAnimation({
+              type: "achievement",
+              title: reward.rewardType,
+              subtitle: reward.metadata?.description as string | undefined,
+            });
+          }
+        });
+        previousRewardTypes.current = current;
+      }
+      if (Array.isArray(data.registry)) {
+        setRewardRegistry(data.registry);
+      }
+    } catch (error) {
+      console.error("Failed to load user stats:", error);
+    }
+  }, [userInfo?.username]);
 
   const loadChallenge = useCallback(() => {
     try {
@@ -981,6 +1146,105 @@ export default function LogoGenerator() {
     [saveHistory],
   );
 
+  const persistGeneratedLogo = useCallback(
+    async (
+      result: LogoResult,
+      overrides?: Partial<LeaderboardEntry> & { cardDataUrl?: string },
+    ) => {
+      try {
+        const id = overrides?.id ?? currentEntryId ?? crypto.randomUUID();
+        let logoImageUrl = overrides?.logoImageUrl;
+        let cardImageUrl = overrides?.cardImageUrl;
+        let imageUrl = overrides?.imageUrl;
+        let thumbImageUrl = overrides?.thumbImageUrl;
+        let mediumImageUrl = overrides?.mediumImageUrl;
+
+        if (!logoImageUrl || !cardImageUrl || !imageUrl) {
+          try {
+            const uploadResponse = await fetch("/api/logo-image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                dataUrl: result.dataUrl,
+                cardDataUrl: overrides?.cardDataUrl,
+                text: result.config.text,
+                seed: result.seed,
+                isCardImage: Boolean(overrides?.cardDataUrl),
+              }),
+            });
+
+            if (uploadResponse.ok) {
+              const uploadData = await uploadResponse.json();
+              logoImageUrl =
+                uploadData.logoImageUrl || uploadData.imageUrl || logoImageUrl;
+              cardImageUrl =
+                uploadData.cardImageUrl || uploadData.imageUrl || cardImageUrl;
+              imageUrl = uploadData.imageUrl || imageUrl;
+              thumbImageUrl = uploadData.thumbImageUrl || thumbImageUrl;
+              mediumImageUrl = uploadData.mediumImageUrl || mediumImageUrl;
+            }
+          } catch (uploadError) {
+            console.error("Logo upload failed:", uploadError);
+          }
+        }
+
+        const payload = {
+          id,
+          text: result.config.text,
+          seed: result.seed,
+          rarity: result.rarity,
+          presetKey: overrides?.presetKey ?? selectedPreset ?? null,
+          username:
+            overrides?.username?.toLowerCase?.() ??
+            userInfo?.username?.toLowerCase?.() ??
+            undefined,
+          userId:
+            overrides?.userId ??
+            (userInfo?.fid ? String(userInfo.fid) : undefined),
+          displayName:
+            overrides?.displayName ??
+            userInfo?.username ??
+            overrides?.username ??
+            undefined ??
+            undefined,
+          pfpUrl: overrides?.pfpUrl ?? undefined,
+          imageUrl: imageUrl ?? logoImageUrl ?? cardImageUrl ?? "",
+          thumbImageUrl: thumbImageUrl ?? imageUrl ?? logoImageUrl ?? undefined,
+          mediumImageUrl:
+            mediumImageUrl ?? cardImageUrl ?? logoImageUrl ?? undefined,
+          logoImageUrl: logoImageUrl ?? undefined,
+          cardImageUrl: cardImageUrl ?? undefined,
+          castUrl: overrides?.castUrl ?? undefined,
+          likes: overrides?.likes ?? 0,
+          recasts: overrides?.recasts ?? 0,
+          saves: overrides?.saves ?? 0,
+          remixes: overrides?.remixes ?? 0,
+          createdAt: overrides?.createdAt ?? Date.now(),
+        } satisfies Partial<LeaderboardEntry>;
+
+        const response = await fetch("/api/generated-logos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to persist generated logo");
+        }
+
+        const data = (await response.json()) as { entry?: LeaderboardEntry };
+        if (data.entry?.id) {
+          setCurrentEntryId(data.entry.id);
+        }
+        return data.entry;
+      } catch (error) {
+        console.error("persistGeneratedLogo error:", error);
+        return undefined;
+      }
+    },
+    [currentEntryId, selectedPreset, userInfo?.username, userInfo?.fid],
+  );
+
   const toggleFavorite = (result: LogoResult) => {
     setFavorites((prev) => {
       const exists = prev.some(
@@ -1014,31 +1278,49 @@ export default function LogoGenerator() {
 
   const addToLeaderboard = useCallback(
     async (entry: LeaderboardEntry) => {
+      const payload: LeaderboardEntry = {
+        ...entry,
+        id: entry.id || currentEntryId || crypto.randomUUID(),
+        username: entry.username?.toLowerCase?.() ?? entry.username,
+        recasts: entry.recasts ?? 0,
+        saves: entry.saves ?? 0,
+        remixes: entry.remixes ?? 0,
+      };
       try {
-        const response = await fetch("/api/leaderboard", {
+        const response = await fetch("/api/generated-logos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(entry),
+          body: JSON.stringify(payload),
         });
         if (!response.ok) {
           throw new Error("Failed to save leaderboard entry");
         }
-        const data = (await response.json()) as {
-          entries?: LeaderboardEntry[];
-        };
-        if (Array.isArray(data.entries)) {
-          const normalized = normalizeLeaderboardEntries(data.entries);
-          setLeaderboard(normalized);
-          saveLeaderboard(normalized);
-          return;
+        const data = (await response.json()) as { entry?: LeaderboardEntry };
+        const savedEntry = data.entry ?? payload;
+        const normalized = normalizeLeaderboardEntries([savedEntry]);
+        if (normalized[0]?.id) {
+          setCurrentEntryId(normalized[0].id);
         }
+
+        setLeaderboard((prev) => {
+          const merged = normalizeLeaderboardEntries([...normalized, ...prev]);
+          const trimmed = merged.slice(0, 50);
+          saveLeaderboard(trimmed);
+          return trimmed;
+        });
+
+        setGalleryEntries((prev) => {
+          const merged = normalizeLeaderboardEntries([...normalized, ...prev]);
+          return merged.slice(0, 80);
+        });
+        return;
       } catch (error) {
         console.error("Failed to save leaderboard entry:", error);
       }
 
       const todayKey = getTodayKey();
       setLeaderboard((prev) => {
-        const merged = [entry, ...prev].filter((item) => {
+        const merged = [payload, ...prev].filter((item) => {
           const createdAtValue =
             typeof item.createdAt === "string"
               ? new Date(item.createdAt).getTime()
@@ -1049,8 +1331,14 @@ export default function LogoGenerator() {
         saveLeaderboard(trimmed);
         return trimmed;
       });
+
+      setGalleryEntries((prev) => {
+        const merged = normalizeLeaderboardEntries([payload, ...prev]);
+        return merged.slice(0, 80);
+      });
     },
     [
+      currentEntryId,
       getDayKeyFromTimestamp,
       getTodayKey,
       normalizeLeaderboardEntries,
@@ -1071,10 +1359,15 @@ export default function LogoGenerator() {
       setLikedEntryIds(nextLiked);
       saveLikedEntries(nextLiked);
       try {
-        const response = await fetch("/api/leaderboard", {
+        const response = await fetch("/api/generated-logos", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: entryId, delta }),
+          body: JSON.stringify({
+            id: entryId,
+            deltaLikes: delta,
+            actorUsername: userInfo?.username?.toLowerCase?.(),
+            actorUserId: userInfo?.fid ? String(userInfo.fid) : undefined,
+          }),
         });
         if (!response.ok) {
           throw new Error("Failed to update like");
@@ -1090,13 +1383,19 @@ export default function LogoGenerator() {
           return;
         }
         if (data.entry) {
+          const normalizedEntry = normalizeLeaderboardEntries([data.entry])[0];
           setLeaderboard((prev) => {
             const next = prev.map((item) =>
-              item.id === entryId ? data.entry! : item,
+              item.id === entryId ? { ...item, ...normalizedEntry } : item,
             );
             saveLeaderboard(next);
             return next;
           });
+          setGalleryEntries((prev) =>
+            prev.map((item) =>
+              item.id === entryId ? { ...item, ...normalizedEntry } : item,
+            ),
+          );
           return;
         }
       } catch (error) {
@@ -1112,12 +1411,21 @@ export default function LogoGenerator() {
         saveLeaderboard(next);
         return next;
       });
+      setGalleryEntries((prev) =>
+        prev.map((item) =>
+          item.id === entryId
+            ? { ...item, likes: Math.max(0, item.likes + delta) }
+            : item,
+        ),
+      );
     },
     [
       likedEntryIds,
       normalizeLeaderboardEntries,
       saveLeaderboard,
       saveLikedEntries,
+      userInfo?.username,
+      userInfo?.fid,
     ],
   );
 
@@ -1286,49 +1594,202 @@ export default function LogoGenerator() {
     return audioContextRef.current;
   }, []);
 
-  const playCrackSound = useCallback(() => {
-    if (!soundEnabled) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const noiseBuffer = ctx.createBuffer(
-      1,
-      ctx.sampleRate * 0.08,
-      ctx.sampleRate,
-    );
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < data.length; i += 1) {
-      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-    }
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = "highpass";
-    filter.frequency.value = 900;
-    const gain = ctx.createGain();
-    gain.gain.value = 0.06;
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-    noise.start();
-  }, [getAudioContext, soundEnabled]);
+  const createSeededRandom = useCallback((seed: number) => {
+    let state = seed >>> 0;
+    return () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 0xffffffff;
+    };
+  }, []);
 
-  const playBloomSound = useCallback(() => {
-    if (!soundEnabled) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    osc.type = "triangle";
-    const gain = ctx.createGain();
-    gain.gain.value = 0.0001;
-    osc.frequency.setValueAtTime(320, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.35);
-    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.45);
-  }, [getAudioContext, soundEnabled]);
+  const getRarityGain = useCallback((rarity?: Rarity | null) => {
+    if (rarity === "LEGENDARY") return 1.35;
+    if (rarity === "EPIC") return 1.18;
+    if (rarity === "RARE") return 1.08;
+    return 1;
+  }, []);
+
+  const playCrackSound = useCallback(
+    (params: { seed?: number; rarity?: Rarity | null }) => {
+      if (!soundEnabled) return;
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+      const now = ctx.currentTime;
+      const seed = params.seed ?? Math.floor((performance.now() % 1e6) * 1000);
+      const rand = createSeededRandom(seed ^ 0x9e3779b9);
+      const rarityGain = getRarityGain(params.rarity) * 0.9;
+
+      const master = ctx.createGain();
+      master.gain.value = 0.0001;
+      master.gain.exponentialRampToValueAtTime(0.8 * rarityGain, now + 0.01);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+      master.connect(ctx.destination);
+
+      const pan = ctx.createStereoPanner();
+      pan.pan.value = (rand() * 2 - 1) * 0.25;
+      pan.connect(master);
+
+      const crackBuffer = ctx.createBuffer(
+        1,
+        ctx.sampleRate * 0.08,
+        ctx.sampleRate,
+      );
+      const crackData = crackBuffer.getChannelData(0);
+      for (let i = 0; i < crackData.length; i += 1) {
+        const t = i / crackData.length;
+        const decay = 1 - t;
+        crackData[i] = (rand() * 2 - 1) * decay * Math.pow(1 - t, 1.25);
+      }
+      const crack = ctx.createBufferSource();
+      crack.buffer = crackBuffer;
+      const crackFilter = ctx.createBiquadFilter();
+      crackFilter.type = "highpass";
+      crackFilter.frequency.value = 900 + rand() * 600;
+      const crackGain = ctx.createGain();
+      crackGain.gain.setValueAtTime(0.14 * rarityGain, now);
+      crackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+      crack.connect(crackFilter);
+      crackFilter.connect(crackGain);
+      crackGain.connect(pan);
+      crack.start(now);
+      crack.stop(now + 0.22);
+
+      const thump = ctx.createOscillator();
+      thump.type = "triangle";
+      thump.frequency.setValueAtTime(140 + rand() * 40, now);
+      thump.frequency.exponentialRampToValueAtTime(
+        60 + rand() * 18,
+        now + 0.34,
+      );
+      const thumpGain = ctx.createGain();
+      thumpGain.gain.setValueAtTime(0.18 * rarityGain, now);
+      thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
+      thump.connect(thumpGain);
+      thumpGain.connect(master);
+      thump.start(now);
+      thump.stop(now + 0.38);
+
+      const debrisBuffer = ctx.createBuffer(
+        1,
+        ctx.sampleRate * 0.18,
+        ctx.sampleRate,
+      );
+      const debrisData = debrisBuffer.getChannelData(0);
+      for (let i = 0; i < debrisData.length; i += 1) {
+        const t = i / debrisData.length;
+        const decay = Math.pow(1 - t, 1.6);
+        debrisData[i] = (rand() * 2 - 1) * decay * 0.9;
+      }
+      const debris = ctx.createBufferSource();
+      debris.buffer = debrisBuffer;
+      const debrisFilter = ctx.createBiquadFilter();
+      debrisFilter.type = "bandpass";
+      debrisFilter.frequency.value = 3800 + rand() * 1600;
+      debrisFilter.Q.value = 3.2;
+      const debrisGain = ctx.createGain();
+      debrisGain.gain.setValueAtTime(0.08 * rarityGain, now + 0.02);
+      debrisGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+      debris.connect(debrisFilter);
+      debrisFilter.connect(debrisGain);
+      debrisGain.connect(pan);
+      debris.start(now + 0.02);
+      debris.stop(now + 0.3);
+
+      const shard = ctx.createOscillator();
+      shard.type = "sine";
+      shard.frequency.setValueAtTime(780 + rand() * 220, now + 0.02);
+      shard.frequency.exponentialRampToValueAtTime(
+        320 + rand() * 60,
+        now + 0.18,
+      );
+      const shardGain = ctx.createGain();
+      shardGain.gain.setValueAtTime(0.06 * rarityGain, now + 0.02);
+      shardGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
+      shard.connect(shardGain);
+      shardGain.connect(master);
+      shard.start(now + 0.02);
+      shard.stop(now + 0.27);
+    },
+    [createSeededRandom, getAudioContext, getRarityGain, soundEnabled],
+  );
+
+  const playBloomSound = useCallback(
+    (params: { seed?: number; rarity?: Rarity | null }) => {
+      if (!soundEnabled) return;
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+      const seed =
+        params.seed ?? Math.floor((performance.now() % 1e6) * 1000 + 17);
+      const rand = createSeededRandom(seed ^ 0x85ebca6b);
+      const rarityGain = getRarityGain(params.rarity);
+      const now = ctx.currentTime;
+
+      const master = ctx.createGain();
+      master.gain.value = 0.0001;
+      master.gain.exponentialRampToValueAtTime(0.55 * rarityGain, now + 0.04);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+      master.connect(ctx.destination);
+
+      const pad = ctx.createOscillator();
+      pad.type = "sawtooth";
+      pad.frequency.setValueAtTime(260 + rand() * 40, now);
+      pad.frequency.exponentialRampToValueAtTime(140 + rand() * 30, now + 0.5);
+      const padGain = ctx.createGain();
+      padGain.gain.setValueAtTime(0.12 * rarityGain, now);
+      padGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.52);
+      pad.connect(padGain);
+      padGain.connect(master);
+      pad.start(now);
+      pad.stop(now + 0.54);
+
+      const shimmer = ctx.createOscillator();
+      shimmer.type = "triangle";
+      shimmer.frequency.setValueAtTime(880 + rand() * 120, now + 0.08);
+      shimmer.frequency.exponentialRampToValueAtTime(
+        620 + rand() * 60,
+        now + 0.34,
+      );
+      const shimmerGain = ctx.createGain();
+      shimmerGain.gain.setValueAtTime(0.05 * rarityGain, now + 0.08);
+      shimmerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+      shimmer.connect(shimmerGain);
+      shimmerGain.connect(master);
+      shimmer.start(now + 0.08);
+      shimmer.stop(now + 0.42);
+
+      const airBuffer = ctx.createBuffer(
+        1,
+        ctx.sampleRate * 0.25,
+        ctx.sampleRate,
+      );
+      const airData = airBuffer.getChannelData(0);
+      for (let i = 0; i < airData.length; i += 1) {
+        const t = i / airData.length;
+        const decay = Math.pow(1 - t, 1.4);
+        airData[i] = (rand() * 2 - 1) * decay * 0.5;
+      }
+      const air = ctx.createBufferSource();
+      air.buffer = airBuffer;
+      const airFilter = ctx.createBiquadFilter();
+      airFilter.type = "highpass";
+      airFilter.frequency.value = 1800 + rand() * 400;
+      const airGain = ctx.createGain();
+      airGain.gain.setValueAtTime(0.04 * rarityGain, now + 0.02);
+      airGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+      air.connect(airFilter);
+      airFilter.connect(airGain);
+      airGain.connect(master);
+      air.start(now + 0.02);
+      air.stop(now + 0.5);
+    },
+    [createSeededRandom, getAudioContext, getRarityGain, soundEnabled],
+  );
 
   const playTicketSound = useCallback(() => {
     if (!soundEnabled) return;
@@ -1408,7 +1869,7 @@ export default function LogoGenerator() {
       scheduleStage(1250, "fissure");
       seedCrackTimeoutsRef.current.push(
         window.setTimeout(() => {
-          playCrackSound();
+          playCrackSound({ seed: result.seed, rarity: result.rarity });
         }, 1250 * pacingMultiplier),
       );
       scheduleStage(1550, "swell");
@@ -1417,7 +1878,7 @@ export default function LogoGenerator() {
       scheduleStage(1980, "bloom");
       seedCrackTimeoutsRef.current.push(
         window.setTimeout(() => {
-          playBloomSound();
+          playBloomSound({ seed: result.seed, rarity: result.rarity });
         }, 1980 * pacingMultiplier),
       );
 
@@ -1657,6 +2118,33 @@ export default function LogoGenerator() {
     const challenges = getDailyChallenges();
     setDailyChallenges(challenges);
 
+    // NEW: Initialize UX enhancements
+    try {
+      // Load UI mode preference
+      const storedMode = localStorage.getItem("plf:uiMode");
+      if (storedMode === "advanced" || storedMode === "simple") {
+        setUiMode(storedMode);
+      }
+
+      // Check onboarding status
+      const storedOnboarding = localStorage.getItem("plf:onboardingDone");
+      const onboardingComplete = storedOnboarding === "true";
+      setOnboardingDone(onboardingComplete);
+
+      // Show onboarding for first-time users
+      if (!onboardingComplete) {
+        setTimeout(() => setShowOnboarding(true), 1000);
+      }
+
+      // Load generation count for auto-upgrade to advanced mode
+      const storedCount = localStorage.getItem("plf:generationCount");
+      if (storedCount) {
+        setGenerationCount(parseInt(storedCount) || 0);
+      }
+    } catch (error) {
+      console.error("Failed to load UX preferences:", error);
+    }
+
     // Show daily boot screen once per day
     try {
       const todayKey = getTodayKey();
@@ -1728,7 +2216,6 @@ export default function LogoGenerator() {
     loadPastWinners,
     loadFavorites,
     calculateTimeUntilReset,
-    getTodayKey,
     getDailyChallenges,
     saveChallenge,
     saveChallengeHistory,
@@ -1824,13 +2311,28 @@ export default function LogoGenerator() {
     if (activeTab === "gallery") {
       loadGallery();
     }
-  }, [activeTab, loadGallery]);
+  }, [activeTab, galleryViewMode, loadGallery]);
 
   useEffect(() => {
     if (userInfo?.username) {
       loadProfileData(userInfo.username);
+      loadUserStatsInfo();
     }
-  }, [loadProfileData, userInfo?.username]);
+  }, [loadProfileData, loadUserStatsInfo, userInfo?.username]);
+
+  useEffect(() => {
+    const loadTrending = async () => {
+      try {
+        const response = await fetch("/api/analytics/trending?days=7");
+        if (!response.ok) return;
+        const data = await response.json();
+        setTrendingData(data);
+      } catch (error) {
+        console.error("Failed to load trending analytics:", error);
+      }
+    };
+    loadTrending();
+  }, []);
 
   useEffect(() => {
     const streak = getChallengeStreak(challengeDays);
@@ -1928,6 +2430,8 @@ export default function LogoGenerator() {
       return;
     }
 
+    setCurrentEntryId(null);
+
     const seedValue = customSeed.trim();
     let seed: number | undefined = undefined;
     if (seedValue) {
@@ -1954,6 +2458,7 @@ export default function LogoGenerator() {
       setIsGenerating(true);
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
+        void persistGeneratedLogo(result);
         if (limitCheck.ok) {
           finalizeDailyLimit(
             limitCheck.normalizedText,
@@ -1961,6 +2466,44 @@ export default function LogoGenerator() {
             !!seed,
           );
         }
+
+        // NEW: Track analytics
+        const newCount = generationCount + 1;
+        setGenerationCount(newCount);
+        try {
+          localStorage.setItem("plf:generationCount", String(newCount));
+
+          // Track event
+          fetch("/api/analytics", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              eventType: "generation",
+              userId: userInfo?.fid ? String(userInfo.fid) : undefined,
+              username: userInfo?.username,
+              metadata: {
+                text: inputText.trim(),
+                seed: seedToUse,
+                rarity: result.rarity,
+                preset: selectedPreset,
+              },
+            }),
+          }).catch(() => {});
+
+          // Auto-upgrade to advanced mode after 3 successful generations
+          if (uiMode === "simple" && newCount >= 3) {
+            setUiMode("advanced");
+            localStorage.setItem("plf:uiMode", "advanced");
+            setToast({
+              message:
+                "🎉 Advanced Mode unlocked! You can now use seeds and remix.",
+              type: "success",
+            });
+          }
+        } catch (error) {
+          console.error("Failed to track generation:", error);
+        }
+
         setToast({ message: "Logo generated successfully!", type: "success" });
         setIsGenerating(false);
       });
@@ -1986,6 +2529,8 @@ export default function LogoGenerator() {
     setSelectedPreset(null);
     setRemixMode(false);
 
+    setCurrentEntryId(null);
+
     const limitCheck = checkDailyLimits(randomText, false);
     if (!limitCheck.ok) {
       setToast({ message: limitCheck.message, type: "info" });
@@ -1998,6 +2543,7 @@ export default function LogoGenerator() {
       setIsGenerating(true);
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
+        void persistGeneratedLogo(result);
         if (limitCheck.ok) {
           finalizeDailyLimit(
             limitCheck.normalizedText,
@@ -2049,6 +2595,8 @@ export default function LogoGenerator() {
       return;
     }
 
+    setCurrentEntryId(null);
+
     try {
       const result = createLogoResult(
         inputText.trim(),
@@ -2058,6 +2606,7 @@ export default function LogoGenerator() {
       setIsGenerating(true);
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
+        void persistGeneratedLogo(result);
         finalizeDailyLimit(
           limitCheck.normalizedText,
           limitCheck.todayState,
@@ -2196,18 +2745,63 @@ export default function LogoGenerator() {
 
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
-          const viewUrl = uploadData.viewUrl || uploadData.imageUrl;
-          const downloadUrl = uploadData.downloadUrl || uploadData.imageUrl;
-          const targetUrl = target === "download" ? downloadUrl : viewUrl;
-          if (targetUrl) {
-            await sdk.actions.openUrl(targetUrl);
-            if (target === "photos") {
+          const imageUrl = uploadData.imageUrl;
+
+          if (!imageUrl) return;
+
+          // For "Save to Photos" on iOS, use the Web Share API with files
+          // This opens the native iOS share sheet where users can tap "Save Image"
+          if (target === "photos") {
+            try {
+              const response = await fetch(imageUrl);
+              const blob = await response.blob();
+              const file = new File([blob], "logo.png", { type: blob.type });
+
+              // Check if navigator.share supports files
+              if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                  files: [file],
+                  title: `Pixel Logo: ${logoResult.config.text}`,
+                  text: "Save this logo to your Photos",
+                });
+                setToast({
+                  message: "Image shared! Tap 'Save Image' to save to Photos.",
+                  type: "success",
+                });
+                return;
+              }
+            } catch (shareError) {
+              // If share API fails, fall through to fallback below
+              console.log("Web Share API failed, using fallback:", shareError);
+            }
+
+            // Fallback: Open image in new tab with instructions
+            // (when Web Share API isn't supported)
+            try {
+              await sdk.actions.openUrl(imageUrl);
               setToast({
                 message:
                   'Image opened. Long-press and choose "Save Image" to save to Photos.',
                 type: "info",
               });
-            } else if (target === "files") {
+              return;
+            } catch {
+              // SDK openUrl not available, use window.open
+              window.open(imageUrl, "_blank", "noopener,noreferrer");
+              setToast({
+                message:
+                  'Image opened. Long-press and choose "Save Image" to save to Photos.',
+                type: "info",
+              });
+              return;
+            }
+          }
+
+          // For "Save to Files" and "Download", use SDK or fallback
+          const downloadUrl = uploadData.downloadUrl || imageUrl;
+          try {
+            await sdk.actions.openUrl(downloadUrl);
+            if (target === "files") {
               setToast({
                 message: 'Image opened. Long-press and choose "Save to Files".',
                 type: "info",
@@ -2220,6 +2814,21 @@ export default function LogoGenerator() {
               });
             }
             return;
+          } catch {
+            // Fallback if SDK not available
+            window.open(downloadUrl, "_blank", "noopener,noreferrer");
+            if (target === "files") {
+              setToast({
+                message: 'Image opened. Long-press and choose "Save to Files".',
+                type: "info",
+              });
+            } else {
+              setToast({
+                message:
+                  'Image opened. Right-click and choose "Save Image As" to download.',
+                type: "info",
+              });
+            }
           }
         }
       }
@@ -2227,12 +2836,55 @@ export default function LogoGenerator() {
       console.log("Open image failed:", error);
     }
 
-    // Fallback if SDK not available
+    // Fallback if SDK not ready: use Web Share API or show instructions
+    try {
+      const response = await fetch(logoResult.dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], "logo.png", { type: blob.type });
+
+      if (
+        target === "photos" &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({
+          files: [file],
+          title: `Pixel Logo: ${logoResult.config.text}`,
+          text: "Save this logo to your Photos",
+        });
+        setToast({
+          message: "Image shared! Tap 'Save Image' to save to Photos.",
+          type: "success",
+        });
+        return;
+      }
+    } catch (error) {
+      console.log("Web Share API not available:", error);
+    }
+
+    // Final fallback: open data URL in new tab
     const objectUrl = logoResult.dataUrl;
     const newWindow = window.open(objectUrl, "_blank", "noopener,noreferrer");
     if (!newWindow) {
       setToast({
         message: "Popup blocked. Please save the image from the preview above.",
+        type: "info",
+      });
+    } else if (target === "photos") {
+      setToast({
+        message:
+          'Image opened. Long-press and choose "Save Image" to save to Photos.',
+        type: "info",
+      });
+    } else if (target === "files") {
+      setToast({
+        message: 'Image opened. Long-press and choose "Save to Files".',
+        type: "info",
+      });
+    } else {
+      setToast({
+        message:
+          'Image opened. Right-click and choose "Save Image As" to download.',
         type: "info",
       });
     }
@@ -2318,12 +2970,23 @@ export default function LogoGenerator() {
     async (entry: LeaderboardEntry) => {
       const safeText = entry.text || "Pixel logo";
       const embeds: string[] = [];
+      // Use card image for sharing context
+      const shareImageUrl = getImageForContext(
+        {
+          logoImageUrl: entry.logoImageUrl,
+          cardImageUrl: entry.cardImageUrl,
+          thumbImageUrl: entry.thumbImageUrl,
+          mediumImageUrl: entry.mediumImageUrl,
+          imageUrl: entry.imageUrl,
+        },
+        "share",
+      );
       if (
-        entry.imageUrl &&
-        (entry.imageUrl.startsWith("http://") ||
-          entry.imageUrl.startsWith("https://"))
+        shareImageUrl &&
+        (shareImageUrl.startsWith("http://") ||
+          shareImageUrl.startsWith("https://"))
       ) {
-        embeds.push(entry.imageUrl);
+        embeds.push(shareImageUrl);
       }
       const shareText = `Pixel Logo Forge: "${safeText}"`;
       if (sdkReady) {
@@ -2359,6 +3022,34 @@ export default function LogoGenerator() {
       return prev.includes("Tag a friend: @") ? prev : `${prev}${suffix}`;
     });
   }, []);
+
+  const buildCastPreviewText = useCallback(
+    (
+      activeResult: LogoResult,
+      remixSeed?: number,
+      overlaysEnabled: boolean = true,
+    ) => {
+      const rarityEmoji =
+        {
+          COMMON: "⚪",
+          RARE: "🔵",
+          EPIC: "🟣",
+          LEGENDARY: "🟠",
+        }[activeResult.rarity] || "🎮";
+
+      const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : "";
+      const overlaysLine = overlaysEnabled
+        ? ""
+        : "🪶 Overlays: off for this cast";
+
+      return `${rarityEmoji} ${remixSeed ? "Remixed" : "Forged"} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
+
+✨ Rarity: ${activeResult.rarity}
+🎲 Seed: ${activeResult.seed}
+${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo`;
+    },
+    [],
+  );
 
   const handleAddMiniapp = async () => {
     if (!sdkReady) {
@@ -2413,22 +3104,15 @@ export default function LogoGenerator() {
 
     // Generate preview first
     try {
-      const previewImage = await generateCastImage(activeResult);
+      const previewImage = await generateCastImage(activeResult, {
+        includeOverlays: includeCastOverlays,
+      });
 
-      const rarityEmoji =
-        {
-          COMMON: "⚪",
-          RARE: "🔵",
-          EPIC: "🟣",
-          LEGENDARY: "🟠",
-        }[activeResult.rarity] || "🎮";
-
-      const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : "";
-      const previewText = `${rarityEmoji} ${remixSeed ? "Remixed" : "Forged"} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
-
-✨ Rarity: ${activeResult.rarity}
-🎲 Seed: ${activeResult.seed}
-${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo`;
+      const previewText = buildCastPreviewText(
+        activeResult,
+        remixSeed,
+        includeCastOverlays,
+      );
 
       setCastPreviewImage(previewImage);
       setCastPreviewText(previewText);
@@ -2468,7 +3152,9 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo`
 
       try {
         console.log("Generating cast image...");
-        const castImageDataUrl = await generateCastImage(activeResult);
+        const castImageDataUrl = await generateCastImage(activeResult, {
+          includeOverlays: includeCastOverlays,
+        });
         console.log("Cast image generated, length:", castImageDataUrl.length);
 
         // Upload the composite image to get a shareable URL
@@ -2510,21 +3196,11 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo`
       if (sdkReady) {
         try {
           // Keep the full cast metadata, but do not embed the share link
-          const rarityEmoji =
-            {
-              COMMON: "⚪",
-              RARE: "🔵",
-              EPIC: "🟣",
-              LEGENDARY: "🟠",
-            }[activeResult.rarity] || "🎮";
-
-          const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : "";
-          const defaultText = `${rarityEmoji} ${remixSeed ? "Remixed" : "Forged"} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
-
-✨ Rarity: ${activeResult.rarity}
-🎲 Seed: ${activeResult.seed}
-${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
-`;
+          const defaultText = buildCastPreviewText(
+            activeResult,
+            remixSeed,
+            includeCastOverlays,
+          );
           const castText = textOverride?.trim() ? textOverride : defaultText;
 
           // Farcaster embeds - build as tuple type
@@ -2561,16 +3237,34 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
             const entryId =
               (result.cast as { hash?: string })?.hash ??
               `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const persistId = currentEntryId ?? entryId;
             const castHash = (result.cast as { hash?: string })?.hash;
             const castUrl =
               castHash && /^0x[a-fA-F0-9]{64}$/.test(castHash)
                 ? `https://warpcast.com/~/cast/${castHash}`
                 : undefined;
+
+            // Mark logo as casted in the database
+            try {
+              await fetch("/api/generated-logos", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  id: persistId,
+                  casted: true,
+                }),
+              });
+            } catch (patchError) {
+              console.error("Failed to mark logo as casted:", patchError);
+            }
+
             addToLeaderboard({
-              id: entryId,
+              id: persistId,
               text: activeResult.config.text,
               seed: activeResult.seed,
               imageUrl: castImageUrl,
+              logoImageUrl: castImageUrl,
+              cardImageUrl: castImageUrl,
               username: userInfo?.username ?? "unknown",
               displayName: userInfo?.username ?? "Unknown",
               pfpUrl: "",
@@ -2608,21 +3302,11 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
       } else {
         console.log("SDK not ready, using Warpcast fallback");
         // Fallback: open Warpcast compose URL
-        const rarityEmoji =
-          {
-            COMMON: "⚪",
-            RARE: "🔵",
-            EPIC: "🟣",
-            LEGENDARY: "🟠",
-          }[activeResult.rarity] || "🎮";
-
-        const remixLine = remixSeed ? `🔁 Remix seed: ${remixSeed}` : "";
-        const defaultText = `${rarityEmoji} ${remixSeed ? "Remixed" : "Forged"} a ${activeResult.rarity.toLowerCase()} pixel logo: "${activeResult.config.text}"
-
-✨ Rarity: ${activeResult.rarity}
-🎲 Seed: ${activeResult.seed}
-${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
-`;
+        const defaultText = buildCastPreviewText(
+          activeResult,
+          remixSeed,
+          includeCastOverlays,
+        );
         const castText = textOverride?.trim() ? textOverride : defaultText;
 
         const warpcastUrl = buildWarpcastComposeUrl(
@@ -2654,6 +3338,38 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
     }
   };
 
+  const handleToggleCastOverlays = async (nextValue?: boolean) => {
+    const target = castTarget ?? logoResult;
+    const nextInclude =
+      typeof nextValue === "boolean" ? nextValue : !includeCastOverlays;
+    setIncludeCastOverlays(nextInclude);
+
+    if (!target) return;
+
+    try {
+      const updatedImage = await generateCastImage(target, {
+        includeOverlays: nextInclude,
+      });
+      setCastPreviewImage(updatedImage);
+      const updatedText = buildCastPreviewText(
+        target,
+        castTargetRemixSeed,
+        nextInclude,
+      );
+      setCastPreviewText(updatedText);
+      setCastDraftText((prev) => {
+        if (!prev || prev === castPreviewText) return updatedText;
+        return prev;
+      });
+    } catch (error) {
+      console.error("Failed to toggle cast overlays:", error);
+      setToast({
+        message: "Could not update cast overlays right now.",
+        type: "error",
+      });
+    }
+  };
+
   const getRarityColor = (rarity: Rarity): string => {
     switch (rarity) {
       case "COMMON":
@@ -2669,7 +3385,14 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
     }
   };
 
-  const generateCastImage = async (logoResult: LogoResult): Promise<string> => {
+  const generateCastImage = async (
+    logoResult: LogoResult,
+    options?: { includeOverlays?: boolean },
+  ): Promise<string> => {
+    const rarityMasterUnlocked = userRewards.some(
+      (reward) => reward.rewardType === "rarity-master-badge",
+    );
+    const rankLabel = userStats?.rank ?? "Rookie";
     return new Promise((resolve, reject) => {
       try {
         // Create a larger canvas for the card
@@ -2679,6 +3402,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
           reject(new Error("Could not create canvas context"));
           return;
         }
+
+        const includeOverlays = options?.includeOverlays ?? true;
 
         // Load the logo image
         const logoImg = new Image();
@@ -2710,34 +3435,37 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
             cardCtx.fillRect(0, y, cardWidth, 1);
           }
 
-          // Draw border + glow
           const borderWidth = 10;
           const rarityColor = getRarityColor(logoResult.rarity);
-          cardCtx.shadowColor = rarityColor;
-          cardCtx.shadowBlur = 18;
-          cardCtx.strokeStyle = rarityColor;
-          cardCtx.lineWidth = borderWidth;
-          cardCtx.strokeRect(
-            borderWidth / 2,
-            borderWidth / 2,
-            cardWidth - borderWidth,
-            cardHeight - borderWidth,
-          );
-          cardCtx.shadowBlur = 0;
 
-          // Title bar
-          cardCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
-          cardCtx.fillRect(0, 0, cardWidth, 70);
-          cardCtx.fillStyle = rarityColor;
-          cardCtx.font = 'bold 22px "Press Start 2P", monospace';
-          cardCtx.textAlign = "left";
-          cardCtx.textBaseline = "middle";
-          cardCtx.fillText("PIXEL LOGO FORGE", 32, 38);
+          if (includeOverlays) {
+            // Draw border + glow when overlays are on
+            cardCtx.shadowColor = rarityColor;
+            cardCtx.shadowBlur = 18;
+            cardCtx.strokeStyle = rarityColor;
+            cardCtx.lineWidth = borderWidth;
+            cardCtx.strokeRect(
+              borderWidth / 2,
+              borderWidth / 2,
+              cardWidth - borderWidth,
+              cardHeight - borderWidth,
+            );
+            cardCtx.shadowBlur = 0;
+
+            // Title bar
+            cardCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            cardCtx.fillRect(0, 0, cardWidth, 70);
+            cardCtx.fillStyle = rarityColor;
+            cardCtx.font = 'bold 22px "Press Start 2P", monospace';
+            cardCtx.textAlign = "left";
+            cardCtx.textBaseline = "middle";
+            cardCtx.fillText("PIXEL LOGO FORGE", 32, 38);
+          }
 
           // Calculate logo size and position (larger + centered in main area)
-          const logoPadding = 30;
-          const titleBarHeight = 70;
-          const footerHeight = 80;
+          const logoPadding = includeOverlays ? 30 : 60;
+          const titleBarHeight = includeOverlays ? 70 : 0;
+          const footerHeight = includeOverlays ? 80 : 0;
           const maxLogoWidth = cardWidth - logoPadding * 2;
           const maxLogoHeight =
             cardHeight - logoPadding * 2 - titleBarHeight - footerHeight;
@@ -2759,50 +3487,87 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
           const availableHeight = cardHeight - titleBarHeight - footerHeight;
           const logoY = titleBarHeight + (availableHeight - logoHeight) / 2;
 
-          // Draw logo with a subtle glow
-          cardCtx.shadowColor = "rgba(0, 255, 0, 0.35)";
-          cardCtx.shadowBlur = 12;
+          // Draw logo with optional glow
+          cardCtx.shadowColor = includeOverlays
+            ? "rgba(0, 255, 0, 0.35)"
+            : "rgba(0, 0, 0, 0.6)";
+          cardCtx.shadowBlur = includeOverlays ? 12 : 6;
           cardCtx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
           cardCtx.shadowBlur = 0;
 
-          // Draw rarity badge (top-right)
-          const rarityY = 16;
-          const rarityX = cardWidth - 220;
-          cardCtx.fillStyle = "rgba(0, 0, 0, 0.8)";
-          cardCtx.fillRect(rarityX - 10, rarityY - 8, 200, 56);
-          cardCtx.strokeStyle = rarityColor;
-          cardCtx.lineWidth = 4;
-          cardCtx.strokeRect(rarityX - 10, rarityY - 8, 200, 56);
+          if (includeOverlays) {
+            // Draw rarity badge (top-right)
+            const rarityY = 16;
+            const rarityX = cardWidth - 220;
+            cardCtx.fillStyle = "rgba(0, 0, 0, 0.8)";
+            cardCtx.fillRect(rarityX - 10, rarityY - 8, 200, 56);
+            cardCtx.strokeStyle = rarityColor;
+            cardCtx.lineWidth = 4;
+            cardCtx.strokeRect(rarityX - 10, rarityY - 8, 200, 56);
 
-          cardCtx.fillStyle = rarityColor;
-          cardCtx.font = 'bold 16px "Press Start 2P", monospace';
-          cardCtx.textAlign = "center";
-          cardCtx.textBaseline = "middle";
-          cardCtx.fillText("RARITY", rarityX + 90, rarityY + 14);
-          cardCtx.fillText(logoResult.rarity, rarityX + 90, rarityY + 36);
+            cardCtx.fillStyle = rarityColor;
+            cardCtx.font = 'bold 16px "Press Start 2P", monospace';
+            cardCtx.textAlign = "center";
+            cardCtx.textBaseline = "middle";
+            cardCtx.fillText("RARITY", rarityX + 90, rarityY + 14);
+            cardCtx.fillText(logoResult.rarity, rarityX + 90, rarityY + 36);
 
-          // Draw owner info at bottom
-          const ownerY = cardHeight - 70;
-          const ownerText = userInfo?.username
-            ? `Generated by @${userInfo.username}`
-            : userInfo?.fid
-              ? `Generated by FID ${userInfo.fid}`
-              : "Generated by Pixel Logo Forge";
+            // Forge rank + rarity master overlays
+            const infoX = 32;
+            const infoY = cardHeight - 210;
+            const infoWidth = 320;
+            const infoHeight = 110;
+            cardCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            cardCtx.fillRect(infoX, infoY, infoWidth, infoHeight);
+            cardCtx.strokeStyle = rarityColor;
+            cardCtx.lineWidth = 3;
+            cardCtx.strokeRect(infoX, infoY, infoWidth, infoHeight);
 
-          cardCtx.fillStyle = "#9adf9a";
-          cardCtx.font = '15px "Courier New", monospace';
-          cardCtx.textAlign = "center";
-          cardCtx.textBaseline = "middle";
-          cardCtx.fillText(ownerText, cardWidth / 2, ownerY);
+            cardCtx.fillStyle = "#9adf9a";
+            cardCtx.font = '14px "Courier New", monospace';
+            cardCtx.textAlign = "left";
+            cardCtx.textBaseline = "top";
+            cardCtx.fillText(
+              `Forge Rank: ${rankLabel}`,
+              infoX + 12,
+              infoY + 10,
+            );
+            const bestRarity =
+              userStats?.bestRarity || logoResult.rarity || "UNKNOWN";
+            cardCtx.fillText(
+              `Best Rarity: ${bestRarity}`,
+              infoX + 12,
+              infoY + 32,
+            );
+            cardCtx.fillText(
+              `Rarity Master: ${rarityMasterUnlocked ? "UNLOCKED" : "LOCKED"}`,
+              infoX + 12,
+              infoY + 54,
+            );
 
-          // Draw seed info
-          cardCtx.fillStyle = "#6fae6f";
-          cardCtx.font = '12px "Courier New", monospace';
-          cardCtx.fillText(
-            `Seed: ${logoResult.seed}`,
-            cardWidth / 2,
-            ownerY + 24,
-          );
+            // Draw owner info at bottom
+            const ownerY = cardHeight - 70;
+            const ownerText = userInfo?.username
+              ? `Generated by @${userInfo.username}`
+              : userInfo?.fid
+                ? `Generated by FID ${userInfo.fid}`
+                : "Generated by Pixel Logo Forge";
+
+            cardCtx.fillStyle = "#9adf9a";
+            cardCtx.font = '15px "Courier New", monospace';
+            cardCtx.textAlign = "center";
+            cardCtx.textBaseline = "middle";
+            cardCtx.fillText(ownerText, cardWidth / 2, ownerY);
+
+            // Draw seed info
+            cardCtx.fillStyle = "#6fae6f";
+            cardCtx.font = '12px "Courier New", monospace';
+            cardCtx.fillText(
+              `Seed: ${logoResult.seed}`,
+              cardWidth / 2,
+              ownerY + 24,
+            );
+          }
 
           // Convert to data URL
           resolve(cardCanvas.toDataURL("image/png"));
@@ -2859,6 +3624,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                   className="history-image"
                   width={64}
                   height={64}
+                  loading="lazy"
                   unoptimized
                 />
                 <span className="history-time">
@@ -2890,6 +3656,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                   className="history-image"
                   width={64}
                   height={64}
+                  loading="lazy"
                   unoptimized
                 />
                 <span className="history-time">
@@ -2952,35 +3719,17 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
   }, [sortedLeaderboard, triggerMoment, userInfo?.username]);
 
   const galleryRarityOptions = ["all", ...RARITY_OPTIONS, "Unknown"];
-  const galleryPresetOptions = [
-    "all",
-    ...PRESETS.map((preset) => preset.key),
-    "Unknown",
-  ];
-  const presetLabelMap = PRESETS.reduce<Record<string, string>>(
-    (acc, preset) => {
-      acc[preset.key] = preset.label;
-      return acc;
-    },
-    {},
-  );
   const filteredGalleryEntries = galleryEntries
     .filter((entry) => {
       const rarityValue = entry.rarity
         ? String(entry.rarity).toUpperCase()
         : "UNKNOWN";
-      const presetValue = entry.presetKey ?? "Unknown";
       const matchesRarity =
         galleryRarityFilter === "all" ||
         (galleryRarityFilter === "Unknown"
           ? rarityValue === "UNKNOWN"
           : rarityValue === galleryRarityFilter);
-      const matchesPreset =
-        galleryPresetFilter === "all" ||
-        (galleryPresetFilter === "Unknown"
-          ? presetValue === "Unknown"
-          : presetValue === galleryPresetFilter);
-      return matchesRarity && matchesPreset;
+      return matchesRarity;
     })
     .sort((a, b) => {
       const bCreated =
@@ -3015,6 +3764,40 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
     [commitLogoResult, createLogoResult, setActiveTab, setInputText],
   );
 
+  const handleRandomEntry = useCallback(
+    (entry: Partial<LeaderboardEntry>) => {
+      if (!entry?.text || typeof entry.seed !== "number") {
+        setToast({ message: "Random cast not available.", type: "info" });
+        return;
+      }
+      const normalized: LeaderboardEntry = {
+        id: entry.id || crypto.randomUUID(),
+        text: entry.text,
+        seed: entry.seed,
+        imageUrl: entry.imageUrl || "",
+        logoImageUrl: entry.logoImageUrl,
+        cardImageUrl: entry.cardImageUrl,
+        thumbImageUrl: entry.thumbImageUrl,
+        mediumImageUrl: entry.mediumImageUrl,
+        username: entry.username || "unknown",
+        displayName: entry.displayName || entry.username || "Unknown",
+        pfpUrl: entry.pfpUrl || "",
+        likes: entry.likes ?? 0,
+        recasts: entry.recasts ?? 0,
+        saves: entry.saves ?? 0,
+        remixes: entry.remixes ?? 0,
+        rarity: entry.rarity ?? null,
+        presetKey: entry.presetKey ?? null,
+        createdAt: entry.createdAt || Date.now(),
+        castUrl: entry.castUrl,
+        score: entry.score,
+        userId: entry.userId ?? null,
+      };
+      openGalleryEntry(normalized, "Random cast loaded!");
+    },
+    [openGalleryEntry],
+  );
+
   const handleRandomLegendary = useCallback(() => {
     const legendaryEntries = galleryEntries.filter((entry) => {
       const rarityValue = entry.rarity
@@ -3046,6 +3829,18 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
     openGalleryEntry(entry, "Surprise cast loaded!");
   }, [filteredGalleryEntries, openGalleryEntry]);
 
+  const handleRandomFromGallery = useCallback(() => {
+    if (filteredGalleryEntries.length === 0) {
+      setToast({ message: "No casts available.", type: "info" });
+      return;
+    }
+    const entry =
+      filteredGalleryEntries[
+        Math.floor(Math.random() * filteredGalleryEntries.length)
+      ];
+    openGalleryEntry(entry, "Random cast loaded!");
+  }, [filteredGalleryEntries, openGalleryEntry]);
+
   const leaderboardTotalPages = Math.max(
     1,
     Math.ceil(sortedLeaderboard.length / leaderboardPageSize),
@@ -3065,60 +3860,111 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
 
   const castGalleryContent = (
     <div className="cast-gallery">
-      <div className="leaderboard-title">Cast Gallery</div>
+      <div className="leaderboard-title">
+        {galleryViewMode === "logos" ? "Logo Gallery" : "Cast Gallery"}
+      </div>
       <div className="gallery-meta">
-        Recent casts from the community - {filteredGalleryEntries.length} shown
+        {galleryViewMode === "logos"
+          ? `All generated logos - ${filteredGalleryEntries.length} shown`
+          : `Recent casts from the community - ${filteredGalleryEntries.length} shown`}
       </div>
-      <div className="gallery-actions-top">
+
+      <div
+        className="gallery-view-toggle"
+        style={{
+          display: "flex",
+          gap: "8px",
+          justifyContent: "center",
+          marginBottom: "8px",
+        }}
+      >
         <button
           type="button"
-          className="gallery-action-button"
-          onClick={handleRandomLegendary}
+          className={`gallery-toggle-button${galleryViewMode === "logos" ? " active" : ""}`}
+          onClick={() => {
+            setGalleryViewMode("logos");
+            setGalleryPage(1);
+          }}
+          style={{
+            padding: "4px 12px",
+            fontSize: "11px",
+            border: `1px solid ${galleryViewMode === "logos" ? "#0a0" : "#444"}`,
+            background: galleryViewMode === "logos" ? "#0a0" : "transparent",
+            color: galleryViewMode === "logos" ? "#000" : "#0a0",
+            borderRadius: "2px",
+            cursor: "pointer",
+            fontFamily: "monospace",
+            textTransform: "uppercase",
+          }}
         >
-          Random Legendary
+          🎨 Logos
         </button>
         <button
           type="button"
-          className="gallery-action-button"
-          onClick={handleSurpriseMe}
+          className={`gallery-toggle-button${galleryViewMode === "casts" ? " active" : ""}`}
+          onClick={() => {
+            setGalleryViewMode("casts");
+            setGalleryPage(1);
+          }}
+          style={{
+            padding: "4px 12px",
+            fontSize: "11px",
+            border: `1px solid ${galleryViewMode === "casts" ? "#0a0" : "#444"}`,
+            background: galleryViewMode === "casts" ? "#0a0" : "transparent",
+            color: galleryViewMode === "casts" ? "#000" : "#0a0",
+            borderRadius: "2px",
+            cursor: "pointer",
+            fontFamily: "monospace",
+            textTransform: "uppercase",
+          }}
         >
-          Surprise Me
+          📢 Casts
         </button>
       </div>
-      <div className="gallery-filters">
-        <label className="gallery-filter">
-          <span>Rarity</span>
-          <select
-            value={galleryRarityFilter}
-            onChange={(event) => {
-              setGalleryRarityFilter(event.target.value);
-              setGalleryPage(1);
-            }}
-          >
-            {galleryRarityOptions.map((option) => (
-              <option key={`rarity-${option}`} value={option}>
-                {option === "all" ? "All" : option}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="gallery-filter">
-          <span>Preset</span>
-          <select
-            value={galleryPresetFilter}
-            onChange={(event) => {
-              setGalleryPresetFilter(event.target.value);
-              setGalleryPage(1);
-            }}
-          >
-            {galleryPresetOptions.map((option) => (
-              <option key={`preset-${option}`} value={option}>
-                {option === "all" ? "All" : (presetLabelMap[option] ?? option)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+
+      {/* NEW: Redesigned Filter Bar */}
+      <FilterBar
+        onSearch={async (query) => {
+          if (!query.trim()) {
+            // Reset to full gallery if search is cleared
+            setGalleryPage(1);
+            return;
+          }
+          try {
+            const response = await fetch(
+              `/api/search?q=${encodeURIComponent(query)}&limit=100`,
+            );
+            if (response.ok) {
+              const data = await response.json();
+              if (data.results && data.results.length > 0) {
+                setGalleryEntries(data.results);
+                setToast({
+                  message: `Found ${data.results.length} result(s)`,
+                  type: "success",
+                });
+              } else {
+                setToast({ message: "No results found", type: "info" });
+              }
+            }
+          } catch (error) {
+            console.error("Search error:", error);
+            setToast({ message: "Search failed", type: "error" });
+          }
+        }}
+        onRarityChange={(rarity) => {
+          setGalleryRarityFilter(rarity || "all");
+          setGalleryPage(1);
+        }}
+        activeFilters={{
+          rarity: galleryRarityFilter === "all" ? null : galleryRarityFilter,
+        }}
+        resultCount={filteredGalleryEntries.length}
+        totalFilters={galleryRarityFilter !== "all" ? 1 : 0}
+        onClearFilters={() => {
+          setGalleryRarityFilter("all");
+          setGalleryPage(1);
+        }}
+      />
       {galleryLoading && (
         <div className="leaderboard-status">Loading gallery...</div>
       )}
@@ -3126,9 +3972,13 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
       {!galleryLoading &&
         !galleryError &&
         filteredGalleryEntries.length === 0 && (
-          <div className="leaderboard-status">
-            No casts match those filters yet.
-          </div>
+          <EmptyState
+            onClearFilters={() => {
+              setGalleryRarityFilter("all");
+              setGalleryPage(1);
+            }}
+            onTryRandom={handleRandomFromGallery}
+          />
         )}
       {filteredGalleryEntries.length > 0 && (
         <div className="gallery-grid">
@@ -3141,18 +3991,40 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
             const rarityValue = entry.rarity
               ? String(entry.rarity).toUpperCase()
               : "Unknown";
-            const presetValue = entry.presetKey
-              ? (presetLabelMap[entry.presetKey] ?? entry.presetKey)
-              : "Unknown";
+            const presetValue = entry.presetKey ?? "Unknown";
+            // Use card image for cast gallery, logo image for logo gallery
+            const galleryImageUrl =
+              galleryViewMode === "casts"
+                ? getImageForContext(
+                    {
+                      logoImageUrl: entry.logoImageUrl,
+                      cardImageUrl: entry.cardImageUrl,
+                      thumbImageUrl: entry.thumbImageUrl,
+                      mediumImageUrl: entry.mediumImageUrl,
+                      imageUrl: entry.imageUrl,
+                    },
+                    "share",
+                  )
+                : getImageForContext(
+                    {
+                      logoImageUrl: entry.logoImageUrl,
+                      cardImageUrl: entry.cardImageUrl,
+                      thumbImageUrl: entry.thumbImageUrl,
+                      mediumImageUrl: entry.mediumImageUrl,
+                      imageUrl: entry.imageUrl,
+                    },
+                    "gallery",
+                  );
             const CardBody = (
               <>
-                {entry.imageUrl ? (
+                {galleryImageUrl ? (
                   <NextImage
-                    src={entry.imageUrl}
+                    src={galleryImageUrl}
                     alt={`Cast by ${entry.username}`}
                     className="gallery-image"
                     width={320}
                     height={200}
+                    loading="lazy"
                     unoptimized
                   />
                 ) : (
@@ -3160,34 +4032,36 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                     {entry.text || "View cast"}
                   </div>
                 )}
-                <div className="gallery-card-meta">
-                  <span>@{entry.username}</span>
-                  <span>
-                    {formatHistoryTime(
-                      typeof entry.createdAt === "string"
-                        ? new Date(entry.createdAt).getTime()
-                        : entry.createdAt,
-                    )}
-                  </span>
-                </div>
-                <div className="gallery-card-tags">
-                  <span className="gallery-chip">{rarityValue}</span>
-                  <span className="gallery-chip">{presetValue}</span>
-                </div>
-                <div className="gallery-card-seed">Seed: {entry.seed}</div>
-                <div className="gallery-actions">
-                  <button
-                    type="button"
-                    className="gallery-share-button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      openWarpcastShare(entry);
-                    }}
-                    aria-label={`Share cast by ${entry.username}`}
-                  >
-                    Share to Warpcast
-                  </button>
+                <div className="gallery-card-content">
+                  <div className="gallery-card-meta">
+                    <span>@{entry.username}</span>
+                    <span>
+                      {formatHistoryTime(
+                        typeof entry.createdAt === "string"
+                          ? new Date(entry.createdAt).getTime()
+                          : entry.createdAt,
+                      )}
+                    </span>
+                  </div>
+                  <div className="gallery-card-tags">
+                    <span className="gallery-chip">{rarityValue}</span>
+                    <span className="gallery-chip">{presetValue}</span>
+                  </div>
+                  <div className="gallery-card-seed">Seed: {entry.seed}</div>
+                  <div className="gallery-actions">
+                    <button
+                      type="button"
+                      className="gallery-share-button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        openWarpcastShare(entry);
+                      }}
+                      aria-label={`Share cast by ${entry.username}`}
+                    >
+                      Share to Warpcast
+                    </button>
+                  </div>
                 </div>
               </>
             );
@@ -3244,34 +4118,48 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
         <div className="daily-winners-section">
           <div className="leaderboard-title">🏆 Today&apos;s Winners</div>
           <div className="daily-winners-grid">
-            {dailyWinners.map((winner) => (
-              <div
-                key={`winner-${winner.rank}`}
-                className={`daily-winner-card rank-${winner.rank}`}
-              >
-                <div className="daily-winner-rank">#{winner.rank}</div>
-                {winner.entry.imageUrl ? (
-                  <NextImage
-                    src={winner.entry.imageUrl}
-                    alt={`Winner ${winner.rank} by ${winner.username}`}
-                    className="daily-winner-image"
-                    width={200}
-                    height={120}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="daily-winner-text">{winner.entry.text}</div>
-                )}
-                <div className="daily-winner-info">
-                  <div className="daily-winner-username">
-                    @{winner.username}
-                  </div>
-                  <div className="daily-winner-stats">
-                    ❤️ {winner.entry.likes} 🔁 {winner.entry.recasts ?? 0}
+            {dailyWinners.map((winner) => {
+              // Use logo image for leaderboard display context
+              const leaderboardImageUrl = getImageForContext(
+                {
+                  logoImageUrl: winner.entry.logoImageUrl,
+                  cardImageUrl: winner.entry.cardImageUrl,
+                  thumbImageUrl: winner.entry.thumbImageUrl,
+                  mediumImageUrl: winner.entry.mediumImageUrl,
+                  imageUrl: winner.entry.imageUrl,
+                },
+                "leaderboard",
+              );
+              return (
+                <div
+                  key={`winner-${winner.rank}`}
+                  className={`daily-winner-card rank-${winner.rank}`}
+                >
+                  <div className="daily-winner-rank">#{winner.rank}</div>
+                  {leaderboardImageUrl ? (
+                    <NextImage
+                      src={leaderboardImageUrl}
+                      alt={`Winner ${winner.rank} by ${winner.username}`}
+                      className="daily-winner-image"
+                      width={200}
+                      height={120}
+                      loading="lazy"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="daily-winner-text">{winner.entry.text}</div>
+                  )}
+                  <div className="daily-winner-info">
+                    <div className="daily-winner-username">
+                      @{winner.username}
+                    </div>
+                    <div className="daily-winner-stats">
+                      ❤️ {winner.entry.likes} 🔁 {winner.entry.recasts ?? 0}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -3348,6 +4236,7 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                       className="leaderboard-avatar"
                       width={28}
                       height={28}
+                      loading="lazy"
                       unoptimized
                     />
                   ) : (
@@ -3364,20 +4253,34 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                     </div>
                   </Link>
                 </div>
-                {entry.imageUrl ? (
-                  <NextImage
-                    src={entry.imageUrl}
-                    alt="Cast media"
-                    className="leaderboard-image"
-                    width={400}
-                    height={120}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="leaderboard-text">
-                    {entry.text || "View cast"}
-                  </div>
-                )}
+                {(() => {
+                  // Use logo image for leaderboard display context
+                  const leaderboardImageUrl = getImageForContext(
+                    {
+                      logoImageUrl: entry.logoImageUrl,
+                      cardImageUrl: entry.cardImageUrl,
+                      thumbImageUrl: entry.thumbImageUrl,
+                      mediumImageUrl: entry.mediumImageUrl,
+                      imageUrl: entry.imageUrl,
+                    },
+                    "leaderboard",
+                  );
+                  return leaderboardImageUrl ? (
+                    <NextImage
+                      src={leaderboardImageUrl}
+                      alt="Cast media"
+                      className="leaderboard-image"
+                      width={400}
+                      height={120}
+                      loading="lazy"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="leaderboard-text">
+                      {entry.text || "View cast"}
+                    </div>
+                  );
+                })()}
                 <div className="leaderboard-tags">
                   <span className="leaderboard-chip">{rarityValue}</span>
                   <span className="leaderboard-chip">{presetValue}</span>
@@ -3518,144 +4421,556 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
     </div>
   );
 
-  const challengeProgress =
-    dailyChallenges.length > 0
-      ? Object.values(challengeDone).filter(Boolean).length /
-        dailyChallenges.length
-      : 0;
-  const topPercent = Math.max(5, Math.round(40 - challengeProgress * 30));
+  const supportPower = userStats?.support ?? likedEntryIds.size;
+  const influencePower =
+    userStats?.influence ??
+    profileData?.entries?.reduce(
+      (sum, entry) =>
+        sum +
+        (entry.likes ?? 0) +
+        ((entry.recasts ?? 0) ? (entry.recasts ?? 0) * 2 : 0),
+      0,
+    ) ??
+    0;
+  const creationPower = userStats?.creation ?? generationCount;
+  const discoveryPower =
+    userStats?.discovery ?? profileData?.entries?.length ?? 0;
+  const totalPower =
+    userStats?.totalPower ??
+    supportPower + influencePower + creationPower + discoveryPower;
+  const powerRank =
+    userStats?.rank ??
+    (totalPower >= 500
+      ? "S"
+      : totalPower >= 250
+        ? "A"
+        : totalPower >= 100
+          ? "B"
+          : "C");
 
-  const challengeContent = (
-    <div className="challenge">
-      <div className="leaderboard-title">Mini‑Series Challenge</div>
-      <div className="leaderboard-status">
-        Complete all 6 prompts: Generate a logo for each brand below, then cast
-        your favorites to earn the Daily Champion badge!
+  const getTierLabel = (
+    value: number,
+    tiers: Array<{ min: number; label: string }>,
+  ): string => {
+    const found = tiers
+      .slice()
+      .sort((a, b) => b.min - a.min)
+      .find((tier) => value >= tier.min);
+    return found ? found.label : tiers[tiers.length - 1]?.label || "";
+  };
+
+  const rewardContent = (
+    <div className="challenge" style={{ gap: "12px" }}>
+      <div className="leaderboard-title" style={{ fontSize: "16px" }}>
+        ⚡ Forge Arena
       </div>
-      <div className="challenge-stats">
-        <div className="challenge-streak">
-          <span className="challenge-streak-icon" aria-hidden="true">
-            🔥
-          </span>
-          Streak: {getChallengeStreak(challengeDays)} day
-          {getChallengeStreak(challengeDays) === 1 ? "" : "s"}
-        </div>
-        <div className="challenge-progress">
-          Progress: {Object.values(challengeDone).filter(Boolean).length} /{" "}
-          {dailyChallenges.length} prompts
-        </div>
-      </div>
-      <div className="challenge-progress-ring" aria-hidden="true">
-        <svg viewBox="0 0 100 100" role="img">
-          <circle className="challenge-ring-track" cx="50" cy="50" r="42" />
-          <circle
-            className="challenge-ring-fill"
-            cx="50"
-            cy="50"
-            r="42"
+      {/* Compact Player Badge */}
+      <div
+        style={{
+          border: "2px solid #00ff00",
+          padding: "5px 10px",
+          background: "linear-gradient(90deg, #0a0e27, #050a15)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          boxShadow: "0 0 10px rgba(0, 255, 0, 0.3)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
             style={{
-              strokeDasharray: 264,
-              strokeDashoffset: 264 - 264 * challengeProgress,
+              border: "2px solid #00ff00",
+              padding: "3px 6px",
+              background: "#000",
+              fontSize: "14px",
+              fontWeight: "bold",
+              minWidth: "32px",
+              textAlign: "center",
             }}
-          />
-        </svg>
-        <span>{Math.round(challengeProgress * 100)}%</span>
-      </div>
-      <div className="challenge-top-percent">
-        You&apos;re in the top {topPercent}% today
-      </div>
-      {timeUntilReset && (
-        <div className="challenge-reset-timer">
-          ⏰ Resets in: {timeUntilReset}
-        </div>
-      )}
-      <div className="challenge-progress-bar">
-        <div
-          className="challenge-progress-fill"
-          style={{
-            width: `${dailyChallenges.length > 0 ? (Object.values(challengeDone).filter(Boolean).length / dailyChallenges.length) * 100 : 0}%`,
-          }}
-        />
-      </div>
-      {dailyChallenges.length > 0 ? (
-        <div className="challenge-list">
-          {dailyChallenges.map(
-            (prompt: (typeof ALL_CHALLENGE_PROMPTS)[number]) => {
-              const promptName = prompt.name;
-              return (
-                <div
-                  key={promptName}
-                  className={`challenge-item ${challengeDone[promptName] ? "completed" : ""}`}
-                >
-                  <div className="challenge-item-content">
-                    <label className="challenge-label">
-                      <input
-                        type="checkbox"
-                        checked={!!challengeDone[promptName]}
-                        onChange={() => toggleChallengeDone(promptName)}
-                      />
-                      <div className="challenge-info">
-                        <span className="challenge-name">{promptName}</span>
-                        <span className="challenge-description">
-                          {prompt.description}
-                        </span>
-                      </div>
-                      {challengeDone[promptName] && (
-                        <span className="challenge-check">✓</span>
-                      )}
-                    </label>
-                  </div>
-                  <button
-                    type="button"
-                    className="challenge-button"
-                    onClick={() => {
-                      setInputText(promptName);
-                      setActiveTab("home");
-                      // Note: Seed field remains available - you can use any seed with prompts
-                    }}
-                  >
-                    Generate
-                  </button>
-                </div>
-              );
-            },
-          )}
-        </div>
-      ) : (
-        <div className="challenge-loading">
-          Loading today&apos;s challenges...
-        </div>
-      )}
-      {Object.values(challengeDone).every(Boolean) && (
-        <div className="challenge-complete">
-          <div className="challenge-confetti" aria-hidden="true">
-            {Array.from({ length: 12 }).map((_, index) => (
-              <span key={`confetti-${index}`} />
-            ))}
+          >
+            {powerRank}
           </div>
-          🎉 Challenge complete! You earned the Daily Champion badge! ✅
+          <div>
+            <div style={{ fontSize: "16px", fontWeight: "bold" }}>
+              {totalPower.toLocaleString()} ⚡
+            </div>
+            <div style={{ color: "#00aa00", fontSize: "8px" }}>FORGE POWER</div>
+          </div>
         </div>
-      )}
-      {challengeHistory.length > 0 && (
-        <div className="challenge-history-section">
-          <div className="leaderboard-title">Recent History</div>
-          <div className="challenge-history-grid">
-            {challengeHistory.map((item) => (
+      </div>
+
+      {/* Compact Pixel Stat Rows */}
+      <div style={{ display: "grid", gap: "4px" }}>
+        {[
+          {
+            icon: "♥",
+            name: "Support",
+            value: supportPower,
+            max: 300,
+            tier: getTierLabel(supportPower, [
+              { min: 250, label: "Gold Heart" },
+              { min: 50, label: "Silver Heart" },
+              { min: 0, label: "Bronze Heart" },
+            ]),
+            color: "#ff3366",
+            unlocks: "Frame accents, glow effects, badge types",
+            description: "Likes you've given to other creators",
+          },
+          {
+            icon: "★",
+            name: "Influence",
+            value: influencePower,
+            max: 150,
+            tier: getTierLabel(influencePower, [
+              { min: 100, label: "Legendary Glow" },
+              { min: 10, label: "Neon Aura" },
+              { min: 0, label: "Pixel Spark" },
+            ]),
+            color: "#ffdd00",
+            unlocks: "Aura colors, highlights, animations",
+            description: "Likes your logos have earned",
+          },
+          {
+            icon: "🎨",
+            name: "Creation",
+            value: creationPower,
+            max: 200,
+            tier: getTierLabel(creationPower, [
+              { min: 150, label: "Master Crafter" },
+              { min: 50, label: "Steady Artisan" },
+              { min: 0, label: "New Forger" },
+            ]),
+            color: "#ff9900",
+            unlocks: "Palettes, backgrounds, badge styles",
+            description: "Total logos you've generated",
+          },
+          {
+            icon: "🔁",
+            name: "Discovery",
+            value: discoveryPower,
+            max: 120,
+            tier: getTierLabel(discoveryPower, [
+              { min: 100, label: "Legendary Signal" },
+              { min: 25, label: "Neon Signal" },
+              { min: 0, label: "Spark" },
+            ]),
+            color: "#00ddff",
+            unlocks: "Profile highlights, share boosts",
+            description: "People interacting with your logos",
+          },
+        ].map((stat) => {
+          const pct = Math.min(100, Math.round((stat.value / stat.max) * 100));
+          const segments = 8;
+          const filled = Math.round((pct / 100) * segments);
+          const barString = "■".repeat(filled) + "□".repeat(segments - filled);
+          const isExpanded = expandedStat === stat.name;
+
+          return (
+            <div key={stat.name} style={{ display: "grid", gap: "2px" }}>
+              {/* Main Row */}
               <div
-                key={item.date}
-                className={`challenge-history-item ${item.completed ? "completed" : "incomplete"}`}
+                onClick={() => setExpandedStat(isExpanded ? null : stat.name)}
+                style={{
+                  border: "0.7px solid #00ff00",
+                  borderColor: isExpanded ? stat.color : "#00ff00",
+                  padding: "6px 10px",
+                  background: isExpanded ? "rgba(0,255,0,0.05)" : "#050a15",
+                  display: "grid",
+                  gridTemplateColumns: "auto 1fr auto auto",
+                  gap: "10px",
+                  alignItems: "center",
+                  fontSize: "11px",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+                title="Tap to see what this unlocks"
               >
-                <div className="challenge-history-date">
-                  {new Date(item.date).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                  })}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    minWidth: "85px",
+                  }}
+                >
+                  <span style={{ fontSize: "13px" }}>{stat.icon}</span>
+                  <span style={{ fontWeight: "bold", color: "#00aa00" }}>
+                    {stat.name}
+                  </span>
                 </div>
-                <div className="challenge-history-status">
-                  {item.completed ? "✅" : "⏳"}
+                <div
+                  style={{
+                    fontSize: "20px",
+                    fontWeight: "bold",
+                    textAlign: "center",
+                    color: "#00ff00",
+                    textShadow: `0 0 4px ${stat.color}`,
+                  }}
+                >
+                  {stat.value}
+                </div>
+                <div
+                  style={{
+                    fontFamily: "monospace",
+                    color: stat.color,
+                    fontSize: "11px",
+                    letterSpacing: "1px",
+                  }}
+                >
+                  {barString}
+                </div>
+                <div
+                  style={{
+                    fontSize: "8px",
+                    color: "#00aa00",
+                    border: `0.7px solid ${stat.color}`,
+                    padding: "2px 5px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {stat.tier}
                 </div>
               </div>
-            ))}
+
+              {/* Expanded Info Panel */}
+              {isExpanded && (
+                <div
+                  style={{
+                    border: `0.7px solid ${stat.color}`,
+                    borderTop: "none",
+                    padding: "8px 10px",
+                    background: "rgba(5,10,21,0.95)",
+                    display: "grid",
+                    gap: "6px",
+                    fontSize: "9px",
+                    color: "#00aa00",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: stat.color,
+                      fontWeight: "bold",
+                      fontSize: "10px",
+                    }}
+                  >
+                    What it unlocks
+                  </div>
+                  <div>{stat.unlocks}</div>
+                  <div
+                    style={{
+                      color: "#007700",
+                      fontSize: "8px",
+                      marginTop: "2px",
+                    }}
+                  >
+                    ↳ {stat.description}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          border: "0.7px solid #00ff00",
+          padding: "8px",
+          background: "#050a15",
+          display: "grid",
+          gap: "8px",
+        }}
+      >
+        <div
+          style={{
+            fontWeight: "bold",
+            fontSize: "13px",
+            color: "#00ff00",
+            textShadow: "0 0 6px rgba(0,255,0,0.5)",
+          }}
+        >
+          🎯 ARCADE MISSIONS
+        </div>
+        <div style={{ display: "grid", gap: "4px" }}>
+          {[
+            {
+              icon: "❤️",
+              title: "Like 10 logos",
+              rewardIcon: "🎁",
+              reward: "Pixel Spark",
+              progress: Math.min(10, supportPower % 10),
+              target: 10,
+            },
+            {
+              icon: "⭐",
+              title: "Receive 5 likes",
+              rewardIcon: "🎁",
+              reward: "Neon Frame",
+              progress: Math.min(5, Math.round(influencePower / 5)),
+              target: 5,
+            },
+            {
+              icon: "🎨",
+              title: "Generate 3 logos",
+              rewardIcon: "🎁",
+              reward: "New background",
+              progress: Math.min(3, creationPower % 3),
+              target: 3,
+            },
+          ].map((mission) => {
+            const pct = Math.min(
+              100,
+              Math.round((mission.progress / mission.target) * 100),
+            );
+            const segments = 6;
+            const filled = Math.round((pct / 100) * segments);
+            const barString =
+              "■".repeat(filled) + "□".repeat(segments - filled);
+
+            return (
+              <div
+                key={mission.title}
+                style={{
+                  border: "0.7px solid #00ff00",
+                  padding: "5px 8px",
+                  background: "#0a0e27",
+                  display: "grid",
+                  gridTemplateColumns: "auto 1fr auto auto",
+                  gap: "10px",
+                  alignItems: "center",
+                  fontSize: "10px",
+                }}
+                title={mission.reward}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    minWidth: "100px",
+                  }}
+                >
+                  <span style={{ fontSize: "12px" }}>{mission.icon}</span>
+                  <span style={{ fontWeight: "bold", color: "#00aa00" }}>
+                    {mission.title}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "#00dd00",
+                    textAlign: "center",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {mission.progress}/{mission.target}
+                </div>
+                <div
+                  style={{
+                    fontFamily: "monospace",
+                    color: "#00dd00",
+                    fontSize: "11px",
+                    letterSpacing: "2px",
+                  }}
+                >
+                  {barString}
+                </div>
+                <div style={{ fontSize: "13px" }} title={mission.reward}>
+                  {mission.rewardIcon}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {rewardRegistry.length > 0 && (
+        <div
+          style={{
+            border: "0.7px solid #00ff00",
+            padding: "8px",
+            background: "#050a15",
+            display: "grid",
+            gap: "8px",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: "bold",
+              fontSize: "13px",
+              color: "#00ff00",
+              textShadow: "0 0 6px rgba(0,255,0,0.5)",
+            }}
+          >
+            🔓 UNLOCKS
+          </div>
+          <div style={{ fontSize: "9px", color: "#00aa00" }}>
+            Earn these by growing your forge stats
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gap: "6px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            }}
+          >
+            {rewardRegistry.map((reward) => {
+              const unlocked = userRewards.some(
+                (r) => r.rewardType === reward.rewardType,
+              );
+              return (
+                <div
+                  key={reward.rewardType}
+                  style={{
+                    border: "0.7px solid #00ff00",
+                    padding: "8px",
+                    background: unlocked ? "#0a1b0a" : "#0a0e27",
+                    opacity: unlocked ? 1 : 0.65,
+                  }}
+                >
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <div style={{ fontWeight: "bold" }}>
+                      {reward.title ?? reward.rewardType}
+                    </div>
+                    <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                      {unlocked ? "Unlocked" : "Locked"}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                    {reward.description ?? "Earn by boosting your stats"}
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                    Unlocks at {reward.threshold ?? "?"}{" "}
+                    {reward.stat ?? "power"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {trendingData && (
+        <div
+          style={{
+            border: "0.7px solid #00ff00",
+            padding: "4px",
+            background: "#050a15",
+            display: "grid",
+            gap: "4px",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: "bold",
+              fontSize: "13px",
+              color: "#00ff00",
+              textShadow: "0 0 6px rgba(0,255,0,0.5)",
+            }}
+          >
+            📊 TRENDING ({trendingData.windowDays}d)
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gap: "4px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            }}
+          >
+            <div
+              style={{
+                border: "0.7px solid #00ff00",
+                padding: "4px",
+                background: "#0a0e27",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "9px",
+                  color: "#00dd00",
+                }}
+              >
+                Top Prompts
+              </div>
+              <div style={{ fontSize: "8px", color: "#00aa00" }}>
+                {trendingData.mostUsedWords
+                  .slice(0, 5)
+                  .map((w) => `${w.word} (${w.count})`)
+                  .join(", ") || "--"}
+              </div>
+            </div>
+            <div
+              style={{
+                border: "0.7px solid #00ff00",
+                padding: "4px",
+                background: "#0a0e27",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "9px",
+                  color: "#00dd00",
+                }}
+              >
+                Popular Seeds
+              </div>
+              <div style={{ fontSize: "8px", color: "#00aa00" }}>
+                {trendingData.popularSeeds
+                  .slice(0, 5)
+                  .map((s) => `${s.seed} (${s.count})`)
+                  .join(", ") || "--"}
+              </div>
+            </div>
+            <div
+              style={{
+                border: "0.7px solid #00ff00",
+                padding: "4px",
+                background: "#0a0e27",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "9px",
+                  color: "#00dd00",
+                }}
+              >
+                Rarity Mix
+              </div>
+              <div style={{ fontSize: "8px", color: "#00aa00" }}>
+                {trendingData.rarityDistribution
+                  .slice(0, 5)
+                  .map((r) => `${r.rarity}: ${r.count}`)
+                  .join(", ") || "--"}
+              </div>
+            </div>
+            <div
+              style={{
+                border: "0.7px solid #00ff00",
+                padding: "4px",
+                background: "#0a0e27",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "9px",
+                  color: "#00dd00",
+                }}
+              >
+                Most Liked Logos
+              </div>
+              <div style={{ fontSize: "8px", color: "#00aa00" }}>
+                {trendingData.mostLikedLogos
+                  .slice(0, 3)
+                  .map((l) => `#${l.seed} ${l.text} (${l.likes}❤)`)
+                  .join(" • ") || "--"}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -3777,10 +5092,67 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
           onClose={() => setToast(null)}
         />
       )}
+      {showOnboarding && (
+        <OnboardingWizard
+          onComplete={() => {
+            setShowOnboarding(false);
+            setOnboardingDone(true);
+            try {
+              localStorage.setItem("plf:onboardingDone", "true");
+            } catch (error) {
+              console.error("Failed to save onboarding state:", error);
+            }
+          }}
+          onSkip={() => {
+            setShowOnboarding(false);
+            setOnboardingDone(true);
+            try {
+              localStorage.setItem("plf:onboardingDone", "true");
+            } catch (error) {
+              console.error("Failed to save onboarding state:", error);
+            }
+          }}
+        />
+      )}
+      {showFeedbackModal && (
+        <FeedbackModal
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+          onSubmit={async (feedback) => {
+            try {
+              await fetch("/api/feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  ...feedback,
+                  userId: userInfo?.fid ? String(userInfo.fid) : undefined,
+                  username: userInfo?.username,
+                }),
+              });
+              setToast({
+                message: "Thanks for your feedback!",
+                type: "success",
+              });
+            } catch (error) {
+              setToast({ message: "Failed to submit feedback", type: "error" });
+            }
+          }}
+        />
+      )}
+      {rewardAnimation && (
+        <RewardAnimation
+          type={rewardAnimation.type}
+          title={rewardAnimation.title}
+          subtitle={rewardAnimation.subtitle}
+          onComplete={() => setRewardAnimation(null)}
+        />
+      )}
       {showCastPreview && castPreviewImage && (
         <CastPreviewModal
           previewImage={castPreviewImage}
           castText={castDraftText || castPreviewText}
+          includeCastOverlays={includeCastOverlays}
+          onToggleOverlays={handleToggleCastOverlays}
           onConfirm={() =>
             handleCast(
               castTarget ?? undefined,
@@ -3821,6 +5193,76 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
       {activeTab === "home" && (
         <div className="input-panel">
           <div className="input-section">
+            {/* NEW: Mode Toggle */}
+            <div
+              className="mode-toggle-wrapper"
+              style={{
+                marginBottom: "0.5rem",
+                display: "flex",
+                gap: "4px",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <button
+                type="button"
+                className={`mode-toggle-button ${uiMode === "simple" ? "active" : ""}`}
+                onClick={() => {
+                  setUiMode("simple");
+                  try {
+                    localStorage.setItem("plf:uiMode", "simple");
+                  } catch (error) {
+                    console.error("Failed to save UI mode:", error);
+                  }
+                }}
+                style={{
+                  padding: "3px 6px",
+                  fontSize: "9px",
+                  border: "1px solid",
+                  borderColor: uiMode === "simple" ? "#00ff00" : "#444",
+                  background: uiMode === "simple" ? "#00ff0020" : "transparent",
+                  color: uiMode === "simple" ? "#00ff00" : "#888",
+                  borderRadius: "1px",
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                  transition: "all 0.2s",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Simple
+              </button>
+              <button
+                type="button"
+                className={`mode-toggle-button ${uiMode === "advanced" ? "active" : ""}`}
+                onClick={() => {
+                  setUiMode("advanced");
+                  try {
+                    localStorage.setItem("plf:uiMode", "advanced");
+                  } catch (error) {
+                    console.error("Failed to save UI mode:", error);
+                  }
+                }}
+                style={{
+                  padding: "3px 6px",
+                  fontSize: "9px",
+                  border: "1px solid",
+                  borderColor: uiMode === "advanced" ? "#00ff00" : "#444",
+                  background:
+                    uiMode === "advanced" ? "#00ff0020" : "transparent",
+                  color: uiMode === "advanced" ? "#00ff00" : "#888",
+                  borderRadius: "1px",
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                  transition: "all 0.2s",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Advanced
+              </button>
+            </div>
+
             <div className="daily-limit">
               Tries left today:{" "}
               {userInfo?.username?.toLowerCase() === "ladymel"
@@ -3852,90 +5294,94 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
               aria-label="Text input for logo generation"
               aria-required="true"
             />
-            <div className="seed-input-group">
-              <div className="seed-label">
-                <svg
-                  className="seed-icon"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <rect x="6" y="2" width="4" height="2" />
-                  <rect x="5" y="4" width="6" height="2" />
-                  <rect x="4" y="6" width="8" height="2" />
-                  <rect x="4" y="8" width="8" height="2" />
-                  <rect x="5" y="10" width="6" height="2" />
-                  <rect x="6" y="12" width="4" height="2" />
-                </svg>
-                <span>Seed</span>
-                <button
-                  type="button"
-                  className={`remix-pill${remixMode ? " active" : ""}`}
-                  onClick={() => {
-                    if (!customSeed.trim()) {
-                      setToast({
-                        message: "Enter a seed to enable remix.",
-                        type: "info",
-                      });
+            {/* Only show seed input in Advanced Mode */}
+            {uiMode === "advanced" && (
+              <div className="seed-input-group">
+                <div className="seed-label">
+                  <svg
+                    className="seed-icon"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <rect x="6" y="2" width="4" height="2" />
+                    <rect x="5" y="4" width="6" height="2" />
+                    <rect x="4" y="6" width="8" height="2" />
+                    <rect x="4" y="8" width="8" height="2" />
+                    <rect x="5" y="10" width="6" height="2" />
+                    <rect x="6" y="12" width="4" height="2" />
+                  </svg>
+                  <span>Seed</span>
+                  <button
+                    type="button"
+                    className={`remix-pill${remixMode ? " active" : ""}`}
+                    onClick={() => {
+                      if (!customSeed.trim()) {
+                        setToast({
+                          message: "Enter a seed to enable remix.",
+                          type: "info",
+                        });
+                        return;
+                      }
+                      if (!inputText.trim()) {
+                        setToast({
+                          message: "Enter the original text to remix.",
+                          type: "info",
+                        });
+                        return;
+                      }
+                      setRemixMode((prev) => !prev);
+                    }}
+                    aria-pressed={remixMode}
+                  >
+                    Remix
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={customSeed}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    setCustomSeed(value);
+
+                    if (value === "") {
+                      setSeedError("");
                       return;
                     }
-                    if (!inputText.trim()) {
-                      setToast({
-                        message: "Enter the original text to remix.",
-                        type: "info",
-                      });
-                      return;
+
+                    const parsedSeed = parseInt(value, 10);
+                    if (isNaN(parsedSeed)) {
+                      setSeedError("Seed must be a number");
+                    } else if (parsedSeed < 0 || parsedSeed > 2147483647) {
+                      setSeedError("Seed must be between 0 and 2147483647");
+                    } else {
+                      setSeedError("");
                     }
-                    setRemixMode((prev) => !prev);
                   }}
-                  aria-pressed={remixMode}
-                >
-                  Remix
-                </button>
+                  placeholder="Optional: Use a seed once per day"
+                  className="seed-input"
+                  disabled={isGenerating || dailyLimit.seedUsed}
+                  aria-label="Optional seed input for deterministic logo generation"
+                  aria-invalid={seedError !== ""}
+                  aria-describedby={seedError ? "seed-error" : "seed-hint"}
+                />
+                {seedError ? (
+                  <span id="seed-error" className="seed-error" role="alert">
+                    {seedError}
+                  </span>
+                ) : (
+                  <span id="seed-hint" className="seed-hint">
+                    {dailyLimit.seedUsed
+                      ? "Seed used today — try again tomorrow"
+                      : "One seed entry per day"}
+                  </span>
+                )}
+                <span className="seed-tip">Tip: seed = recreate</span>
               </div>
-              <input
-                type="text"
-                value={customSeed}
-                onChange={(e) => {
-                  const value = e.target.value.trim();
-                  setCustomSeed(value);
-
-                  if (value === "") {
-                    setSeedError("");
-                    return;
-                  }
-
-                  const parsedSeed = parseInt(value, 10);
-                  if (isNaN(parsedSeed)) {
-                    setSeedError("Seed must be a number");
-                  } else if (parsedSeed < 0 || parsedSeed > 2147483647) {
-                    setSeedError("Seed must be between 0 and 2147483647");
-                  } else {
-                    setSeedError("");
-                  }
-                }}
-                placeholder="Optional: Use a seed once per day"
-                className="seed-input"
-                disabled={isGenerating || dailyLimit.seedUsed}
-                aria-label="Optional seed input for deterministic logo generation"
-                aria-invalid={seedError !== ""}
-                aria-describedby={seedError ? "seed-error" : "seed-hint"}
-              />
-              {seedError ? (
-                <span id="seed-error" className="seed-error" role="alert">
-                  {seedError}
-                </span>
-              ) : (
-                <span id="seed-hint" className="seed-hint">
-                  {dailyLimit.seedUsed
-                    ? "Seed used today — try again tomorrow"
-                    : "One seed entry per day"}
-                </span>
-              )}
-              <span className="seed-tip">Tip: seed = recreate</span>
-            </div>
+            )}
+            {/* End of Advanced Mode section */}
             <button
               type="button"
               className="how-link"
@@ -4206,7 +5652,9 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
               <div className="seed-permanence">
                 This seed is permanent. Anyone can recreate it.
               </div>
-              <div className="logo-footer">Generated by Pixel Logo Forge</div>
+              <div className="logo-footer">
+                <span>Generated by Pixel Logo Forge</span>
+              </div>
             </div>
             <div className="actions-divider">Actions</div>
             <div className="auto-reply-toggle">
@@ -4313,6 +5761,29 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
       {activeTab === "home" && (
         <div className="output-section">
           <div className="home-top-casts">
+            <button
+              type="button"
+              className="feedback-button"
+              onClick={() => setShowFeedbackModal(true)}
+              style={{
+                padding: "4px 8px",
+                fontSize: "10px",
+                border: "1px solid #444",
+                background: "transparent",
+                color: "#888",
+                borderRadius: "2px",
+                cursor: "pointer",
+                fontFamily: "monospace",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+                marginBottom: "8px",
+                display: "block",
+                marginLeft: "auto",
+                marginRight: "auto",
+              }}
+            >
+              💬 Feedback
+            </button>
             <div className="leaderboard-title">Top 3 casts today</div>
             {sortedLeaderboard.length === 0 ? (
               <div className="leaderboard-status">
@@ -4330,20 +5801,34 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
                         Today&apos;s Champion
                       </div>
                     )}
-                    {entry.imageUrl ? (
-                      <NextImage
-                        src={entry.imageUrl}
-                        alt={`Logo by ${entry.username}`}
-                        className="home-top-cast-image"
-                        width={160}
-                        height={110}
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="home-top-cast-text">
-                        {entry.text || "View cast"}
-                      </div>
-                    )}
+                    {(() => {
+                      // Use card image for highlighted cast display (like trophy display)
+                      const previewImageUrl = getImageForContext(
+                        {
+                          logoImageUrl: entry.logoImageUrl,
+                          cardImageUrl: entry.cardImageUrl,
+                          thumbImageUrl: entry.thumbImageUrl,
+                          mediumImageUrl: entry.mediumImageUrl,
+                          imageUrl: entry.imageUrl,
+                        },
+                        "preview",
+                      );
+                      return previewImageUrl ? (
+                        <NextImage
+                          src={previewImageUrl}
+                          alt={`Logo by ${entry.username}`}
+                          className="home-top-cast-image"
+                          width={160}
+                          height={110}
+                          loading="lazy"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="home-top-cast-text">
+                          {entry.text || "View cast"}
+                        </div>
+                      );
+                    })()}
                     <div className="home-top-cast-meta">
                       <span>@{entry.username}</span>
                       <span>❤️ {entry.likes}</span>
@@ -4367,8 +5852,8 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
         <div className="output-section">{leaderboardContent}</div>
       )}
 
-      {activeTab === "challenge" && (
-        <div className="output-section">{challengeContent}</div>
+      {activeTab === "rewards" && (
+        <div className="output-section">{rewardContent}</div>
       )}
 
       {activeTab === "profile" && (
@@ -4415,14 +5900,14 @@ ${remixLine ? `${remixLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo
         </button>
         <button
           type="button"
-          className={`bottom-nav-button${activeTab === "challenge" ? " active" : ""}`}
-          onClick={() => setActiveTab("challenge")}
-          aria-pressed={activeTab === "challenge"}
-          aria-label="Challenge"
-          data-label="Challenge"
+          className={`bottom-nav-button${activeTab === "rewards" ? " active" : ""}`}
+          onClick={() => setActiveTab("rewards")}
+          aria-pressed={activeTab === "rewards"}
+          aria-label="Rewards"
+          data-label="Rewards"
         >
           <span className="bottom-nav-icon" aria-hidden="true">
-            🎯
+            ⚡
           </span>
         </button>
         <button
