@@ -37,6 +37,8 @@ export default function AdminGeneratedLogos() {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'rarest'>('newest');
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [showStats, setShowStats] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
+  const [editData, setEditData] = useState<Partial<Entry>>({});
 
   useEffect(() => {
     load();
@@ -112,6 +114,25 @@ export default function AdminGeneratedLogos() {
     if (!confirm("Delete this entry? This cannot be undone.")) return;
     await fetch(`/api/generated-logos?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     setEntries((s) => s.filter((e) => e.id !== id));
+    setSelectedEntry(null);
+  }
+
+  async function updateEntry(id: string, updates: Partial<Entry>) {
+    try {
+      const res = await fetch(`/api/generated-logos`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...updates }),
+      });
+      if (res.ok) {
+        setEntries((s) => s.map((e) => (e.id === id ? { ...e, ...updates } : e)));
+        setSelectedEntry((s) => (s?.id === id ? { ...s, ...updates } : s));
+        setEditingEntry(null);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update entry");
+    }
   }
 
   const downloadCSV = () => {
@@ -614,7 +635,34 @@ export default function AdminGeneratedLogos() {
                   </div>
                 )}
 
+                {selectedEntry.castUrl && (
+                  <div>
+                    <div style={{ fontSize: 10, color: '#00aa00', marginBottom: 4 }}>CAST URL</div>
+                    <a href={selectedEntry.castUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#3366FF', wordBreak: 'break-all', textDecoration: 'underline' }}>
+                      {selectedEntry.castUrl.substring(0, 60)}...
+                    </a>
+                  </div>
+                )}
+
                 <div style={{ borderTop: '1px solid #00aa00', paddingTop: 12, display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      setEditingEntry(selectedEntry);
+                      setEditData(selectedEntry);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      backgroundColor: '#0066cc',
+                      color: '#fff',
+                      border: '1px solid #00aaff',
+                      fontFamily: 'monospace',
+                      cursor: 'pointer',
+                      borderRadius: 3,
+                    }}
+                  >
+                    ✏️ Edit
+                  </button>
                   <button
                     onClick={() => remove(selectedEntry.id)}
                     style={{
@@ -644,6 +692,159 @@ export default function AdminGeneratedLogos() {
                     }}
                   >
                     Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {editingEntry && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 2000,
+            }}
+            onClick={() => setEditingEntry(null)}
+          >
+            <div
+              style={{
+                backgroundColor: '#071026',
+                border: '2px solid #00aaff',
+                padding: 24,
+                borderRadius: 4,
+                maxWidth: 500,
+                color: '#00ff00',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 style={{ margin: 0, fontSize: 18, marginBottom: 16 }}>✏️ Edit Logo Entry</h2>
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 10, color: '#00aa00', display: 'block', marginBottom: 4 }}>TEXT</label>
+                  <input
+                    type="text"
+                    value={editData.text || ''}
+                    onChange={(e) => setEditData((s) => ({ ...s, text: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      backgroundColor: '#0a0e27',
+                      border: '1px solid #00aa00',
+                      color: '#00ff00',
+                      fontFamily: 'monospace',
+                      borderRadius: 3,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 10, color: '#00aa00', display: 'block', marginBottom: 4 }}>RARITY</label>
+                  <select
+                    value={editData.rarity || ''}
+                    onChange={(e) => setEditData((s) => ({ ...s, rarity: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      backgroundColor: '#0a0e27',
+                      border: '1px solid #00aa00',
+                      color: '#00ff00',
+                      fontFamily: 'monospace',
+                      borderRadius: 3,
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <option value="">—</option>
+                    <option value="LEGENDARY">LEGENDARY</option>
+                    <option value="EPIC">EPIC</option>
+                    <option value="RARE">RARE</option>
+                    <option value="COMMON">COMMON</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 10, color: '#00aa00', display: 'block', marginBottom: 4 }}>CAST URL</label>
+                  <input
+                    type="text"
+                    value={editData.castUrl || ''}
+                    onChange={(e) => setEditData((s) => ({ ...s, castUrl: e.target.value }))}
+                    placeholder="https://warpcast.com/..."
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      backgroundColor: '#0a0e27',
+                      border: '1px solid #00aa00',
+                      color: '#00ff00',
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      borderRadius: 3,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 10, color: '#00aa00', display: 'block', marginBottom: 4 }}>LOGO IMAGE URL</label>
+                  <input
+                    type="text"
+                    value={editData.logoImageUrl || ''}
+                    onChange={(e) => setEditData((s) => ({ ...s, logoImageUrl: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      backgroundColor: '#0a0e27',
+                      border: '1px solid #00aa00',
+                      color: '#00ff00',
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      borderRadius: 3,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                  <button
+                    onClick={() => updateEntry(editingEntry.id, editData)}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      backgroundColor: '#00aa00',
+                      color: '#0a0e27',
+                      border: '1px solid #00ff00',
+                      fontFamily: 'monospace',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      borderRadius: 3,
+                    }}
+                  >
+                    💾 Save
+                  </button>
+                  <button
+                    onClick={() => setEditingEntry(null)}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      backgroundColor: '#071026',
+                      color: '#00ff00',
+                      border: '1px solid #00ff00',
+                      fontFamily: 'monospace',
+                      cursor: 'pointer',
+                      borderRadius: 3,
+                    }}
+                  >
+                    Cancel
                   </button>
                 </div>
               </div>
