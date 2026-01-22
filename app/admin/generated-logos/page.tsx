@@ -358,7 +358,7 @@ export default function AdminGeneratedLogos() {
                     <td style={{ padding: 10, borderRight: '1px solid #00aa00' }}>
                       <span style={{ fontWeight: 'bold' }}>{e.username || '—'}</span>
                     </td>
-                    <td style={{ padding: 10, borderRight: '1px solid #00aa00' }}>"{e.text}"</td>
+                    <td style={{ padding: 10, borderRight: '1px solid #00aa00' }}>&quot;{e.text}&quot;</td>
                     <td style={{ padding: 10, borderRight: '1px solid #00aa00', fontFamily: 'monospace', fontSize: 11 }}>
                       {e.seed}
                     </td>
@@ -427,10 +427,11 @@ export default function AdminGeneratedLogos() {
                 {/* Logo Image */}
                 {e.logoImageUrl || e.cardImageUrl || e.imageUrl ? (
                   <div style={{ marginBottom: 12, position: 'relative', aspectRatio: '1', backgroundColor: '#0a0e27', borderRadius: 4, overflow: 'hidden' }}>
-                    <img
-                      src={e.logoImageUrl || e.cardImageUrl || e.imageUrl}
+                    <Image
+                      src={e.logoImageUrl || e.cardImageUrl || e.imageUrl || ''}
                       alt={e.text}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      fill
+                      style={{ objectFit: 'cover' }}
                     />
                   </div>
                 ) : (
@@ -440,7 +441,7 @@ export default function AdminGeneratedLogos() {
                 )}
 
                 {/* Text */}
-                <div style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 8, color: '#00ff00', wordBreak: 'break-word' }}>"{e.text}"</div>
+                <div style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 8, color: '#00ff00', wordBreak: 'break-word' }}>&quot;{e.text}&quot;</div>
 
                 {/* User Info */}
                 <div style={{ fontSize: 11, color: '#00aa00', marginBottom: 8 }}>
@@ -525,11 +526,12 @@ export default function AdminGeneratedLogos() {
 
               {/* Logo Preview */}
               {selectedEntry.logoImageUrl || selectedEntry.cardImageUrl || selectedEntry.imageUrl ? (
-                <div style={{ marginBottom: 16, backgroundColor: '#0a0e27', padding: 12, borderRadius: 4, border: '1px solid #00aa00' }}>
-                  <img
-                    src={selectedEntry.logoImageUrl || selectedEntry.cardImageUrl || selectedEntry.imageUrl}
+                <div style={{ marginBottom: 16, backgroundColor: '#0a0e27', padding: 12, borderRadius: 4, border: '1px solid #00aa00', position: 'relative', aspectRatio: '1' }}>
+                  <Image
+                    src={selectedEntry.logoImageUrl || selectedEntry.cardImageUrl || selectedEntry.imageUrl || ''}
                     alt={selectedEntry.text}
-                    style={{ width: '100%', borderRadius: 4 }}
+                    fill
+                    style={{ borderRadius: 4 }}
                   />
                 </div>
               ) : null}
@@ -542,7 +544,7 @@ export default function AdminGeneratedLogos() {
 
                 <div>
                   <div style={{ fontSize: 10, color: '#00aa00', marginBottom: 4 }}>TEXT</div>
-                  <div style={{ fontSize: 14, fontWeight: 'bold' }}>"{selectedEntry.text}"</div>
+                  <div style={{ fontSize: 14, fontWeight: 'bold' }}>&quot;{selectedEntry.text}&quot;</div>
                 </div>
 
                 <div>
