@@ -401,7 +401,7 @@ async function handlePOST(body: Partial<GeneratedLogo>) {
     remixes: body.remixes ?? 0,
     createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
     updatedAt: new Date(),
-  } satisfies Prisma.GeneratedLogoUncheckedCreateInput;
+  } as Prisma.GeneratedLogoUncheckedCreateInput;
 
   const saved = await prisma.generatedLogo.upsert({
     where: { id },
