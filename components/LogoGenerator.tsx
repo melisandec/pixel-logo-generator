@@ -513,7 +513,9 @@ export default function LogoGenerator() {
         cursor.setDate(cursor.getDate() - 1);
       }
       return count;
-    }, [getDayKeyFromTimestamp]);
+    },
+    [getDayKeyFromTimestamp],
+  );
 
   const calculateTimeUntilReset = useCallback(() => {
     const now = new Date();
@@ -1942,9 +1944,7 @@ export default function LogoGenerator() {
 
   const shareMoment = useCallback(async () => {
     if (!activeMoment) return;
-    const shareUrl =
-      "https://farcaster.xyz/miniapps/upKwjayith2r/pixel-logo-forge";
-    const text = `${activeMoment.title}\n${activeMoment.subtitle}\n${shareUrl}\n\n#PixelLogoForge`;
+    const text = `${activeMoment.title}\n${activeMoment.subtitle}`;
     try {
       if (sdkReady) {
         await sdk.actions.composeCast({ text });
@@ -3044,7 +3044,7 @@ export default function LogoGenerator() {
 
 ✨ Rarity: ${activeResult.rarity}
 🎲 Seed: ${activeResult.seed}
-${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#PixelLogoForge #${activeResult.rarity}Logo`;
+${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
     },
     [],
   );
@@ -3086,7 +3086,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
 
   const handleCopyCastText = async () => {
     if (!logoResult) return;
-    const castText = `Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\n✨ Rarity: ${logoResult.rarity}\n🎲 Seed: ${logoResult.seed}\n\n#PixelLogoForge #${logoResult.rarity}Logo`;
+    const castText = `Forged a ${logoResult.rarity.toLowerCase()} pixel logo: "${logoResult.config.text}"\n\n✨ Rarity: ${logoResult.rarity}\n🎲 Seed: ${logoResult.seed}`;
     try {
       await navigator.clipboard.writeText(castText);
       setToast({ message: "Cast text copied!", type: "success" });
@@ -4458,47 +4458,20 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
   };
 
   const rewardContent = (
-    <div className="challenge" style={{ gap: "12px" }}>
-      <div className="leaderboard-title" style={{ fontSize: "16px" }}>
-        ⚡ Forge Arena
-      </div>
-      {/* Compact Player Badge */}
-      <div
-        style={{
-          border: "2px solid #00ff00",
-          padding: "5px 10px",
-          background: "linear-gradient(90deg, #0a0e27, #050a15)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          boxShadow: "0 0 10px rgba(0, 255, 0, 0.3)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <div
-            style={{
-              border: "2px solid #00ff00",
-              padding: "3px 6px",
-              background: "#000",
-              fontSize: "14px",
-              fontWeight: "bold",
-              minWidth: "32px",
-              textAlign: "center",
-            }}
-          >
-            {powerRank}
+    <div className="forge-arena-section">
+      {/* Power Rank Banner */}
+      <div className="forge-power-banner">
+        <div className="forge-power-rank">{powerRank}</div>
+        <div className="forge-power-info">
+          <div className="forge-power-value">
+            {totalPower.toLocaleString()} ⚡
           </div>
-          <div>
-            <div style={{ fontSize: "16px", fontWeight: "bold" }}>
-              {totalPower.toLocaleString()} ⚡
-            </div>
-            <div style={{ color: "#00aa00", fontSize: "8px" }}>FORGE POWER</div>
-          </div>
+          <div className="forge-power-label">Forge Power</div>
         </div>
       </div>
 
-      {/* Compact Pixel Stat Rows */}
-      <div style={{ display: "grid", gap: "4px" }}>
+      {/* Stat Cards */}
+      <div className="forge-stats-grid">
         {[
           {
             icon: "♥",
@@ -4564,103 +4537,36 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
           const isExpanded = expandedStat === stat.name;
 
           return (
-            <div key={stat.name} style={{ display: "grid", gap: "2px" }}>
-              {/* Main Row */}
+            <div key={stat.name}>
               <div
+                className="forge-stat-card"
+                data-stat={stat.name}
                 onClick={() => setExpandedStat(isExpanded ? null : stat.name)}
-                style={{
-                  border: "0.7px solid #00ff00",
-                  borderColor: isExpanded ? stat.color : "#00ff00",
-                  padding: "6px 10px",
-                  background: isExpanded ? "rgba(0,255,0,0.05)" : "#050a15",
-                  display: "grid",
-                  gridTemplateColumns: "auto 1fr auto auto",
-                  gap: "10px",
-                  alignItems: "center",
-                  fontSize: "11px",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                }}
-                title="Tap to see what this unlocks"
               >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    minWidth: "85px",
-                  }}
-                >
-                  <span style={{ fontSize: "13px" }}>{stat.icon}</span>
-                  <span style={{ fontWeight: "bold", color: "#00aa00" }}>
-                    {stat.name}
-                  </span>
+                <div className="forge-stat-content">
+                  <span className="forge-stat-icon">{stat.icon}</span>
+                  <span className="forge-stat-label">{stat.name}</span>
+                  <div className="forge-stat-value">{stat.value}</div>
                 </div>
-                <div
-                  style={{
-                    fontSize: "20px",
-                    fontWeight: "bold",
-                    textAlign: "center",
-                    color: "#00ff00",
-                    textShadow: `0 0 4px ${stat.color}`,
-                  }}
-                >
-                  {stat.value}
-                </div>
-                <div
-                  style={{
-                    fontFamily: "monospace",
-                    color: stat.color,
-                    fontSize: "11px",
-                    letterSpacing: "1px",
-                  }}
-                >
-                  {barString}
-                </div>
-                <div
-                  style={{
-                    fontSize: "8px",
-                    color: "#00aa00",
-                    border: `0.7px solid ${stat.color}`,
-                    padding: "2px 5px",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {stat.tier}
+                <div className="forge-stat-right">
+                  <div className="forge-stat-bar">{barString}</div>
+                  <div className="forge-stat-tier">{stat.tier}</div>
+                  <div className="forge-stat-progress">{pct}%</div>
                 </div>
               </div>
 
-              {/* Expanded Info Panel */}
               {isExpanded && (
                 <div
-                  style={{
-                    border: `0.7px solid ${stat.color}`,
-                    borderTop: "none",
-                    padding: "8px 10px",
-                    background: "rgba(5,10,21,0.95)",
-                    display: "grid",
-                    gap: "6px",
-                    fontSize: "9px",
-                    color: "#00aa00",
-                  }}
+                  className="forge-stat-details"
+                  style={{ borderColor: stat.color }}
                 >
-                  <div
-                    style={{
-                      color: stat.color,
-                      fontWeight: "bold",
-                      fontSize: "10px",
-                    }}
-                  >
+                  <div className="forge-stat-details-title">
                     What it unlocks
                   </div>
-                  <div>{stat.unlocks}</div>
-                  <div
-                    style={{
-                      color: "#007700",
-                      fontSize: "8px",
-                      marginTop: "2px",
-                    }}
-                  >
+                  <div className="forge-stat-details-content">
+                    {stat.unlocks}
+                  </div>
+                  <div className="forge-stat-details-hint">
                     ↳ {stat.description}
                   </div>
                 </div>
@@ -4670,26 +4576,10 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
         })}
       </div>
 
-      <div
-        style={{
-          border: "0.7px solid #00ff00",
-          padding: "8px",
-          background: "#050a15",
-          display: "grid",
-          gap: "8px",
-        }}
-      >
-        <div
-          style={{
-            fontWeight: "bold",
-            fontSize: "13px",
-            color: "#00ff00",
-            textShadow: "0 0 6px rgba(0,255,0,0.5)",
-          }}
-        >
-          🎯 ARCADE MISSIONS
-        </div>
-        <div style={{ display: "grid", gap: "4px" }}>
+      {/* Arcade Missions */}
+      <div className="forge-missions-section">
+        <h3 className="forge-missions-title">Arcade Missions</h3>
+        <div className="forge-missions-grid">
           {[
             {
               icon: "❤️",
@@ -4724,94 +4614,40 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
             const filled = Math.round((pct / 100) * segments);
             const barString =
               "■".repeat(filled) + "□".repeat(segments - filled);
+            const isComplete = mission.progress >= mission.target;
 
             return (
               <div
                 key={mission.title}
-                style={{
-                  border: "0.7px solid #00ff00",
-                  padding: "5px 8px",
-                  background: "#0a0e27",
-                  display: "grid",
-                  gridTemplateColumns: "auto 1fr auto auto",
-                  gap: "10px",
-                  alignItems: "center",
-                  fontSize: "10px",
-                }}
+                className={`forge-mission-card${isComplete ? " completed" : ""}`}
                 title={mission.reward}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    minWidth: "100px",
-                  }}
-                >
-                  <span style={{ fontSize: "12px" }}>{mission.icon}</span>
-                  <span style={{ fontWeight: "bold", color: "#00aa00" }}>
-                    {mission.title}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "#00dd00",
-                    textAlign: "center",
-                    fontWeight: "bold",
-                  }}
-                >
+                <span className="forge-mission-icon">{mission.icon}</span>
+                <span className="forge-mission-title">{mission.title}</span>
+                <div className="forge-mission-progress">
                   {mission.progress}/{mission.target}
                 </div>
-                <div
-                  style={{
-                    fontFamily: "monospace",
-                    color: "#00dd00",
-                    fontSize: "11px",
-                    letterSpacing: "2px",
-                  }}
-                >
-                  {barString}
-                </div>
-                <div style={{ fontSize: "13px" }} title={mission.reward}>
+                <div className="forge-mission-bar">{barString}</div>
+                <span className="forge-mission-reward">
                   {mission.rewardIcon}
-                </div>
+                </span>
+                {isComplete && (
+                  <span className="forge-mission-status-icon">✓</span>
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
+      {/* Unlocks Section */}
       {rewardRegistry.length > 0 && (
-        <div
-          style={{
-            border: "0.7px solid #00ff00",
-            padding: "8px",
-            background: "#050a15",
-            display: "grid",
-            gap: "8px",
-          }}
-        >
-          <div
-            style={{
-              fontWeight: "bold",
-              fontSize: "13px",
-              color: "#00ff00",
-              textShadow: "0 0 6px rgba(0,255,0,0.5)",
-            }}
-          >
-            🔓 UNLOCKS
-          </div>
-          <div style={{ fontSize: "9px", color: "#00aa00" }}>
+        <div className="forge-unlocks-section">
+          <h3 className="forge-unlocks-title">Unlocked Rewards</h3>
+          <div className="forge-unlocks-subtitle">
             Earn these by growing your forge stats
           </div>
-          <div
-            style={{
-              display: "grid",
-              gap: "6px",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            }}
-          >
+          <div className="forge-unlocks-grid">
             {rewardRegistry.map((reward) => {
               const unlocked = userRewards.some(
                 (r) => r.rewardType === reward.rewardType,
@@ -4819,27 +4655,22 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
               return (
                 <div
                   key={reward.rewardType}
-                  style={{
-                    border: "0.7px solid #00ff00",
-                    padding: "8px",
-                    background: unlocked ? "#0a1b0a" : "#0a0e27",
-                    opacity: unlocked ? 1 : 0.65,
-                  }}
+                  className={`forge-unlock-card ${unlocked ? "unlocked" : "locked"}`}
                 >
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between" }}
-                  >
-                    <div style={{ fontWeight: "bold" }}>
+                  <div className="forge-unlock-header">
+                    <div className="forge-unlock-title">
                       {reward.title ?? reward.rewardType}
                     </div>
-                    <div style={{ fontSize: "10px", color: "#00aa00" }}>
-                      {unlocked ? "Unlocked" : "Locked"}
+                    <div
+                      className={`forge-unlock-status ${unlocked ? "unlocked" : ""}`}
+                    >
+                      {unlocked ? "✓" : "🔒"}
                     </div>
                   </div>
-                  <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                  <div className="forge-unlock-description">
                     {reward.description ?? "Earn by boosting your stats"}
                   </div>
-                  <div style={{ fontSize: "10px", color: "#00aa00" }}>
+                  <div className="forge-unlock-threshold">
                     Unlocks at {reward.threshold ?? "?"}{" "}
                     {reward.stat ?? "power"}
                   </div>
@@ -4850,125 +4681,112 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
         </div>
       )}
 
+      {/* Trending Section */}
       {trendingData && (
-        <div
-          style={{
-            border: "0.7px solid #00ff00",
-            padding: "4px",
-            background: "#050a15",
-            display: "grid",
-            gap: "4px",
-          }}
-        >
-          <div
-            style={{
-              fontWeight: "bold",
-              fontSize: "13px",
-              color: "#00ff00",
-              textShadow: "0 0 6px rgba(0,255,0,0.5)",
-            }}
-          >
-            📊 TRENDING ({trendingData.windowDays}d)
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gap: "4px",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            }}
-          >
-            <div
-              style={{
-                border: "0.7px solid #00ff00",
-                padding: "4px",
-                background: "#0a0e27",
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: "bold",
-                  fontSize: "9px",
-                  color: "#00dd00",
-                }}
-              >
-                Top Prompts
-              </div>
-              <div style={{ fontSize: "8px", color: "#00aa00" }}>
-                {trendingData.mostUsedWords
-                  .slice(0, 5)
-                  .map((w) => `${w.word} (${w.count})`)
-                  .join(", ") || "--"}
+        <div className="forge-trending-section">
+          <h3 className="forge-trending-title">
+            Trending ({trendingData.windowDays}d)
+          </h3>
+
+          <div className="forge-trending-subsections-wrapper">
+            <div className="forge-trending-subsection">
+              <div className="forge-trending-subsection-title">Top Prompts</div>
+              <div className="forge-trending-list">
+                {trendingData.mostUsedWords.slice(0, 5).map((w) => (
+                  <div key={w.word} className="forge-trending-item">
+                    <span className="forge-trending-item-name">{w.word}</span>
+                    <span className="forge-trending-item-count">{w.count}</span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div
-              style={{
-                border: "0.7px solid #00ff00",
-                padding: "4px",
-                background: "#0a0e27",
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: "bold",
-                  fontSize: "9px",
-                  color: "#00dd00",
-                }}
-              >
+
+            <div className="forge-trending-subsection">
+              <div className="forge-trending-subsection-title">
                 Popular Seeds
               </div>
-              <div style={{ fontSize: "8px", color: "#00aa00" }}>
-                {trendingData.popularSeeds
-                  .slice(0, 5)
-                  .map((s) => `${s.seed} (${s.count})`)
-                  .join(", ") || "--"}
+              <div className="forge-trending-list">
+                {trendingData.popularSeeds.slice(0, 5).map((s) => (
+                  <div key={s.seed} className="forge-trending-item">
+                    <span className="forge-trending-item-name">
+                      Seed {s.seed}
+                    </span>
+                    <span className="forge-trending-item-count">{s.count}</span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div
-              style={{
-                border: "0.7px solid #00ff00",
-                padding: "4px",
-                background: "#0a0e27",
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: "bold",
-                  fontSize: "9px",
-                  color: "#00dd00",
-                }}
-              >
-                Rarity Mix
-              </div>
-              <div style={{ fontSize: "8px", color: "#00aa00" }}>
-                {trendingData.rarityDistribution
-                  .slice(0, 5)
-                  .map((r) => `${r.rarity}: ${r.count}`)
-                  .join(", ") || "--"}
-              </div>
+          </div>
+
+          <div className="forge-trending-subsection">
+            <div className="forge-trending-subsection-title">
+              Rarity Distribution
             </div>
-            <div
-              style={{
-                border: "0.7px solid #00ff00",
-                padding: "4px",
-                background: "#0a0e27",
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: "bold",
-                  fontSize: "9px",
-                  color: "#00dd00",
-                }}
-              >
-                Most Liked Logos
-              </div>
-              <div style={{ fontSize: "8px", color: "#00aa00" }}>
-                {trendingData.mostLikedLogos
-                  .slice(0, 3)
-                  .map((l) => `#${l.seed} ${l.text} (${l.likes}❤)`)
-                  .join(" • ") || "--"}
-              </div>
-            </div>
+            {(() => {
+              const total = trendingData.rarityDistribution.reduce(
+                (sum, r) => sum + r.count,
+                0,
+              );
+              const rarityColors = {
+                common: "#00ff00",
+                rare: "#00aaff",
+                epic: "#aa00ff",
+                legendary: "#ffaa00",
+              };
+              const rarityLabels = {
+                common: "Common",
+                rare: "Rare",
+                epic: "Epic",
+                legendary: "Legendary",
+              };
+              return (
+                <>
+                  <div className="forge-trending-rarity-bar">
+                    {trendingData.rarityDistribution.map((r) => {
+                      const percentage =
+                        total > 0 ? (r.count / total) * 100 : 0;
+                      return (
+                        <div
+                          key={r.rarity}
+                          className={`forge-trending-rarity-segment ${r.rarity.toLowerCase()}`}
+                          style={{ flex: percentage }}
+                          title={`${r.rarity}: ${r.count} (${Math.round(percentage)}%)`}
+                        >
+                          {Math.round(percentage) > 10 &&
+                            Math.round(percentage)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="forge-trending-rarity-legend">
+                    {trendingData.rarityDistribution.map((r) => (
+                      <div
+                        key={r.rarity}
+                        className="forge-trending-rarity-legend-item"
+                      >
+                        <div
+                          className="forge-trending-rarity-legend-color"
+                          style={{
+                            background:
+                              rarityColors[
+                                r.rarity.toLowerCase() as keyof typeof rarityColors
+                              ],
+                          }}
+                        />
+                        <span>
+                          {
+                            rarityLabels[
+                              r.rarity.toLowerCase() as keyof typeof rarityLabels
+                            ]
+                          }
+                          : {r.count}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

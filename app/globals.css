@@ -4219,6 +4219,441 @@ body::after {
   letter-spacing: 1px;
 }
 
+/* Forge Reward System Styles */
+.forge-arena-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.forge-power-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 2px solid var(--text-primary);
+  background: rgba(0, 255, 0, 0.05);
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.2);
+}
+
+.forge-power-rank {
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--text-primary);
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.6);
+  width: 50px;
+  text-align: center;
+}
+
+.forge-power-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.forge-power-value {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.forge-power-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
+.forge-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.forge-stat-card {
+  border: 1px solid var(--border-color);
+  padding: 8px;
+  background: var(--bg-darker);
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.forge-stat-card:hover {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+}
+
+.forge-stat-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.forge-stat-icon {
+  font-size: 16px;
+}
+
+.forge-stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  font-weight: bold;
+}
+
+.forge-stat-value {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.forge-stat-bar {
+  font-size: 9px;
+  color: #00ff00;
+  letter-spacing: 1px;
+}
+
+.forge-stat-tier {
+  font-size: 9px;
+  color: #ffaa00;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.forge-stat-right {
+  display: none;
+}
+
+.forge-stat-details {
+  border-left: 3px solid;
+  padding: 8px;
+  margin-top: -4px;
+  margin-bottom: 8px;
+  background: rgba(0, 255, 0, 0.05);
+}
+
+.forge-stat-details-title {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.forge-stat-details-content {
+  font-size: 9px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.forge-stat-details-hint {
+  font-size: 8px;
+  color: var(--text-secondary);
+}
+
+.forge-missions-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker);
+}
+
+.forge-missions-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  font-weight: bold;
+  margin: 0;
+}
+
+.forge-missions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.forge-mission-card {
+  border: 1px solid var(--border-color);
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+  min-height: 100px;
+  justify-content: center;
+}
+
+.forge-mission-card:hover {
+  border-color: #ffaa00;
+  box-shadow: 0 0 8px rgba(255, 170, 0, 0.3);
+}
+
+.forge-mission-icon {
+  font-size: 20px;
+}
+
+.forge-mission-title {
+  font-size: 8px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.forge-mission-progress {
+  font-size: 10px;
+  color: #ffaa00;
+  font-weight: bold;
+}
+
+.forge-mission-bar {
+  font-size: 8px;
+  color: #00ff00;
+  letter-spacing: 1px;
+}
+
+.forge-mission-reward {
+  font-size: 14px;
+}
+
+.forge-mission-card.completed {
+  border-color: #00ff00;
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+  background: rgba(0, 255, 0, 0.05);
+}
+
+.forge-mission-status-icon {
+  font-size: 16px;
+  color: #00ff00;
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
+  margin-left: 2px;
+}
+
+.forge-unlocks-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker);
+}
+
+.forge-unlocks-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  font-weight: bold;
+  margin: 0;
+}
+
+.forge-unlocks-subtitle {
+  font-size: 8px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.forge-unlocks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.forge-unlock-card {
+  border: 1px solid var(--border-color);
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.3s;
+  min-height: 100px;
+}
+
+.forge-unlock-card.locked {
+  opacity: 0.6;
+}
+
+.forge-unlock-card.unlocked {
+  border-color: #00ff00;
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+  background: rgba(0, 255, 0, 0.05);
+}
+
+.forge-unlock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.forge-unlock-title {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+  font-weight: bold;
+}
+
+.forge-unlock-status {
+  font-size: 16px;
+  color: #888;
+}
+
+.forge-unlock-status.unlocked {
+  color: #00ff00;
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
+}
+
+.forge-unlock-description {
+  font-size: 8px;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+
+.forge-unlock-threshold {
+  font-size: 7px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: auto;
+}
+
+.forge-trending-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker);
+}
+
+.forge-trending-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  font-weight: bold;
+  margin: 0;
+}
+
+.forge-trending-subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.forge-trending-subsection-title {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  font-weight: bold;
+}
+
+.forge-trending-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.forge-trending-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 9px;
+}
+
+.forge-trending-item-name {
+  color: var(--text-primary);
+}
+
+.forge-trending-item-count {
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.forge-trending-rarity-bar {
+  display: flex;
+  height: 24px;
+  gap: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  align-items: center;
+}
+
+.forge-trending-rarity-segment {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: bold;
+  color: #000;
+  border-radius: 1px;
+  transition: flex 0.3s;
+  min-width: 0;
+}
+
+.forge-trending-rarity-segment.common {
+  background: #00ff00;
+  box-shadow: 0 0 6px rgba(0, 255, 0, 0.5);
+}
+
+.forge-trending-rarity-segment.rare {
+  background: #00aaff;
+  box-shadow: 0 0 6px rgba(0, 170, 255, 0.5);
+}
+
+.forge-trending-rarity-segment.epic {
+  background: #aa00ff;
+  box-shadow: 0 0 6px rgba(170, 0, 255, 0.5);
+}
+
+.forge-trending-rarity-segment.legendary {
+  background: #ffaa00;
+  box-shadow: 0 0 6px rgba(255, 170, 0, 0.5);
+}
+
+.forge-trending-rarity-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 8px;
+}
+
+.forge-trending-rarity-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.forge-trending-rarity-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .badges-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -4240,5 +4675,240 @@ body::after {
   .challenge-stats {
     flex-direction: column;
     gap: 8px;
+  }
+
+  /* Forge Mobile Optimizations */
+  .forge-arena-section {
+    gap: 12px;
+    padding: 4px 0;
+  }
+
+  .forge-power-banner {
+    padding: 10px 8px;
+    gap: 10px;
+    margin: 0 -8px;
+  }
+
+  .forge-power-rank {
+    font-size: 28px;
+    width: 45px;
+  }
+
+  .forge-power-value {
+    font-size: 12px;
+  }
+
+  .forge-power-label {
+    font-size: 8px;
+  }
+
+  .forge-stats-grid {
+    gap: 6px;
+  }
+
+  .forge-stat-card {
+    padding: 8px;
+    gap: 8px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .forge-stat-content {
+    gap: 1px;
+    flex-direction: column;
+    align-items: flex-start;
+    flex: 1;
+  }
+
+  .forge-stat-icon {
+    font-size: 14px;
+  }
+
+  .forge-stat-label {
+    font-size: 9px;
+  }
+
+  .forge-stat-value {
+    font-size: 10px;
+  }
+
+  .forge-stat-bar {
+    font-size: 10px;
+    white-space: nowrap;
+    line-height: 1.1;
+    letter-spacing: 2px;
+  }
+
+  .forge-stat-tier {
+    font-size: 10px;
+    white-space: nowrap;
+    text-align: right;
+    font-weight: bold;
+  }
+
+  .forge-stat-progress {
+    font-size: 8px;
+    color: #ffaa00;
+    font-weight: bold;
+    text-align: right;
+  }
+
+  .forge-stat-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    min-width: max-content;
+  }
+
+  .forge-stat-details {
+    padding: 6px;
+    margin-top: -2px;
+    margin-bottom: 6px;
+    margin-left: -8px;
+    margin-right: -8px;
+  }
+
+  .forge-stat-details-title {
+    font-size: 8px;
+    margin-bottom: 3px;
+  }
+
+  .forge-stat-details-content {
+    font-size: 8px;
+    margin-bottom: 3px;
+  }
+
+  .forge-stat-details-hint {
+    font-size: 7px;
+  }
+
+  .forge-missions-section {
+    padding: 10px 8px;
+    gap: 6px;
+    margin: 0 -8px;
+  }
+
+  .forge-missions-title {
+    font-size: 10px;
+  }
+
+  .forge-missions-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .forge-mission-card {
+    min-height: 85px;
+    padding: 6px;
+    gap: 2px;
+  }
+
+  .forge-mission-icon {
+    font-size: 18px;
+  }
+
+  .forge-mission-title {
+    font-size: 7px;
+    line-height: 1.1;
+  }
+
+  .forge-mission-progress {
+    font-size: 9px;
+  }
+
+  .forge-mission-bar {
+    font-size: 7px;
+  }
+
+  .forge-mission-reward {
+    font-size: 12px;
+  }
+
+  .forge-unlocks-section {
+    padding: 10px 8px;
+    gap: 6px;
+    margin: 0 -8px;
+  }
+
+  .forge-unlocks-title {
+    font-size: 10px;
+  }
+
+  .forge-unlocks-subtitle {
+    font-size: 7px;
+  }
+
+  .forge-unlocks-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .forge-unlock-card {
+    min-height: 85px;
+    padding: 6px;
+    gap: 2px;
+  }
+
+  .forge-unlock-header {
+    gap: 3px;
+  }
+
+  .forge-unlock-title {
+    font-size: 8px;
+  }
+
+  .forge-unlock-status {
+    font-size: 14px;
+  }
+
+  .forge-unlock-description {
+    font-size: 7px;
+    line-height: 1.1;
+  }
+
+  .forge-unlock-threshold {
+    font-size: 6px;
+  }
+
+  .forge-trending-section {
+    padding: 10px 8px;
+    gap: 6px;
+    margin: 0 -8px;
+  }
+
+  .forge-trending-title {
+    font-size: 10px;
+  }
+
+  .forge-trending-subsection {
+    gap: 4px;
+  }
+
+  .forge-trending-subsection-title {
+    font-size: 8px;
+  }
+
+  .forge-trending-item {
+    padding: 5px;
+    font-size: 8px;
+  }
+
+  /* Trending layout optimization - side by side */
+  .forge-trending-subsections-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .forge-trending-subsection {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .forge-trending-list {
+    gap: 2px;
   }
 }
