@@ -9,10 +9,10 @@ interface RarityControlProps {
 
 const RARITY_OPTIONS = [
   { value: null, label: "⭐ All" },
-  { value: "common", label: "Common" },
-  { value: "rare", label: "Rare" },
-  { value: "epic", label: "Epic" },
-  { value: "legendary", label: "Legendary" },
+  { value: "COMMON", label: "Common" },
+  { value: "RARE", label: "Rare" },
+  { value: "EPIC", label: "Epic" },
+  { value: "LEGENDARY", label: "Legendary" },
 ];
 
 export default function RarityControl({
