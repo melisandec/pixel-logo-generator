@@ -363,7 +363,6 @@ export default function LogoGenerator() {
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [galleryViewMode, setGalleryViewMode] = useState<"logos" | "casts">("logos");
   const [galleryRarityFilter, setGalleryRarityFilter] = useState<string>("all");
-  const [galleryPresetFilter, setGalleryPresetFilter] = useState<string>("all");
   const [galleryPage, setGalleryPage] = useState(1);
   const [likedEntryIds, setLikedEntryIds] = useState<Set<string>>(new Set());
   const [profileData, setProfileData] = useState<UserProfile | null>(null);
@@ -3683,35 +3682,17 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
   }, [sortedLeaderboard, triggerMoment, userInfo?.username]);
 
   const galleryRarityOptions = ["all", ...RARITY_OPTIONS, "Unknown"];
-  const galleryPresetOptions = [
-    "all",
-    ...PRESETS.map((preset) => preset.key),
-    "Unknown",
-  ];
-  const presetLabelMap = PRESETS.reduce<Record<string, string>>(
-    (acc, preset) => {
-      acc[preset.key] = preset.label;
-      return acc;
-    },
-    {},
-  );
   const filteredGalleryEntries = galleryEntries
     .filter((entry) => {
       const rarityValue = entry.rarity
         ? String(entry.rarity).toUpperCase()
         : "UNKNOWN";
-      const presetValue = entry.presetKey ?? "Unknown";
       const matchesRarity =
         galleryRarityFilter === "all" ||
         (galleryRarityFilter === "Unknown"
           ? rarityValue === "UNKNOWN"
           : rarityValue === galleryRarityFilter);
-      const matchesPreset =
-        galleryPresetFilter === "all" ||
-        (galleryPresetFilter === "Unknown"
-          ? presetValue === "Unknown"
-          : presetValue === galleryPresetFilter);
-      return matchesRarity && matchesPreset;
+      return matchesRarity;
     })
     .sort((a, b) => {
       const bCreated =
@@ -3809,6 +3790,18 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
         Math.floor(Math.random() * filteredGalleryEntries.length)
       ];
     openGalleryEntry(entry, "Surprise cast loaded!");
+  }, [filteredGalleryEntries, openGalleryEntry]);
+
+  const handleRandomFromGallery = useCallback(() => {
+    if (filteredGalleryEntries.length === 0) {
+      setToast({ message: "No casts available.", type: "info" });
+      return;
+    }
+    const entry =
+      filteredGalleryEntries[
+        Math.floor(Math.random() * filteredGalleryEntries.length)
+      ];
+    openGalleryEntry(entry, "Random cast loaded!");
   }, [filteredGalleryEntries, openGalleryEntry]);
 
   const leaderboardTotalPages = Math.max(
@@ -3915,53 +3908,91 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
       <div className="gallery-actions-top">
         <button
           type="button"
-          className="gallery-action-button"
-          onClick={handleRandomLegendary}
+          className={`gallery-toggle-button${galleryViewMode === "logos" ? " active" : ""}`}
+          onClick={() => {
+            setGalleryViewMode("logos");
+            setGalleryPage(1);
+          }}
+          style={{
+            padding: "4px 12px",
+            fontSize: "11px",
+            border: `1px solid ${galleryViewMode === "logos" ? "#0a0" : "#444"}`,
+            background: galleryViewMode === "logos" ? "#0a0" : "transparent",
+            color: galleryViewMode === "logos" ? "#000" : "#0a0",
+            borderRadius: "2px",
+            cursor: "pointer",
+            fontFamily: "monospace",
+            textTransform: "uppercase",
+          }}
         >
-          Random Legendary
+          🎨 Logos
         </button>
         <button
           type="button"
-          className="gallery-action-button"
-          onClick={handleSurpriseMe}
+          className={`gallery-toggle-button${galleryViewMode === "casts" ? " active" : ""}`}
+          onClick={() => {
+            setGalleryViewMode("casts");
+            setGalleryPage(1);
+          }}
+          style={{
+            padding: "4px 12px",
+            fontSize: "11px",
+            border: `1px solid ${galleryViewMode === "casts" ? "#0a0" : "#444"}`,
+            background: galleryViewMode === "casts" ? "#0a0" : "transparent",
+            color: galleryViewMode === "casts" ? "#000" : "#0a0",
+            borderRadius: "2px",
+            cursor: "pointer",
+            fontFamily: "monospace",
+            textTransform: "uppercase",
+          }}
         >
-          Surprise Me
+          📢 Casts
         </button>
       </div>
-      <div className="gallery-filters">
-        <label className="gallery-filter">
-          <span>Rarity</span>
-          <select
-            value={galleryRarityFilter}
-            onChange={(event) => {
-              setGalleryRarityFilter(event.target.value);
-              setGalleryPage(1);
-            }}
-          >
-            {galleryRarityOptions.map((option) => (
-              <option key={`rarity-${option}`} value={option}>
-                {option === "all" ? "All" : option}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="gallery-filter">
-          <span>Preset</span>
-          <select
-            value={galleryPresetFilter}
-            onChange={(event) => {
-              setGalleryPresetFilter(event.target.value);
-              setGalleryPage(1);
-            }}
-          >
-            {galleryPresetOptions.map((option) => (
-              <option key={`preset-${option}`} value={option}>
-                {option === "all" ? "All" : (presetLabelMap[option] ?? option)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+
+      {/* NEW: Redesigned Filter Bar */}
+      <FilterBar
+        onSearch={async (query) => {
+          if (!query.trim()) {
+            // Reset to full gallery if search is cleared
+            setGalleryPage(1);
+            return;
+          }
+          try {
+            const response = await fetch(
+              `/api/search?q=${encodeURIComponent(query)}&limit=100`,
+            );
+            if (response.ok) {
+              const data = await response.json();
+              if (data.results && data.results.length > 0) {
+                setGalleryEntries(data.results);
+                setToast({
+                  message: `Found ${data.results.length} result(s)`,
+                  type: "success",
+                });
+              } else {
+                setToast({ message: "No results found", type: "info" });
+              }
+            }
+          } catch (error) {
+            console.error("Search error:", error);
+            setToast({ message: "Search failed", type: "error" });
+          }
+        }}
+        onRarityChange={(rarity) => {
+          setGalleryRarityFilter(rarity || "all");
+          setGalleryPage(1);
+        }}
+        activeFilters={{
+          rarity: galleryRarityFilter === "all" ? null : galleryRarityFilter,
+        }}
+        resultCount={filteredGalleryEntries.length}
+        totalFilters={galleryRarityFilter !== "all" ? 1 : 0}
+        onClearFilters={() => {
+          setGalleryRarityFilter("all");
+          setGalleryPage(1);
+        }}
+      />
       {galleryLoading && (
         <div className="leaderboard-status">Loading gallery...</div>
       )}
@@ -3969,9 +4000,13 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}#P
       {!galleryLoading &&
         !galleryError &&
         filteredGalleryEntries.length === 0 && (
-          <div className="leaderboard-status">
-            No casts match those filters yet.
-          </div>
+          <EmptyState
+            onClearFilters={() => {
+              setGalleryRarityFilter("all");
+              setGalleryPage(1);
+            }}
+            onTryRandom={handleRandomFromGallery}
+          />
         )}
       {filteredGalleryEntries.length > 0 && (
         <div className="gallery-grid">

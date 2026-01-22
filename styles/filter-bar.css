@@ -1,0 +1,469 @@
+/* Filter Bar Styles - Retro Arcade Neon Theme */
+
+/* ==================== Filter Bar Container ==================== */
+.filter-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: #000000;
+}
+
+/* ==================== Main Filter Bar ==================== */
+.filter-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #000000;
+}
+
+@media (max-width: 768px) {
+  .filter-bar {
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+/* ==================== Search Field ==================== */
+.search-field {
+  flex: 1;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.search-field-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: #00ff00;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-family: monospace;
+}
+
+.search-field-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #000000;
+  border: 1px solid #00ff00;
+  border-radius: 3px;
+  padding: 0 6px;
+  height: 24px;
+  transition: all 200ms ease-out;
+}
+
+.search-field-wrapper:focus-within {
+  box-shadow:
+    0 0 12px rgba(0, 255, 0, 0.6),
+    inset 0 0 2px rgba(0, 255, 0, 0.1);
+  border-color: #00ff00;
+}
+
+.search-field-wrapper:hover:not(:focus-within) {
+  box-shadow:
+    0 0 6px rgba(0, 255, 0, 0.4),
+    inset 0 0 2px rgba(0, 255, 0, 0.15);
+}
+
+.search-field-icon {
+  margin-right: 4px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.search-field-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #00ff00;
+  font-family: monospace;
+  font-size: 10px;
+  outline: none;
+  padding: 0;
+}
+
+.search-field-input::placeholder {
+  color: rgba(0, 255, 0, 0.5);
+  font-style: italic;
+}
+
+.search-field-clear {
+  background: none;
+  border: none;
+  color: #00ff00;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  margin-left: 4px;
+  transition: all 150ms ease-out;
+}
+
+.search-field-clear:hover {
+  color: #00ff00;
+  text-shadow: 0 0 6px rgba(0, 255, 0, 0.7);
+  transform: scale(1.08);
+}
+
+/* ==================== Rarity Control ==================== */
+.rarity-control {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+}
+
+.rarity-control-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: #00ff00;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-family: monospace;
+}
+
+.rarity-chips {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.rarity-chip {
+  background: #000000;
+  border: 1px solid rgba(0, 255, 0, 0.5);
+  color: #00ff00;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 150ms ease-out;
+  white-space: nowrap;
+}
+
+.rarity-chip:hover:not(.active) {
+  border-color: #00ff00;
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+}
+
+.rarity-chip.active {
+  background: #00ff00;
+  color: #000000;
+  border-color: #00ff00;
+  box-shadow:
+    0 0 8px rgba(0, 255, 0, 0.7),
+    inset 0 0 4px rgba(0, 255, 0, 0.2);
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .rarity-chips {
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+}
+
+/* ==================== Active Filter Pills ==================== */
+.filter-pills-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0 8px;
+}
+
+.active-filter-pills {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pills-list {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.filter-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 255, 0, 0.05);
+  border: 1px solid #00ff00;
+  border-radius: 3px;
+  padding: 3px 6px;
+  animation: fadeIn 150ms ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pill-text {
+  font-size: 8px;
+  color: #00ff00;
+  font-family: monospace;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pill-remove {
+  background: none;
+  border: none;
+  color: #00ff00;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+  margin-left: 2px;
+  transition: all 80ms ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pill-remove:hover {
+  color: #00ff00;
+  text-shadow: 0 0 6px rgba(0, 255, 0, 0.7);
+  transform: scale(1.1);
+}
+
+.clear-all-link {
+  background: none;
+  border: none;
+  color: #00ff00;
+  cursor: pointer;
+  font-size: 8px;
+  font-family: monospace;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 100ms ease-out;
+  padding: 2px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.clear-all-link:hover {
+  text-decoration: underline;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+/* ==================== Result Count ==================== */
+.result-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.count-text {
+  font-size: 8px;
+  color: rgba(0, 255, 0, 0.7);
+  font-family: monospace;
+  font-weight: 500;
+}
+
+/* ==================== Empty State ==================== */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 15px;
+  min-height: 300px;
+  background: #000000;
+}
+
+.empty-state-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 350px;
+  text-align: center;
+  border: 1px solid #00ff00;
+  border-radius: 4px;
+  padding: 20px 15px;
+  background: #000000;
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.2);
+}
+
+.empty-state-icon {
+  font-size: 32px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.empty-state-headline {
+  font-size: 13px;
+  font-weight: 700;
+  color: #00ff00;
+  font-family: monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.empty-state-message {
+  font-size: 9px;
+  color: rgba(0, 255, 0, 0.8);
+  font-family: monospace;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.empty-state-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.empty-state-button {
+  padding: 6px 12px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 150ms ease-out;
+  border: 1px solid #00ff00;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.3px;
+  flex: 1;
+  min-width: 90px;
+}
+
+.empty-state-button.primary {
+  background: #00ff00;
+  color: #000000;
+}
+
+.empty-state-button.primary:hover {
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
+  transform: translateY(-2px);
+}
+
+.empty-state-button.secondary {
+  background: #000000;
+  color: #00ff00;
+}
+
+.empty-state-button.secondary:hover {
+  box-shadow: 0 0 6px rgba(0, 255, 0, 0.5);
+  border-color: #00ff00;
+  transform: translateY(-2px);
+}
+
+/* ==================== Responsive Design ==================== */
+
+@media (max-width: 1024px) {
+  .filter-bar {
+    gap: 6px;
+  }
+
+  .search-field {
+    min-width: 100%;
+    flex: none;
+  }
+
+  .rarity-chips {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .filter-bar-container {
+    padding: 6px;
+    gap: 5px;
+  }
+
+  .filter-bar {
+    gap: 5px;
+  }
+
+  .search-field-input {
+    font-size: 9px;
+  }
+
+  .rarity-chip {
+    padding: 2px 6px;
+    font-size: 8px;
+  }
+
+  .empty-state-content {
+    padding: 15px 10px;
+    gap: 10px;
+  }
+
+  .empty-state-headline {
+    font-size: 11px;
+  }
+
+  .empty-state-icon {
+    font-size: 24px;
+  }
+}
+
+/* ==================== Accessibility ==================== */
+
+.search-field-input:focus,
+.preset-control-select:focus {
+  outline: 2px solid #00ff00;
+  outline-offset: 2px;
+}
+
+.rarity-chip:focus-visible {
+  outline: 2px solid #00ff00;
+  outline-offset: 2px;
+}
+
+.pill-remove:focus-visible {
+  outline: 2px solid #00ff00;
+  outline-offset: 2px;
+}
+
+.clear-all-link:focus-visible {
+  outline: 2px solid #00ff00;
+  outline-offset: 2px;
+}
+
+.empty-state-button:focus-visible {
+  outline: 2px solid rgba(0, 255, 0, 0.6);
+  outline-offset: 2px;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .search-field-wrapper,
+  .rarity-chip,
+  .filter-pill,
+  .pill-remove,
+  .clear-all-link,
+  .empty-state-button {
+    transition: none;
+  }
+
+  .filter-pill {
+    animation: none;
+  }
+}
