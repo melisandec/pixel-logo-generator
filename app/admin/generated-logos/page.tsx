@@ -124,14 +124,21 @@ export default function AdminGeneratedLogos() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...updates }),
       });
-      if (res.ok) {
-        setEntries((s) => s.map((e) => (e.id === id ? { ...e, ...updates } : e)));
-        setSelectedEntry((s) => (s?.id === id ? { ...s, ...updates } : s));
-        setEditingEntry(null);
+      
+      if (!res.ok) {
+        const error = await res.json();
+        alert(`Failed to update: ${error.error || 'Unknown error'}`);
+        return;
       }
+      
+      const data = await res.json();
+      setEntries((s) => s.map((e) => (e.id === id ? { ...e, ...updates } : e)));
+      setSelectedEntry((s) => (s?.id === id ? { ...s, ...updates } : s));
+      setEditingEntry(null);
+      alert('✅ Entry updated successfully!');
     } catch (e) {
       console.error(e);
-      alert("Failed to update entry");
+      alert(`Error: ${e instanceof Error ? e.message : 'Failed to update entry'}`);
     }
   }
 

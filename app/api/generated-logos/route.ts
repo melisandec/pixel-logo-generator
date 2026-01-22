@@ -453,6 +453,11 @@ export async function PATCH(request: Request) {
       actorUsername?: string;
       actorUserId?: string;
       casted?: boolean;
+      text?: string;
+      rarity?: string | null;
+      castUrl?: string | null;
+      logoImageUrl?: string | null;
+      cardImageUrl?: string | null;
     };
 
     if (!body.id) {
@@ -460,6 +465,25 @@ export async function PATCH(request: Request) {
     }
 
     const updateData: Prisma.GeneratedLogoUpdateInput = {};
+    
+    // Handle direct field updates
+    if (typeof body.text === 'string') {
+      updateData.text = body.text;
+    }
+    if (typeof body.rarity === 'string' || body.rarity === null) {
+      updateData.rarity = body.rarity;
+    }
+    if (typeof body.castUrl === 'string' || body.castUrl === null) {
+      updateData.castUrl = body.castUrl;
+    }
+    if (typeof body.logoImageUrl === 'string' || body.logoImageUrl === null) {
+      updateData.logoImageUrl = body.logoImageUrl;
+    }
+    if (typeof body.cardImageUrl === 'string' || body.cardImageUrl === null) {
+      updateData.cardImageUrl = body.cardImageUrl;
+    }
+    
+    // Handle delta updates
     if (typeof body.deltaLikes === 'number' && body.deltaLikes !== 0) {
       updateData.likes = { increment: body.deltaLikes };
     }
