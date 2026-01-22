@@ -103,12 +103,12 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST endpoint to generate a shareable image URL
- * Returns a URL that can be used to retrieve the image via GET
+ * POST endpoint to generate both logo and card images
+ * Returns URLs for both raw logo (gallery display) and card image (social sharing)
  */
 export async function POST(request: NextRequest) {
   try {
-    const { dataUrl, text, seed } = await request.json();
+    const { dataUrl, cardDataUrl, text, seed, isCardImage } = await request.json();
     
     if (!dataUrl) {
       return NextResponse.json(
@@ -117,73 +117,113 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract base64 data
-    const base64Data = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
-    if (!base64Data) {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    // Process logo image (raw pixel logo)
+    const logoBase64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+    if (!logoBase64) {
       return NextResponse.json(
         { error: 'Invalid data URL format' },
         { status: 400 }
       );
     }
 
-    const imageBuffer = Buffer.from(base64Data, 'base64');
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const logoBuffer = Buffer.from(logoBase64, 'base64');
+    const logoFilename = `logos/${seed || Date.now()}-${Math.random().toString(36).slice(2)}.png`;
 
-    // Try to upload to Vercel Blob first, fallback to in-memory store
-    let imageUrl: string | null = null;
-    const filename = `logo-${seed || Date.now()}-${Math.random().toString(36).slice(2)}.png`;
-    
-    // Try Vercel Blob first, fallback to in-memory store
-    let blobUploadSucceeded = false;
-    
+    // Upload logo image
+    let logoImageUrl: string | null = null;
+    let logoBlobSucceeded = false;
+
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       try {
-        // Lazy import to avoid build-time issues
         const blobModule = await import('@vercel/blob').catch(() => null);
         if (blobModule?.put) {
-          // Convert Buffer to ArrayBuffer (which is explicitly supported by Vercel Blob)
-          const arrayBuffer = imageBuffer.buffer.slice(
-            imageBuffer.byteOffset,
-            imageBuffer.byteOffset + imageBuffer.byteLength
+          const logoArrayBuffer = logoBuffer.buffer.slice(
+            logoBuffer.byteOffset,
+            logoBuffer.byteOffset + logoBuffer.byteLength
           );
-          const blob = await blobModule.put(filename, arrayBuffer, {
+          const logoBlob = await blobModule.put(logoFilename, logoArrayBuffer, {
             access: 'public',
             contentType: 'image/png',
           });
-          imageUrl = blob.url;
-          blobUploadSucceeded = true;
+          logoImageUrl = logoBlob.url;
+          logoBlobSucceeded = true;
         }
       } catch (blobError) {
-        // Blob upload failed, will use fallback
-        console.log('Vercel Blob upload failed:', blobError instanceof Error ? blobError.message : 'Unknown error');
+        console.log('Logo blob upload failed:', blobError instanceof Error ? blobError.message : 'Unknown error');
       }
     }
-    
-    // Always store in memory to provide a short download URL
+
+    // Store logo in memory as fallback
     const store = getStore();
     cleanupStore(store);
-    const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    store.set(id, { base64: base64Data, createdAt: Date.now() });
-    const viewUrl = `${baseUrl}/api/logo-image?id=${encodeURIComponent(id)}`;
-    const downloadUrl = `${baseUrl}/api/logo-image?id=${encodeURIComponent(id)}&download=1&filename=${encodeURIComponent(filename)}`;
+    const logoId = `logo-${id}`;
+    store.set(logoId, { base64: logoBase64, createdAt: Date.now() });
 
-    // Use fallback if Blob upload didn't succeed
-    if (!blobUploadSucceeded) {
-      imageUrl = viewUrl;
+    if (!logoBlobSucceeded) {
+      logoImageUrl = `${baseUrl}/api/logo-image?id=${encodeURIComponent(logoId)}`;
     }
-    
-    if (!imageUrl) {
+
+    // Process card image (framed, branded card for sharing)
+    let cardImageUrl: string | null = null;
+    if (cardDataUrl || isCardImage) {
+      const cardBase64 = cardDataUrl
+        ? (cardDataUrl.includes(',') ? cardDataUrl.split(',')[1] : cardDataUrl)
+        : logoBase64;
+
+      const cardBuffer = Buffer.from(cardBase64, 'base64');
+      const cardFilename = `cards/${seed || Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+
+      let cardBlobSucceeded = false;
+
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        try {
+          const blobModule = await import('@vercel/blob').catch(() => null);
+          if (blobModule?.put) {
+            const cardArrayBuffer = cardBuffer.buffer.slice(
+              cardBuffer.byteOffset,
+              cardBuffer.byteOffset + cardBuffer.byteLength
+            );
+            const cardBlob = await blobModule.put(cardFilename, cardArrayBuffer, {
+              access: 'public',
+              contentType: 'image/png',
+            });
+            cardImageUrl = cardBlob.url;
+            cardBlobSucceeded = true;
+          }
+        } catch (blobError) {
+          console.log('Card blob upload failed:', blobError instanceof Error ? blobError.message : 'Unknown error');
+        }
+      }
+
+      // Store card in memory as fallback
+      const cardId = `card-${id}`;
+      store.set(cardId, { base64: cardBase64, createdAt: Date.now() });
+
+      if (!cardBlobSucceeded) {
+        cardImageUrl = `${baseUrl}/api/logo-image?id=${encodeURIComponent(cardId)}`;
+      }
+    } else {
+      // If no card image provided, use logo as card fallback
+      cardImageUrl = logoImageUrl;
+    }
+
+    if (!logoImageUrl) {
       return NextResponse.json(
-        { error: 'Failed to generate image URL' },
+        { error: 'Failed to generate logo image URL' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      imageUrl: imageUrl, // HTTP URL that serves the image
-      viewUrl,
-      downloadUrl,
+      imageUrl: logoImageUrl, // Legacy field - use logoImageUrl going forward
+      logoImageUrl: logoImageUrl, // Raw pixel logo for gallery/preview
+      cardImageUrl: cardImageUrl, // Framed card for social sharing
+      viewUrl: `${baseUrl}/api/logo-image?id=${encodeURIComponent(`logo-${id}`)}`,
+      downloadUrl: `${baseUrl}/api/logo-image?id=${encodeURIComponent(`logo-${id}`)}&download=1&filename=${encodeURIComponent(logoFilename)}`,
       shareUrl: `${baseUrl}?text=${encodeURIComponent(text || '')}&seed=${seed || ''}`,
     });
   } catch (error) {

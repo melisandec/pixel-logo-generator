@@ -12,6 +12,8 @@ type LeaderboardEntry = {
   pfpUrl: string;
   likes: number;
   recasts: number;
+  saves?: number;
+  remixes?: number;
   rarity?: string | null;
   presetKey?: string | null;
   createdAt: number | string | Date;
@@ -76,7 +78,9 @@ const getRecentRange = (days: number) => {
 const computeScore = (entry: LeaderboardEntry) => {
   const createdAtMs = typeof entry.createdAt === 'number' ? entry.createdAt : new Date(entry.createdAt).getTime();
   const hoursSince = (Date.now() - createdAtMs) / 36e5;
-  return entry.likes + entry.recasts * 2 - hoursSince * 0.25;
+  const saves = (entry as any).saves ?? 0;
+  const remixes = (entry as any).remixes ?? 0;
+  return entry.likes + entry.recasts * 2 + remixes * 3 + saves * 0.5 - hoursSince * 0.25;
 };
 
 export async function GET(request: Request) {
@@ -92,6 +96,47 @@ export async function GET(request: Request) {
     const scope = searchParams.get('scope');
     const limitParam = Number.parseInt(searchParams.get('limit') ?? '50', 10);
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 50;
+
+    // Prefer new GeneratedLogo entries for leaderboard
+    try {
+      const range = scope === 'daily' && dateKey ? getDateRange(dateKey) : getRecentRange(7);
+      const where = {
+        createdAt: {
+          gte: range.start,
+          lt: range.end,
+        },
+      } satisfies Prisma.GeneratedLogoWhereInput;
+
+      const generated = await prisma.generatedLogo.findMany({ where, take: 200, orderBy: { createdAt: 'desc' } });
+      if (generated.length > 0) {
+        const mapped = generated.map((entry) => ({
+          id: entry.id,
+          text: entry.text,
+          seed: entry.seed,
+          imageUrl: entry.logoImageUrl || entry.cardImageUrl || entry.imageUrl || '',
+          logoImageUrl: entry.logoImageUrl,
+          cardImageUrl: entry.cardImageUrl,
+          username: entry.username ?? '',
+          displayName: entry.displayName ?? entry.username ?? '',
+          pfpUrl: entry.pfpUrl ?? '',
+          likes: entry.likes,
+          recasts: entry.recasts,
+          rarity: entry.rarity,
+          presetKey: entry.presetKey,
+          createdAt: entry.createdAt,
+          castUrl: entry.castUrl ?? undefined,
+          saves: entry.saves ?? 0,
+          remixes: entry.remixes ?? 0,
+        }));
+        const sortedGenerated = mapped
+          .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+          .slice(0, limit);
+        return NextResponse.json({ entries: sortedGenerated });
+      }
+    } catch (generatedError) {
+      logDebug('H1', 'GeneratedLogo fallback to legacy', { error: (generatedError as Error)?.message });
+    }
     if (scope === 'recent') {
       const range = getRecentRange(7);
       const entries = await prisma.leaderboardEntry.findMany({

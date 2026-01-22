@@ -8,19 +8,21 @@ datasource db {
 }
 
 model LeaderboardEntry {
-  id          String   @id
-  text        String
-  seed        Int
-  imageUrl    String
-  username    String
-  displayName String
-  pfpUrl      String
-  likes       Int      @default(0)
-  recasts     Int      @default(0)
-  rarity      String?
-  presetKey   String?
-  createdAt   DateTime @default(now())
-  castUrl     String?
+  id           String   @id
+  text         String
+  seed         Int
+  imageUrl     String   // Legacy field - use logoImageUrl or cardImageUrl based on context
+  logoImageUrl String?  // Raw pixel logo (no frame, no UI, just the art)
+  cardImageUrl String?  // Social sharing card (frame, rarity, branding)
+  username     String
+  displayName  String
+  pfpUrl       String
+  likes        Int      @default(0)
+  recasts      Int      @default(0)
+  rarity       String?
+  presetKey    String?
+  createdAt    DateTime @default(now())
+  castUrl      String?
 
   @@index([createdAt])
   @@index([username])
@@ -61,4 +63,105 @@ model DailyWinner {
   winner3EntryId String?
 
   @@index([date])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String?
+  username  String?
+  type      String   // bug, feature, ux, praise, other
+  message   String
+  rating    Int?
+  createdAt DateTime @default(now())
+  status    String   @default("new") // new, reviewed, resolved
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+model Analytics {
+  id        String   @id @default(cuid())
+  eventType String   // generation, share, search, etc.
+  userId    String?
+  username  String?
+  metadata  Json?    // seed, text, rarity, etc.
+  createdAt DateTime @default(now())
+
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// New: persistent records for every generated logo
+model GeneratedLogo {
+  id           String   @id @default(cuid())
+  text         String
+  seed         Int
+  rarity       String?
+  presetKey    String?
+  userId       String?
+  username     String?
+  displayName  String?
+  pfpUrl       String?
+  imageUrl     String?  // Legacy/compat field (raw logo or card)
+  thumbImageUrl String?
+  mediumImageUrl String?
+  logoImageUrl String?  // Raw pixel logo (preferred)
+  cardImageUrl String?  // Framed/share card
+  castUrl      String?
+  casted       Boolean  @default(false)
+  likes        Int      @default(0)
+  recasts      Int      @default(0)
+  saves        Int      @default(0)
+  remixes      Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  metadata     Json?
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([username])
+  @@index([rarity])
+  @@index([presetKey])
+}
+
+model UserStats {
+  id          String   @id @default(cuid())
+  userId      String?
+  username    String   @unique
+  support     Int      @default(0)
+  influence   Int      @default(0)
+  creation    Int      @default(0)
+  discovery   Int      @default(0)
+  totalPower  Int      @default(0)
+  rank        String   @default("Rookie")
+  bestRarity  String?
+  lastUpdated DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model UserReward {
+  id         String   @id @default(cuid())
+  userId     String?
+  username   String
+  rewardType String
+  unlockedAt DateTime @default(now())
+  metadata   Json?
+
+  @@index([userId])
+  @@index([username])
+  @@unique([username, rewardType])
+}
+
+model UserPreferences {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  username        String   @unique
+  uiMode          String   @default("simple") // simple or advanced
+  onboardingDone  Boolean  @default(false)
+  soundEnabled    Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+
+  @@index([username])
 }

@@ -6,6 +6,7 @@ import {
   BADGE_INFO,
   BadgeType,
   EXTRA_BADGE_INFO,
+  ExtraBadgeType,
 } from "@/lib/badgeTypes";
 
 const logDebug = (..._args: unknown[]) => {};
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     const badgesWithInfo = badges.map((badge: any) => ({
       ...badge,
       ...(BADGE_INFO[badge.badgeType as BadgeType] ??
-        (EXTRA_BADGE_INFO as any)[badge.badgeType] ??
+        EXTRA_BADGE_INFO[badge.badgeType as ExtraBadgeType] ??
         {}),
     }));
 
