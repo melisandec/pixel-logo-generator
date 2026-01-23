@@ -89,7 +89,6 @@ export default function AdminGeneratedLogos() {
   const [createText, setCreateText] = useState("");
   const [createUsername, setCreateUsername] = useState("");
   const [createSeed, setCreateSeed] = useState("");
-  const [createRarity, setCreateRarity] = useState("COMMON");
   const [generatedLogoPreview, setGeneratedLogoPreview] = useState<any>(null);
   const [creatingEntry, setCreatingEntry] = useState(false);
 
@@ -342,7 +341,6 @@ export default function AdminGeneratedLogos() {
       const result = generateLogo({
         text: createText,
         seed,
-        rarity: createRarity as any,
       });
 
       setGeneratedLogoPreview(result);
@@ -372,7 +370,7 @@ export default function AdminGeneratedLogos() {
       const uploadRes = await fetch("/api/logo-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ logoDataUrl: dataUrl }),
+        body: JSON.stringify({ dataUrl }),
       });
 
       if (!uploadRes.ok) throw new Error("Failed to upload image");
@@ -385,7 +383,7 @@ export default function AdminGeneratedLogos() {
         body: JSON.stringify({
           text: createText,
           seed,
-          rarity: createRarity,
+          rarity: generatedLogoPreview.rarity,
           username: createUsername || "admin-created",
           logoImageUrl: uploadData.logoImageUrl,
           imageUrl: uploadData.logoImageUrl,
@@ -402,7 +400,6 @@ export default function AdminGeneratedLogos() {
       setCreateText("");
       setCreateUsername("");
       setCreateSeed("");
-      setCreateRarity("COMMON");
       setGeneratedLogoPreview(null);
     } catch (error) {
       console.error("Error creating entry:", error);
@@ -3688,29 +3685,6 @@ export default function AdminGeneratedLogos() {
                     marginBottom: 12,
                   }}
                 />
-
-                <label style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
-                  Rarity:
-                </label>
-                <select
-                  value={createRarity}
-                  onChange={(e) => setCreateRarity(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    backgroundColor: "#0a2540",
-                    border: "1px solid #ff00ff",
-                    color: "#fff",
-                    fontFamily: "monospace",
-                    boxSizing: "border-box",
-                    marginBottom: 16,
-                  }}
-                >
-                  <option>COMMON</option>
-                  <option>RARE</option>
-                  <option>EPIC</option>
-                  <option>LEGENDARY</option>
-                </select>
 
                 <button
                   onClick={generatePreviewLogo}
