@@ -57,6 +57,16 @@ export default function AdminGeneratedLogos() {
   // User insights
   const [userInsightsOpen, setUserInsightsOpen] = useState(false);
   const [insightsUsername, setInsightsUsername] = useState("");
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+  
+  // Analytics & Completeness
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showCompleteness, setShowCompleteness] = useState(false);
+  const [showDuplicates, setShowDuplicates] = useState(false);
+
 
   useEffect(() => {
     load();
@@ -143,6 +153,16 @@ export default function AdminGeneratedLogos() {
 
     return filtered;
   }, [entries, filterUsername, filterRarity, sortBy, searchSeed, searchText, filterCasted, minLikes, startDate, endDate]);
+
+  // Pagination
+  const paginatedEntries = useMemo(() => {
+    setCurrentPage(1);
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    return filteredEntries.slice(start, end);
+  }, [filteredEntries, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredEntries.length / itemsPerPage);
 
   const stats = useMemo(() => {
     const totalEntries = entries.length;
@@ -258,6 +278,87 @@ export default function AdminGeneratedLogos() {
     setSelectedIds(new Set());
     alert(`✅ Marked ${selectedIds.size} entries as casted`);
   }
+
+  // Engagement analytics
+  const getTopLogos = () => {
+    return [...entries]
+      .map((e) => ({ ...e, engagement: (e.likes || 0) + (e.recasts || 0) }))
+      .sort((a, b) => b.engagement - a.engagement)
+      .slice(0, 10);
+  };
+
+  const getEngagementByRarity = () => {
+    const rarityGroups: { [key: string]: number[] } = {
+      LEGENDARY: [],
+      EPIC: [],
+      RARE: [],
+      COMMON: [],
+      UNKNOWN: [],
+    };
+    entries.forEach((e) => {
+      const rarity = e.rarity || "UNKNOWN";
+      rarityGroups[rarity].push((e.likes || 0) + (e.recasts || 0));
+    });
+    return Object.entries(rarityGroups).map(([rarity, engagements]) => ({
+      rarity,
+      count: engagements.length,
+      avg: engagements.length > 0 ? (engagements.reduce((a, b) => a + b) / engagements.length).toFixed(1) : 0,
+    }));
+  };
+
+  // Data completeness checker
+  const getIncompleteEntries = () => {
+    return entries.filter((e) => {
+      const issues = getDataQualityIssues(e);
+      return issues.length > 0;
+    });
+  };
+
+  // Duplicate detection
+  const getDuplicates = () => {
+    const seedMap: { [key: number]: Entry[] } = {};
+    const textSimilarity = (a: string, b: string) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      if (aLower === bLower) return 100;
+      if (aLower.includes(bLower) || bLower.includes(aLower)) return 80;
+      const aWords = new Set(aLower.split(/\s+/));
+      const bWords = new Set(bLower.split(/\s+/));
+      const common = [...aWords].filter((w) => bWords.has(w)).length;
+      return Math.round((common / Math.max(aWords.size, bWords.size)) * 100);
+    };
+
+    // Find seed duplicates
+    entries.forEach((e) => {
+      const seedKey = Math.floor(e.seed / 100) * 100; // Group by 100
+      if (!seedMap[seedKey]) seedMap[seedKey] = [];
+      seedMap[seedKey].push(e);
+    });
+
+    const potentialDupes: Array<{ entries: Entry[]; type: string; similarity: number }> = [];
+
+    Object.values(seedMap).forEach((group) => {
+      if (group.length > 1) {
+        potentialDupes.push({ entries: group, type: "seed_proximity", similarity: 95 });
+      }
+    });
+
+    // Find similar text
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const similarity = textSimilarity(entries[i].text, entries[j].text);
+        if (similarity > 70) {
+          potentialDupes.push({
+            entries: [entries[i], entries[j]],
+            type: "similar_text",
+            similarity,
+          });
+        }
+      }
+    }
+
+    return potentialDupes.slice(0, 10); // Limit to 10 for performance
+  };
 
   const downloadCSV = () => {
     const headers = [
@@ -853,12 +954,231 @@ export default function AdminGeneratedLogos() {
               border: "1px solid #00ff00",
               fontFamily: "monospace",
               cursor: "pointer",
-              marginLeft: "auto",
             }}
           >
             📥 Export CSV
           </button>
+
+          <button
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            style={{
+              padding: "8px 12px",
+              backgroundColor: showAnalytics ? "#00aaff" : "#071026",
+              color: showAnalytics ? "#000" : "#00ff00",
+              border: "1px solid #00aaff",
+              fontFamily: "monospace",
+              cursor: "pointer",
+            }}
+          >
+            📊 Analytics
+          </button>
+
+          <button
+            onClick={() => setShowCompleteness(!showCompleteness)}
+            style={{
+              padding: "8px 12px",
+              backgroundColor: showCompleteness ? "#ff9900" : "#071026",
+              color: showCompleteness ? "#000" : "#ff9900",
+              border: "1px solid #ff9900",
+              fontFamily: "monospace",
+              cursor: "pointer",
+            }}
+          >
+            ⚠️ Incomplete ({getIncompleteEntries().length})
+          </button>
+
+          <button
+            onClick={() => setShowDuplicates(!showDuplicates)}
+            style={{
+              padding: "8px 12px",
+              backgroundColor: showDuplicates ? "#ff6600" : "#071026",
+              color: showDuplicates ? "#000" : "#ff6600",
+              border: "1px solid #ff6600",
+              fontFamily: "monospace",
+              cursor: "pointer",
+              marginLeft: "auto",
+            }}
+          >
+            🔄 Duplicates ({getDuplicates().length})
+          </button>
         </div>
+
+        {/* Analytics Panel */}
+        {showAnalytics && (
+          <div
+            style={{
+              backgroundColor: "#071026",
+              border: "2px solid #00aaff",
+              padding: 16,
+              marginBottom: 20,
+              borderRadius: 4,
+            }}
+          >
+            <h3 style={{ margin: "0 0 12px 0", color: "#00aaff" }}>📊 Engagement Analytics</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div>
+                <h4 style={{ color: "#00ff00", marginBottom: 12, fontSize: 12 }}>🏆 Top 10 Most Engaged</h4>
+                {getTopLogos().map((logo, i) => (
+                  <div
+                    key={logo.id}
+                    style={{
+                      fontSize: 11,
+                      padding: 8,
+                      backgroundColor: "#0a0e27",
+                      marginBottom: 6,
+                      borderRadius: 3,
+                      cursor: "pointer",
+                      border: "1px solid #00aa00",
+                    }}
+                    onClick={() => setSelectedEntry(logo)}
+                  >
+                    <div>
+                      {i + 1}. &quot;{logo.text.substring(0, 30)}&quot;
+                    </div>
+                    <div style={{ color: "#00aa00", marginTop: 2 }}>
+                      ❤️ {logo.likes || 0} | 📢 {logo.recasts || 0} | 💬 {logo.engagement}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <h4 style={{ color: "#00ff00", marginBottom: 12, fontSize: 12 }}>📈 Rarity vs Engagement</h4>
+                {getEngagementByRarity().map((stat) => (
+                  <div
+                    key={stat.rarity}
+                    style={{
+                      fontSize: 11,
+                      padding: 8,
+                      backgroundColor: "#0a0e27",
+                      marginBottom: 6,
+                      borderRadius: 3,
+                      border: "1px solid #00aa00",
+                    }}
+                  >
+                    <div>
+                      <strong>{stat.rarity}:</strong> {stat.count} entries
+                    </div>
+                    <div style={{ color: "#3366FF" }}>Avg engagement: {stat.avg}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Data Completeness Panel */}
+        {showCompleteness && (
+          <div
+            style={{
+              backgroundColor: "#1a0a0a",
+              border: "2px solid #ff9900",
+              padding: 16,
+              marginBottom: 20,
+              borderRadius: 4,
+            }}
+          >
+            <h3 style={{ margin: "0 0 12px 0", color: "#ff9900" }}>⚠️ Data Completeness Issues ({getIncompleteEntries().length})</h3>
+            {getIncompleteEntries().length === 0 ? (
+              <div style={{ color: "#00ff00" }}>✅ All entries are complete!</div>
+            ) : (
+              <div style={{ display: "grid", gap: 8, maxHeight: 300, overflowY: "auto" }}>
+                {getIncompleteEntries().map((entry) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      fontSize: 11,
+                      padding: 8,
+                      backgroundColor: "#0a0e27",
+                      borderRadius: 3,
+                      border: "1px solid #ff6600",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div>
+                      <strong>{entry.username}</strong> - &quot;{entry.text.substring(0, 30)}&quot;
+                      <div style={{ color: "#ff6600", marginTop: 2 }}>{getDataQualityIssues(entry).join(" ")}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedEntry(entry);
+                        setEditingEntry(entry);
+                        setEditData(entry);
+                      }}
+                      style={{
+                        padding: "4px 8px",
+                        backgroundColor: "#ff9900",
+                        color: "#000",
+                        border: "none",
+                        fontFamily: "monospace",
+                        cursor: "pointer",
+                        borderRadius: 3,
+                        fontSize: 10,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Fix
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Duplicate Detection Panel */}
+        {showDuplicates && (
+          <div
+            style={{
+              backgroundColor: "#1a0a0a",
+              border: "2px solid #ff6600",
+              padding: 16,
+              marginBottom: 20,
+              borderRadius: 4,
+            }}
+          >
+            <h3 style={{ margin: "0 0 12px 0", color: "#ff6600" }}>🔄 Potential Duplicates ({getDuplicates().length})</h3>
+            {getDuplicates().length === 0 ? (
+              <div style={{ color: "#00ff00" }}>✅ No duplicates detected!</div>
+            ) : (
+              <div style={{ display: "grid", gap: 12, maxHeight: 400, overflowY: "auto" }}>
+                {getDuplicates().map((dup, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      backgroundColor: "#0a0e27",
+                      border: "1px solid #ff6600",
+                      padding: 12,
+                      borderRadius: 3,
+                    }}
+                  >
+                    <div style={{ color: "#ff9900", fontWeight: "bold", marginBottom: 8 }}>
+                      {dup.type === "seed_proximity" ? "🔢 Similar Seeds" : `📝 Similar Text (${dup.similarity}%)`}
+                    </div>
+                    {dup.entries.map((e, j) => (
+                      <div
+                        key={e.id}
+                        style={{
+                          fontSize: 11,
+                          padding: 6,
+                          backgroundColor: "#071026",
+                          marginBottom: 4,
+                          borderRadius: 2,
+                          cursor: "pointer",
+                        }}
+                        onClick={() => setSelectedEntry(e)}
+                      >
+                        {j > 0 && <div style={{ color: "#ff9900", marginBottom: 2 }}>VS</div>}
+                        <strong>{e.username}</strong> - &quot;{e.text}&quot; (Seed: {e.seed})
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Content */}
         {loading ? (
@@ -867,7 +1187,53 @@ export default function AdminGeneratedLogos() {
           </div>
         ) : viewMode === "table" ? (
           // Table View
-          <div style={{ overflowX: "auto", marginBottom: 40 }}>
+          <>
+            <div style={{
+              color: "#00aa00",
+              marginBottom: 12,
+              fontSize: 11,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}>
+              <div>
+                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredEntries.length)} of {filteredEntries.length} entries
+              </div>
+              {totalPages > 1 && (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    style={{
+                      padding: "4px 8px",
+                      backgroundColor: currentPage === 1 ? "#333" : "#071026",
+                      color: currentPage === 1 ? "#666" : "#00ff00",
+                      border: "1px solid #00aa00",
+                      fontFamily: "monospace",
+                      cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    ◀ Prev
+                  </button>
+                  <span style={{ color: "#00ff00", padding: "4px 8px" }}>{currentPage} / {totalPages}</span>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    style={{
+                      padding: "4px 8px",
+                      backgroundColor: currentPage === totalPages ? "#333" : "#071026",
+                      color: currentPage === totalPages ? "#666" : "#00ff00",
+                      border: "1px solid #00aa00",
+                      fontFamily: "monospace",
+                      cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Next ▶
+                  </button>
+                </div>
+              )}
+            </div>
+            <div style={{ overflowX: "auto", marginBottom: 40 }}>
             <table
               style={{
                 width: "100%",
@@ -973,7 +1339,7 @@ export default function AdminGeneratedLogos() {
                 </tr>
               </thead>
               <tbody>
-                {filteredEntries.map((e) => (
+                {paginatedEntries.map((e) => (
                   <tr
                     key={e.id}
                     style={{
@@ -1122,7 +1488,47 @@ export default function AdminGeneratedLogos() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+            {totalPages > 1 && (
+              <div style={{
+                color: "#00aa00",
+                marginTop: 12,
+                fontSize: 11,
+                textAlign: "center",
+              }}>
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: "4px 8px",
+                    backgroundColor: currentPage === 1 ? "#333" : "#071026",
+                    color: currentPage === 1 ? "#666" : "#00ff00",
+                    border: "1px solid #00aa00",
+                    fontFamily: "monospace",
+                    cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                    marginRight: 8,
+                  }}
+                >
+                  ◀ Prev
+                </button>
+                <span style={{ color: "#00ff00", margin: "0 8px" }}>{currentPage} / {totalPages}</span>
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    padding: "4px 8px",
+                    backgroundColor: currentPage === totalPages ? "#333" : "#071026",
+                    color: currentPage === totalPages ? "#666" : "#00ff00",
+                    border: "1px solid #00aa00",
+                    fontFamily: "monospace",
+                    cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Next ▶
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           // Gallery View
           <div
@@ -1133,7 +1539,7 @@ export default function AdminGeneratedLogos() {
               marginBottom: 40,
             }}
           >
-            {filteredEntries.map((e) => (
+            {paginatedEntries.map((e) => (
               <div
                 key={e.id}
                 onClick={() => setSelectedEntry(e)}
@@ -1264,6 +1670,45 @@ export default function AdminGeneratedLogos() {
                 </div>
               </div>
             ))}
+            {totalPages > 1 && (
+              <div style={{
+                color: "#00aa00",
+                marginTop: 24,
+                fontSize: 11,
+                textAlign: "center",
+              }}>
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: "4px 8px",
+                    backgroundColor: currentPage === 1 ? "#333" : "#071026",
+                    color: currentPage === 1 ? "#666" : "#00ff00",
+                    border: "1px solid #00aa00",
+                    fontFamily: "monospace",
+                    cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                    marginRight: 8,
+                  }}
+                >
+                  ◀ Prev
+                </button>
+                <span style={{ color: "#00ff00", margin: "0 8px" }}>{currentPage} / {totalPages}</span>
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    padding: "4px 8px",
+                    backgroundColor: currentPage === totalPages ? "#333" : "#071026",
+                    color: currentPage === totalPages ? "#666" : "#00ff00",
+                    border: "1px solid #00aa00",
+                    fontFamily: "monospace",
+                    cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Next ▶
+                </button>
+              </div>
+            )}
           </div>
         )}
 
