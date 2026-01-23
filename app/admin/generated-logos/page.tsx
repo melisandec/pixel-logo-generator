@@ -42,35 +42,36 @@ export default function AdminGeneratedLogos() {
   const [showStats, setShowStats] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [editData, setEditData] = useState<Partial<Entry>>({});
-  
+
   // Advanced filtering
   const [searchSeed, setSearchSeed] = useState("");
   const [searchText, setSearchText] = useState("");
-  const [filterCasted, setFilterCasted] = useState<"all" | "casted" | "pending">("all");
+  const [filterCasted, setFilterCasted] = useState<
+    "all" | "casted" | "pending"
+  >("all");
   const [minLikes, setMinLikes] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  
+
   // Bulk actions
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkRarityUpdate, setBulkRarityUpdate] = useState("");
-  
+
   // User insights
   const [userInsightsOpen, setUserInsightsOpen] = useState(false);
   const [insightsUsername, setInsightsUsername] = useState("");
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
-  
+
   // Analytics & Completeness
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showCompleteness, setShowCompleteness] = useState(false);
   const [showDuplicates, setShowDuplicates] = useState(false);
-  
+
   // Audit trail
   const [showAuditTrail, setShowAuditTrail] = useState(false);
-
 
   useEffect(() => {
     load();
@@ -127,7 +128,9 @@ export default function AdminGeneratedLogos() {
 
     if (startDate) {
       const start = new Date(startDate).getTime();
-      filtered = filtered.filter((e) => new Date(e.createdAt).getTime() >= start);
+      filtered = filtered.filter(
+        (e) => new Date(e.createdAt).getTime() >= start,
+      );
     }
 
     if (endDate) {
@@ -156,7 +159,18 @@ export default function AdminGeneratedLogos() {
     }
 
     return filtered;
-  }, [entries, filterUsername, filterRarity, sortBy, searchSeed, searchText, filterCasted, minLikes, startDate, endDate]);
+  }, [
+    entries,
+    filterUsername,
+    filterRarity,
+    sortBy,
+    searchSeed,
+    searchText,
+    filterCasted,
+    minLikes,
+    startDate,
+    endDate,
+  ]);
 
   // Pagination
   const paginatedEntries = useMemo(() => {
@@ -230,7 +244,8 @@ export default function AdminGeneratedLogos() {
   // Data quality indicators
   function getDataQualityIssues(entry: Entry) {
     const issues: string[] = [];
-    if (!entry.logoImageUrl && !entry.cardImageUrl && !entry.imageUrl) issues.push("🖼️");
+    if (!entry.logoImageUrl && !entry.cardImageUrl && !entry.imageUrl)
+      issues.push("🖼️");
     if (!entry.rarity) issues.push("⚠️");
     if (!entry.castUrl) issues.push("🔗");
     if (!entry.casted) issues.push("⏱️");
@@ -240,10 +255,13 @@ export default function AdminGeneratedLogos() {
   // Bulk actions
   async function bulkDelete() {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} entries? Cannot be undone.`)) return;
-    
+    if (!confirm(`Delete ${selectedIds.size} entries? Cannot be undone.`))
+      return;
+
     for (const id of selectedIds) {
-      await fetch(`/api/generated-logos?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      await fetch(`/api/generated-logos?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
     }
     setEntries((s) => s.filter((e) => !selectedIds.has(e.id)));
     setSelectedIds(new Set());
@@ -252,8 +270,11 @@ export default function AdminGeneratedLogos() {
 
   async function bulkUpdateRarity(newRarity: string) {
     if (selectedIds.size === 0 || !newRarity) return;
-    if (!confirm(`Update rarity to ${newRarity} for ${selectedIds.size} entries?`)) return;
-    
+    if (
+      !confirm(`Update rarity to ${newRarity} for ${selectedIds.size} entries?`)
+    )
+      return;
+
     for (const id of selectedIds) {
       await fetch(`/api/generated-logos`, {
         method: "PATCH",
@@ -261,7 +282,9 @@ export default function AdminGeneratedLogos() {
         body: JSON.stringify({ id, rarity: newRarity }),
       });
     }
-    setEntries((s) => s.map((e) => (selectedIds.has(e.id) ? { ...e, rarity: newRarity } : e)));
+    setEntries((s) =>
+      s.map((e) => (selectedIds.has(e.id) ? { ...e, rarity: newRarity } : e)),
+    );
     setSelectedIds(new Set());
     setBulkRarityUpdate("");
     alert(`✅ Updated ${selectedIds.size} entries to ${newRarity}`);
@@ -270,7 +293,7 @@ export default function AdminGeneratedLogos() {
   async function bulkMarkCasted() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Mark ${selectedIds.size} entries as casted?`)) return;
-    
+
     for (const id of selectedIds) {
       await fetch(`/api/generated-logos`, {
         method: "PATCH",
@@ -278,7 +301,9 @@ export default function AdminGeneratedLogos() {
         body: JSON.stringify({ id, casted: true }),
       });
     }
-    setEntries((s) => s.map((e) => (selectedIds.has(e.id) ? { ...e, casted: true } : e)));
+    setEntries((s) =>
+      s.map((e) => (selectedIds.has(e.id) ? { ...e, casted: true } : e)),
+    );
     setSelectedIds(new Set());
     alert(`✅ Marked ${selectedIds.size} entries as casted`);
   }
@@ -306,7 +331,12 @@ export default function AdminGeneratedLogos() {
     return Object.entries(rarityGroups).map(([rarity, engagements]) => ({
       rarity,
       count: engagements.length,
-      avg: engagements.length > 0 ? (engagements.reduce((a, b) => a + b) / engagements.length).toFixed(1) : 0,
+      avg:
+        engagements.length > 0
+          ? (engagements.reduce((a, b) => a + b) / engagements.length).toFixed(
+              1,
+            )
+          : 0,
     }));
   };
 
@@ -339,11 +369,19 @@ export default function AdminGeneratedLogos() {
       seedMap[seedKey].push(e);
     });
 
-    const potentialDupes: Array<{ entries: Entry[]; type: string; similarity: number }> = [];
+    const potentialDupes: Array<{
+      entries: Entry[];
+      type: string;
+      similarity: number;
+    }> = [];
 
     Object.values(seedMap).forEach((group) => {
       if (group.length > 1) {
-        potentialDupes.push({ entries: group, type: "seed_proximity", similarity: 95 });
+        potentialDupes.push({
+          entries: group,
+          type: "seed_proximity",
+          similarity: 95,
+        });
       }
     });
 
@@ -380,7 +418,7 @@ export default function AdminGeneratedLogos() {
     const now = new Date();
     const date = new Date(dateString);
     const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
+
     if (seconds < 60) return "Just now";
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -710,7 +748,9 @@ export default function AdminGeneratedLogos() {
             cursor: "pointer",
           }}
         >
-          <summary style={{ color: "#00ff00", fontWeight: "bold", marginBottom: 12 }}>
+          <summary
+            style={{ color: "#00ff00", fontWeight: "bold", marginBottom: 12 }}
+          >
             🔍 Advanced Filters
           </summary>
           <div
@@ -1056,10 +1096,22 @@ export default function AdminGeneratedLogos() {
               borderRadius: 4,
             }}
           >
-            <h3 style={{ margin: "0 0 12px 0", color: "#00aaff" }}>📊 Engagement Analytics</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            <h3 style={{ margin: "0 0 12px 0", color: "#00aaff" }}>
+              📊 Engagement Analytics
+            </h3>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 20,
+              }}
+            >
               <div>
-                <h4 style={{ color: "#00ff00", marginBottom: 12, fontSize: 12 }}>🏆 Top 10 Most Engaged</h4>
+                <h4
+                  style={{ color: "#00ff00", marginBottom: 12, fontSize: 12 }}
+                >
+                  🏆 Top 10 Most Engaged
+                </h4>
                 {getTopLogos().map((logo, i) => (
                   <div
                     key={logo.id}
@@ -1078,13 +1130,18 @@ export default function AdminGeneratedLogos() {
                       {i + 1}. &quot;{logo.text.substring(0, 30)}&quot;
                     </div>
                     <div style={{ color: "#00aa00", marginTop: 2 }}>
-                      ❤️ {logo.likes || 0} | 📢 {logo.recasts || 0} | 💬 {logo.engagement}
+                      ❤️ {logo.likes || 0} | 📢 {logo.recasts || 0} | 💬{" "}
+                      {logo.engagement}
                     </div>
                   </div>
                 ))}
               </div>
               <div>
-                <h4 style={{ color: "#00ff00", marginBottom: 12, fontSize: 12 }}>📈 Rarity vs Engagement</h4>
+                <h4
+                  style={{ color: "#00ff00", marginBottom: 12, fontSize: 12 }}
+                >
+                  📈 Rarity vs Engagement
+                </h4>
                 {getEngagementByRarity().map((stat) => (
                   <div
                     key={stat.rarity}
@@ -1100,7 +1157,9 @@ export default function AdminGeneratedLogos() {
                     <div>
                       <strong>{stat.rarity}:</strong> {stat.count} entries
                     </div>
-                    <div style={{ color: "#3366FF" }}>Avg engagement: {stat.avg}</div>
+                    <div style={{ color: "#3366FF" }}>
+                      Avg engagement: {stat.avg}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1119,11 +1178,22 @@ export default function AdminGeneratedLogos() {
               borderRadius: 4,
             }}
           >
-            <h3 style={{ margin: "0 0 12px 0", color: "#ff9900" }}>⚠️ Data Completeness Issues ({getIncompleteEntries().length})</h3>
+            <h3 style={{ margin: "0 0 12px 0", color: "#ff9900" }}>
+              ⚠️ Data Completeness Issues ({getIncompleteEntries().length})
+            </h3>
             {getIncompleteEntries().length === 0 ? (
-              <div style={{ color: "#00ff00" }}>✅ All entries are complete!</div>
+              <div style={{ color: "#00ff00" }}>
+                ✅ All entries are complete!
+              </div>
             ) : (
-              <div style={{ display: "grid", gap: 8, maxHeight: 300, overflowY: "auto" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  maxHeight: 300,
+                  overflowY: "auto",
+                }}
+              >
                 {getIncompleteEntries().map((entry) => (
                   <div
                     key={entry.id}
@@ -1139,8 +1209,11 @@ export default function AdminGeneratedLogos() {
                     }}
                   >
                     <div>
-                      <strong>{entry.username}</strong> - &quot;{entry.text.substring(0, 30)}&quot;
-                      <div style={{ color: "#ff6600", marginTop: 2 }}>{getDataQualityIssues(entry).join(" ")}</div>
+                      <strong>{entry.username}</strong> - &quot;
+                      {entry.text.substring(0, 30)}&quot;
+                      <div style={{ color: "#ff6600", marginTop: 2 }}>
+                        {getDataQualityIssues(entry).join(" ")}
+                      </div>
                     </div>
                     <button
                       onClick={() => {
@@ -1180,11 +1253,20 @@ export default function AdminGeneratedLogos() {
               borderRadius: 4,
             }}
           >
-            <h3 style={{ margin: "0 0 12px 0", color: "#ff6600" }}>🔄 Potential Duplicates ({getDuplicates().length})</h3>
+            <h3 style={{ margin: "0 0 12px 0", color: "#ff6600" }}>
+              🔄 Potential Duplicates ({getDuplicates().length})
+            </h3>
             {getDuplicates().length === 0 ? (
               <div style={{ color: "#00ff00" }}>✅ No duplicates detected!</div>
             ) : (
-              <div style={{ display: "grid", gap: 12, maxHeight: 400, overflowY: "auto" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  maxHeight: 400,
+                  overflowY: "auto",
+                }}
+              >
                 {getDuplicates().map((dup, i) => (
                   <div
                     key={i}
@@ -1195,8 +1277,16 @@ export default function AdminGeneratedLogos() {
                       borderRadius: 3,
                     }}
                   >
-                    <div style={{ color: "#ff9900", fontWeight: "bold", marginBottom: 8 }}>
-                      {dup.type === "seed_proximity" ? "🔢 Similar Seeds" : `📝 Similar Text (${dup.similarity}%)`}
+                    <div
+                      style={{
+                        color: "#ff9900",
+                        fontWeight: "bold",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {dup.type === "seed_proximity"
+                        ? "🔢 Similar Seeds"
+                        : `📝 Similar Text (${dup.similarity}%)`}
                     </div>
                     {dup.entries.map((e, j) => (
                       <div
@@ -1211,8 +1301,13 @@ export default function AdminGeneratedLogos() {
                         }}
                         onClick={() => setSelectedEntry(e)}
                       >
-                        {j > 0 && <div style={{ color: "#ff9900", marginBottom: 2 }}>VS</div>}
-                        <strong>{e.username}</strong> - &quot;{e.text}&quot; (Seed: {e.seed})
+                        {j > 0 && (
+                          <div style={{ color: "#ff9900", marginBottom: 2 }}>
+                            VS
+                          </div>
+                        )}
+                        <strong>{e.username}</strong> - &quot;{e.text}&quot;
+                        (Seed: {e.seed})
                       </div>
                     ))}
                   </div>
@@ -1233,11 +1328,20 @@ export default function AdminGeneratedLogos() {
               borderRadius: 4,
             }}
           >
-            <h3 style={{ margin: "0 0 12px 0", color: "#9966ff" }}>📋 Edit History (Last 20 Changes)</h3>
+            <h3 style={{ margin: "0 0 12px 0", color: "#9966ff" }}>
+              📋 Edit History (Last 20 Changes)
+            </h3>
             {getAuditTrail().length === 0 ? (
               <div style={{ color: "#00ff00" }}>✅ No edits yet!</div>
             ) : (
-              <div style={{ display: "grid", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  maxHeight: 400,
+                  overflowY: "auto",
+                }}
+              >
                 {getAuditTrail().map((entry) => (
                   <div
                     key={entry.id}
@@ -1256,13 +1360,23 @@ export default function AdminGeneratedLogos() {
                   >
                     <div>
                       <div style={{ fontWeight: "bold", marginBottom: 4 }}>
-                        {entry.username || "—"} - &quot;{entry.text.substring(0, 40)}&quot;
+                        {entry.username || "—"} - &quot;
+                        {entry.text.substring(0, 40)}&quot;
                       </div>
                       <div style={{ color: "#9966ff" }}>
-                        ⏱️ Last edited: <strong>{getTimeAgo(entry.updatedAt || entry.createdAt)}</strong>
+                        ⏱️ Last edited:{" "}
+                        <strong>
+                          {getTimeAgo(entry.updatedAt || entry.createdAt)}
+                        </strong>
                       </div>
-                      <div style={{ color: "#7744dd", marginTop: 2, fontSize: 10 }}>
-                        Created: {new Date(entry.createdAt).toLocaleDateString()} | Last: {entry.updatedAt ? new Date(entry.updatedAt).toLocaleDateString() : "—"}
+                      <div
+                        style={{ color: "#7744dd", marginTop: 2, fontSize: 10 }}
+                      >
+                        Created:{" "}
+                        {new Date(entry.createdAt).toLocaleDateString()} | Last:{" "}
+                        {entry.updatedAt
+                          ? new Date(entry.updatedAt).toLocaleDateString()
+                          : "—"}
                       </div>
                     </div>
                     <button
@@ -1301,16 +1415,20 @@ export default function AdminGeneratedLogos() {
         ) : viewMode === "table" ? (
           // Table View
           <>
-            <div style={{
-              color: "#00aa00",
-              marginBottom: 12,
-              fontSize: 11,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}>
+            <div
+              style={{
+                color: "#00aa00",
+                marginBottom: 12,
+                fontSize: 11,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <div>
-                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredEntries.length)} of {filteredEntries.length} entries
+                Showing {(currentPage - 1) * itemsPerPage + 1} -{" "}
+                {Math.min(currentPage * itemsPerPage, filteredEntries.length)}{" "}
+                of {filteredEntries.length} entries
               </div>
               {totalPages > 1 && (
                 <div style={{ display: "flex", gap: 8 }}>
@@ -1328,17 +1446,23 @@ export default function AdminGeneratedLogos() {
                   >
                     ◀ Prev
                   </button>
-                  <span style={{ color: "#00ff00", padding: "4px 8px" }}>{currentPage} / {totalPages}</span>
+                  <span style={{ color: "#00ff00", padding: "4px 8px" }}>
+                    {currentPage} / {totalPages}
+                  </span>
                   <button
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    onClick={() =>
+                      setCurrentPage(Math.min(totalPages, currentPage + 1))
+                    }
                     disabled={currentPage === totalPages}
                     style={{
                       padding: "4px 8px",
-                      backgroundColor: currentPage === totalPages ? "#333" : "#071026",
+                      backgroundColor:
+                        currentPage === totalPages ? "#333" : "#071026",
                       color: currentPage === totalPages ? "#666" : "#00ff00",
                       border: "1px solid #00aa00",
                       fontFamily: "monospace",
-                      cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                      cursor:
+                        currentPage === totalPages ? "not-allowed" : "pointer",
                     }}
                   >
                     Next ▶
@@ -1347,268 +1471,283 @@ export default function AdminGeneratedLogos() {
               )}
             </div>
             <div style={{ overflowX: "auto", marginBottom: 40 }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 12,
-              }}
-            >
-              <thead>
-                <tr
-                  style={{
-                    backgroundColor: "#071026",
-                    borderBottom: "2px solid #00ff00",
-                  }}
-                >
-                  <th
-                    style={{
-                      padding: 10,
-                      textAlign: "center",
-                      borderRight: "1px solid #00aa00",
-                      width: 40,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.size === filteredEntries.length && filteredEntries.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedIds(new Set(filteredEntries.map((en) => en.id)));
-                        } else {
-                          setSelectedIds(new Set());
-                        }
-                      }}
-                      style={{ cursor: "pointer", width: 16, height: 16 }}
-                    />
-                  </th>
-                  <th
-                    style={{
-                      padding: 10,
-                      textAlign: "left",
-                      borderRight: "1px solid #00aa00",
-                    }}
-                  >
-                    Username
-                  </th>
-                  <th
-                    style={{
-                      padding: 10,
-                      textAlign: "left",
-                      borderRight: "1px solid #00aa00",
-                    }}
-                  >
-                    Logo Text
-                  </th>
-                  <th
-                    style={{
-                      padding: 10,
-                      textAlign: "left",
-                      borderRight: "1px solid #00aa00",
-                    }}
-                  >
-                    Seed
-                  </th>
-                  <th
-                    style={{
-                      padding: 10,
-                      textAlign: "center",
-                      borderRight: "1px solid #00aa00",
-                      width: 80,
-                    }}
-                  >
-                    Rarity
-                  </th>
-                  <th
-                    style={{
-                      padding: 10,
-                      textAlign: "center",
-                      borderRight: "1px solid #00aa00",
-                      width: 60,
-                    }}
-                  >
-                    Likes
-                  </th>
-                  <th
-                    style={{
-                      padding: 10,
-                      textAlign: "center",
-                      borderRight: "1px solid #00aa00",
-                      width: 80,
-                    }}
-                  >
-                    Quality
-                  </th>
-                  <th
-                    style={{
-                      padding: 10,
-                      textAlign: "left",
-                      borderRight: "1px solid #00aa00",
-                    }}
-                  >
-                    Created
-                  </th>
-                  <th style={{ padding: 10, textAlign: "center" }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedEntries.map((e) => (
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: 12,
+                }}
+              >
+                <thead>
                   <tr
-                    key={e.id}
                     style={{
-                      borderBottom: "1px solid #00aa00",
-                      backgroundColor: "#0a0e27",
-                      cursor: "pointer",
-                      transition: "background-color 0.2s",
+                      backgroundColor: "#071026",
+                      borderBottom: "2px solid #00ff00",
                     }}
-                    onMouseEnter={(ev) =>
-                      (ev.currentTarget.style.backgroundColor = "#071026")
-                    }
-                    onMouseLeave={(ev) =>
-                      (ev.currentTarget.style.backgroundColor = "#0a0e27")
-                    }
                   >
-                    <td
+                    <th
                       style={{
                         padding: 10,
-                        borderRight: "1px solid #00aa00",
                         textAlign: "center",
+                        borderRight: "1px solid #00aa00",
+                        width: 40,
                       }}
                     >
                       <input
                         type="checkbox"
-                        checked={selectedIds.has(e.id)}
-                        onChange={(ev) => {
-                          const newIds = new Set(selectedIds);
-                          if (ev.target.checked) {
-                            newIds.add(e.id);
+                        checked={
+                          selectedIds.size === filteredEntries.length &&
+                          filteredEntries.length > 0
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds(
+                              new Set(filteredEntries.map((en) => en.id)),
+                            );
                           } else {
-                            newIds.delete(e.id);
+                            setSelectedIds(new Set());
                           }
-                          setSelectedIds(newIds);
                         }}
-                        onClick={(ev) => ev.stopPropagation()}
                         style={{ cursor: "pointer", width: 16, height: 16 }}
                       />
-                    </td>
-                    <td
-                      style={{ padding: 10, borderRight: "1px solid #00aa00" }}
-                      onClick={() => {
-                        setUserInsightsOpen(true);
-                        setInsightsUsername(e.username || "");
+                    </th>
+                    <th
+                      style={{
+                        padding: 10,
+                        textAlign: "left",
+                        borderRight: "1px solid #00aa00",
                       }}
-                      title="Click to see user insights"
                     >
-                      <span
+                      Username
+                    </th>
+                    <th
+                      style={{
+                        padding: 10,
+                        textAlign: "left",
+                        borderRight: "1px solid #00aa00",
+                      }}
+                    >
+                      Logo Text
+                    </th>
+                    <th
+                      style={{
+                        padding: 10,
+                        textAlign: "left",
+                        borderRight: "1px solid #00aa00",
+                      }}
+                    >
+                      Seed
+                    </th>
+                    <th
+                      style={{
+                        padding: 10,
+                        textAlign: "center",
+                        borderRight: "1px solid #00aa00",
+                        width: 80,
+                      }}
+                    >
+                      Rarity
+                    </th>
+                    <th
+                      style={{
+                        padding: 10,
+                        textAlign: "center",
+                        borderRight: "1px solid #00aa00",
+                        width: 60,
+                      }}
+                    >
+                      Likes
+                    </th>
+                    <th
+                      style={{
+                        padding: 10,
+                        textAlign: "center",
+                        borderRight: "1px solid #00aa00",
+                        width: 80,
+                      }}
+                    >
+                      Quality
+                    </th>
+                    <th
+                      style={{
+                        padding: 10,
+                        textAlign: "left",
+                        borderRight: "1px solid #00aa00",
+                      }}
+                    >
+                      Created
+                    </th>
+                    <th style={{ padding: 10, textAlign: "center" }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedEntries.map((e) => (
+                    <tr
+                      key={e.id}
+                      style={{
+                        borderBottom: "1px solid #00aa00",
+                        backgroundColor: "#0a0e27",
+                        cursor: "pointer",
+                        transition: "background-color 0.2s",
+                      }}
+                      onMouseEnter={(ev) =>
+                        (ev.currentTarget.style.backgroundColor = "#071026")
+                      }
+                      onMouseLeave={(ev) =>
+                        (ev.currentTarget.style.backgroundColor = "#0a0e27")
+                      }
+                    >
+                      <td
                         style={{
-                          fontWeight: "bold",
-                          textDecoration: "underline",
-                          color: "#3366FF",
+                          padding: 10,
+                          borderRight: "1px solid #00aa00",
+                          textAlign: "center",
                         }}
                       >
-                        {e.username || "—"}
-                      </span>
-                    </td>
-                    <td
-                      style={{ padding: 10, borderRight: "1px solid #00aa00" }}
-                    >
-                      &quot;{e.text}&quot;
-                    </td>
-                    <td
-                      style={{
-                        padding: 10,
-                        borderRight: "1px solid #00aa00",
-                        fontFamily: "monospace",
-                        fontSize: 11,
-                      }}
-                    >
-                      {e.seed}
-                    </td>
-                    <td
-                      style={{
-                        padding: 10,
-                        borderRight: "1px solid #00aa00",
-                        textAlign: "center",
-                        color:
-                          RARITY_COLORS[
-                            e.rarity as keyof typeof RARITY_COLORS
-                          ] || "#ff6600",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {e.rarity || "⚠️ UNKNOWN"}
-                    </td>
-                    <td
-                      style={{
-                        padding: 10,
-                        borderRight: "1px solid #00aa00",
-                        textAlign: "center",
-                      }}
-                    >
-                      ❤️ {e.likes || 0}
-                    </td>
-                    <td
-                      style={{
-                        padding: 10,
-                        borderRight: "1px solid #00aa00",
-                        fontSize: 14,
-                        textAlign: "center",
-                      }}
-                      title={getDataQualityIssues(e).map(
-                        (icon) =>
-                          ({
-                            "🖼️": "Missing images",
-                            "⚠️": "Missing rarity",
-                            "🔗": "Missing cast URL",
-                            "⏱️": "Not casted",
-                          }[icon] || ""),
-                      ).join(", ")}
-                    >
-                      {getDataQualityIssues(e).length === 0 ? (
-                        <span style={{ color: "#00ff00" }}>✅</span>
-                      ) : (
-                        getDataQualityIssues(e).join(" ")
-                      )}
-                    </td>
-                    <td
-                      style={{
-                        padding: 10,
-                        borderRight: "1px solid #00aa00",
-                        fontSize: 11,
-                        color: "#00aa00",
-                      }}
-                    >
-                      {new Date(e.createdAt).toLocaleDateString()}{" "}
-                      {new Date(e.createdAt).toLocaleTimeString()}
-                    </td>
-                    <td style={{ padding: 10, textAlign: "center" }}>
-                      <button
-                        onClick={() => setSelectedEntry(e)}
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(e.id)}
+                          onChange={(ev) => {
+                            const newIds = new Set(selectedIds);
+                            if (ev.target.checked) {
+                              newIds.add(e.id);
+                            } else {
+                              newIds.delete(e.id);
+                            }
+                            setSelectedIds(newIds);
+                          }}
+                          onClick={(ev) => ev.stopPropagation()}
+                          style={{ cursor: "pointer", width: 16, height: 16 }}
+                        />
+                      </td>
+                      <td
                         style={{
-                          padding: "4px 8px",
-                          backgroundColor: "#071026",
-                          color: "#00ff00",
-                          border: "1px solid #00ff00",
+                          padding: 10,
+                          borderRight: "1px solid #00aa00",
+                        }}
+                        onClick={() => {
+                          setUserInsightsOpen(true);
+                          setInsightsUsername(e.username || "");
+                        }}
+                        title="Click to see user insights"
+                      >
+                        <span
+                          style={{
+                            fontWeight: "bold",
+                            textDecoration: "underline",
+                            color: "#3366FF",
+                          }}
+                        >
+                          {e.username || "—"}
+                        </span>
+                      </td>
+                      <td
+                        style={{
+                          padding: 10,
+                          borderRight: "1px solid #00aa00",
+                        }}
+                      >
+                        &quot;{e.text}&quot;
+                      </td>
+                      <td
+                        style={{
+                          padding: 10,
+                          borderRight: "1px solid #00aa00",
                           fontFamily: "monospace",
                           fontSize: 11,
-                          cursor: "pointer",
                         }}
                       >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        {e.seed}
+                      </td>
+                      <td
+                        style={{
+                          padding: 10,
+                          borderRight: "1px solid #00aa00",
+                          textAlign: "center",
+                          color:
+                            RARITY_COLORS[
+                              e.rarity as keyof typeof RARITY_COLORS
+                            ] || "#ff6600",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {e.rarity || "⚠️ UNKNOWN"}
+                      </td>
+                      <td
+                        style={{
+                          padding: 10,
+                          borderRight: "1px solid #00aa00",
+                          textAlign: "center",
+                        }}
+                      >
+                        ❤️ {e.likes || 0}
+                      </td>
+                      <td
+                        style={{
+                          padding: 10,
+                          borderRight: "1px solid #00aa00",
+                          fontSize: 14,
+                          textAlign: "center",
+                        }}
+                        title={getDataQualityIssues(e)
+                          .map(
+                            (icon) =>
+                              ({
+                                "🖼️": "Missing images",
+                                "⚠️": "Missing rarity",
+                                "🔗": "Missing cast URL",
+                                "⏱️": "Not casted",
+                              })[icon] || "",
+                          )
+                          .join(", ")}
+                      >
+                        {getDataQualityIssues(e).length === 0 ? (
+                          <span style={{ color: "#00ff00" }}>✅</span>
+                        ) : (
+                          getDataQualityIssues(e).join(" ")
+                        )}
+                      </td>
+                      <td
+                        style={{
+                          padding: 10,
+                          borderRight: "1px solid #00aa00",
+                          fontSize: 11,
+                          color: "#00aa00",
+                        }}
+                      >
+                        {new Date(e.createdAt).toLocaleDateString()}{" "}
+                        {new Date(e.createdAt).toLocaleTimeString()}
+                      </td>
+                      <td style={{ padding: 10, textAlign: "center" }}>
+                        <button
+                          onClick={() => setSelectedEntry(e)}
+                          style={{
+                            padding: "4px 8px",
+                            backgroundColor: "#071026",
+                            color: "#00ff00",
+                            border: "1px solid #00ff00",
+                            fontFamily: "monospace",
+                            fontSize: 11,
+                            cursor: "pointer",
+                          }}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             {totalPages > 1 && (
-              <div style={{
-                color: "#00aa00",
-                marginTop: 12,
-                fontSize: 11,
-                textAlign: "center",
-              }}>
+              <div
+                style={{
+                  color: "#00aa00",
+                  marginTop: 12,
+                  fontSize: 11,
+                  textAlign: "center",
+                }}
+              >
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
@@ -1624,17 +1763,23 @@ export default function AdminGeneratedLogos() {
                 >
                   ◀ Prev
                 </button>
-                <span style={{ color: "#00ff00", margin: "0 8px" }}>{currentPage} / {totalPages}</span>
+                <span style={{ color: "#00ff00", margin: "0 8px" }}>
+                  {currentPage} / {totalPages}
+                </span>
                 <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  onClick={() =>
+                    setCurrentPage(Math.min(totalPages, currentPage + 1))
+                  }
                   disabled={currentPage === totalPages}
                   style={{
                     padding: "4px 8px",
-                    backgroundColor: currentPage === totalPages ? "#333" : "#071026",
+                    backgroundColor:
+                      currentPage === totalPages ? "#333" : "#071026",
                     color: currentPage === totalPages ? "#666" : "#00ff00",
                     border: "1px solid #00aa00",
                     fontFamily: "monospace",
-                    cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                    cursor:
+                      currentPage === totalPages ? "not-allowed" : "pointer",
                   }}
                 >
                   Next ▶
@@ -1779,17 +1924,25 @@ export default function AdminGeneratedLogos() {
                 >
                   <span>❤️ {e.likes || 0}</span>
                   <span>📢 {e.recasts || 0}</span>
-                  <span>{e.casted ? "✅ Casted" : "⏳ Pending"}</span>
+                  <span>
+                    {e.casted && e.castUrl
+                      ? "✅ Casted"
+                      : e.castUrl && !e.casted
+                        ? "⚠️ URL but Pending"
+                        : "⏳ Pending"}
+                  </span>
                 </div>
               </div>
             ))}
             {totalPages > 1 && (
-              <div style={{
-                color: "#00aa00",
-                marginTop: 24,
-                fontSize: 11,
-                textAlign: "center",
-              }}>
+              <div
+                style={{
+                  color: "#00aa00",
+                  marginTop: 24,
+                  fontSize: 11,
+                  textAlign: "center",
+                }}
+              >
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
@@ -1805,17 +1958,23 @@ export default function AdminGeneratedLogos() {
                 >
                   ◀ Prev
                 </button>
-                <span style={{ color: "#00ff00", margin: "0 8px" }}>{currentPage} / {totalPages}</span>
+                <span style={{ color: "#00ff00", margin: "0 8px" }}>
+                  {currentPage} / {totalPages}
+                </span>
                 <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  onClick={() =>
+                    setCurrentPage(Math.min(totalPages, currentPage + 1))
+                  }
                   disabled={currentPage === totalPages}
                   style={{
                     padding: "4px 8px",
-                    backgroundColor: currentPage === totalPages ? "#333" : "#071026",
+                    backgroundColor:
+                      currentPage === totalPages ? "#333" : "#071026",
                     color: currentPage === totalPages ? "#666" : "#00ff00",
                     border: "1px solid #00aa00",
                     fontFamily: "monospace",
-                    cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                    cursor:
+                      currentPage === totalPages ? "not-allowed" : "pointer",
                   }}
                 >
                   Next ▶
@@ -2510,8 +2669,17 @@ export default function AdminGeneratedLogos() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <h2 style={{ margin: 0, fontSize: 18 }}>👤 User Insights: {insightsUsername}</h2>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <h2 style={{ margin: 0, fontSize: 18 }}>
+                  👤 User Insights: {insightsUsername}
+                </h2>
                 <button
                   onClick={() => setUserInsightsOpen(false)}
                   style={{
@@ -2527,13 +2695,25 @@ export default function AdminGeneratedLogos() {
               </div>
 
               {(() => {
-                const userLogos = entries.filter((e) => e.username === insightsUsername);
-                const totalLikes = userLogos.reduce((sum, e) => sum + (e.likes || 0), 0);
-                const totalEngagement = userLogos.reduce((sum, e) => sum + (e.likes || 0) + (e.recasts || 0), 0);
-                const avgLikes = userLogos.length > 0 ? (totalLikes / userLogos.length).toFixed(1) : 0;
+                const userLogos = entries.filter(
+                  (e) => e.username === insightsUsername,
+                );
+                const totalLikes = userLogos.reduce(
+                  (sum, e) => sum + (e.likes || 0),
+                  0,
+                );
+                const totalEngagement = userLogos.reduce(
+                  (sum, e) => sum + (e.likes || 0) + (e.recasts || 0),
+                  0,
+                );
+                const avgLikes =
+                  userLogos.length > 0
+                    ? (totalLikes / userLogos.length).toFixed(1)
+                    : 0;
                 const castedCount = userLogos.filter((e) => e.casted).length;
                 const rarityBreakdown = {
-                  LEGENDARY: userLogos.filter((e) => e.rarity === "LEGENDARY").length,
+                  LEGENDARY: userLogos.filter((e) => e.rarity === "LEGENDARY")
+                    .length,
                   EPIC: userLogos.filter((e) => e.rarity === "EPIC").length,
                   RARE: userLogos.filter((e) => e.rarity === "RARE").length,
                   COMMON: userLogos.filter((e) => e.rarity === "COMMON").length,
@@ -2542,41 +2722,156 @@ export default function AdminGeneratedLogos() {
 
                 return (
                   <div style={{ display: "grid", gap: 12 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                      <div style={{ backgroundColor: "#0a0e27", padding: 12, border: "1px solid #00aa00" }}>
-                        <div style={{ fontSize: 10, color: "#00aa00", marginBottom: 4 }}>TOTAL LOGOS</div>
-                        <div style={{ fontSize: 24, fontWeight: "bold" }}>{userLogos.length}</div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          backgroundColor: "#0a0e27",
+                          padding: 12,
+                          border: "1px solid #00aa00",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "#00aa00",
+                            marginBottom: 4,
+                          }}
+                        >
+                          TOTAL LOGOS
+                        </div>
+                        <div style={{ fontSize: 24, fontWeight: "bold" }}>
+                          {userLogos.length}
+                        </div>
                       </div>
-                      <div style={{ backgroundColor: "#0a0e27", padding: 12, border: "1px solid #00aa00" }}>
-                        <div style={{ fontSize: 10, color: "#00aa00", marginBottom: 4 }}>TOTAL LIKES</div>
-                        <div style={{ fontSize: 24, fontWeight: "bold" }}>❤️ {totalLikes}</div>
+                      <div
+                        style={{
+                          backgroundColor: "#0a0e27",
+                          padding: 12,
+                          border: "1px solid #00aa00",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "#00aa00",
+                            marginBottom: 4,
+                          }}
+                        >
+                          TOTAL LIKES
+                        </div>
+                        <div style={{ fontSize: 24, fontWeight: "bold" }}>
+                          ❤️ {totalLikes}
+                        </div>
                       </div>
-                      <div style={{ backgroundColor: "#0a0e27", padding: 12, border: "1px solid #00aa00" }}>
-                        <div style={{ fontSize: 10, color: "#00aa00", marginBottom: 4 }}>AVG LIKES</div>
-                        <div style={{ fontSize: 20, fontWeight: "bold" }}>{avgLikes}</div>
+                      <div
+                        style={{
+                          backgroundColor: "#0a0e27",
+                          padding: 12,
+                          border: "1px solid #00aa00",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "#00aa00",
+                            marginBottom: 4,
+                          }}
+                        >
+                          AVG LIKES
+                        </div>
+                        <div style={{ fontSize: 20, fontWeight: "bold" }}>
+                          {avgLikes}
+                        </div>
                       </div>
-                      <div style={{ backgroundColor: "#0a0e27", padding: 12, border: "1px solid #00aa00" }}>
-                        <div style={{ fontSize: 10, color: "#00aa00", marginBottom: 4 }}>TOTAL ENGAGEMENT</div>
-                        <div style={{ fontSize: 24, fontWeight: "bold" }}>{totalEngagement}</div>
+                      <div
+                        style={{
+                          backgroundColor: "#0a0e27",
+                          padding: 12,
+                          border: "1px solid #00aa00",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "#00aa00",
+                            marginBottom: 4,
+                          }}
+                        >
+                          TOTAL ENGAGEMENT
+                        </div>
+                        <div style={{ fontSize: 24, fontWeight: "bold" }}>
+                          {totalEngagement}
+                        </div>
                       </div>
                     </div>
 
-                    <div style={{ backgroundColor: "#0a0e27", padding: 12, border: "1px solid #00aa00" }}>
-                      <div style={{ fontSize: 12, fontWeight: "bold", marginBottom: 8, color: "#00ff00" }}>📊 RARITY BREAKDOWN</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11 }}>
+                    <div
+                      style={{
+                        backgroundColor: "#0a0e27",
+                        padding: 12,
+                        border: "1px solid #00aa00",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: "bold",
+                          marginBottom: 8,
+                          color: "#00ff00",
+                        }}
+                      >
+                        📊 RARITY BREAKDOWN
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 8,
+                          fontSize: 11,
+                        }}
+                      >
                         <div>🌟 LEGENDARY: {rarityBreakdown.LEGENDARY}</div>
                         <div>✨ EPIC: {rarityBreakdown.EPIC}</div>
                         <div>💎 RARE: {rarityBreakdown.RARE}</div>
                         <div>✓ COMMON: {rarityBreakdown.COMMON}</div>
                         <div>⚠️ UNKNOWN: {rarityBreakdown.UNKNOWN}</div>
-                        <div>📢 CASTED: {castedCount}/{userLogos.length}</div>
+                        <div>
+                          📢 CASTED: {castedCount}/{userLogos.length}
+                        </div>
                       </div>
                     </div>
 
-                    <div style={{ backgroundColor: "#0a0e27", padding: 12, border: "1px solid #00aa00", maxHeight: 200, overflowY: "auto" }}>
-                      <div style={{ fontSize: 12, fontWeight: "bold", marginBottom: 8, color: "#00ff00" }}>📝 RECENT LOGOS</div>
+                    <div
+                      style={{
+                        backgroundColor: "#0a0e27",
+                        padding: 12,
+                        border: "1px solid #00aa00",
+                        maxHeight: 200,
+                        overflowY: "auto",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: "bold",
+                          marginBottom: 8,
+                          color: "#00ff00",
+                        }}
+                      >
+                        📝 RECENT LOGOS
+                      </div>
                       {userLogos
-                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .sort(
+                          (a, b) =>
+                            new Date(b.createdAt).getTime() -
+                            new Date(a.createdAt).getTime(),
+                        )
                         .slice(0, 5)
                         .map((logo) => (
                           <div
@@ -2596,7 +2891,8 @@ export default function AdminGeneratedLogos() {
                             }}
                           >
                             <div>
-                              &quot;{logo.text}&quot; | {logo.rarity || "UNKNOWN"} | ❤️ {logo.likes || 0}
+                              &quot;{logo.text}&quot; |{" "}
+                              {logo.rarity || "UNKNOWN"} | ❤️ {logo.likes || 0}
                             </div>
                             <div style={{ color: "#00aa00", marginTop: 2 }}>
                               {new Date(logo.createdAt).toLocaleDateString()}
