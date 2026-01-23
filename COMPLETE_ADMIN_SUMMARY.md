@@ -11,6 +11,7 @@
 **Location:** `/admin/generated-logos`
 
 **Displays:**
+
 - ✅ All Blob images (logoImageUrl, cardImageUrl, imageUrl)
 - ✅ Username for every entry
 - ✅ Rarity level with color coding
@@ -18,6 +19,7 @@
 - ✅ All other generated data
 
 **Visual Improvements:**
+
 - 📊 Database statistics panel (collapsible)
 - 👁️ Dual view modes: Table + Gallery
 - 🔍 Real-time search & filtering
@@ -31,6 +33,7 @@
 **Tool:** `npm run admin:health` (or `node data-integrity-monitor.js`)
 
 **Automatically Detects:**
+
 - ✅ Missing rarity entries (like jpechi1191 "Crt")
 - ✅ Missing image URLs (like 111iks "Coucou")
 - ✅ Orphaned entries
@@ -43,39 +46,44 @@
 **Tool:** `npm run admin:recover` (or `node recover-missing-entry.js`)
 
 **Modes:**
+
 - View database status
 - Manually restore missing entries
 - Fix incomplete entries
 
 ### 4. **Comprehensive Documentation** 📚
 
-| Document | Purpose |
-|----------|---------|
-| **START_HERE_ADMIN.md** | 👈 Read this first! Complete guide |
-| **ADMIN_DASHBOARD_GUIDE.md** | Feature-by-feature walkthrough |
-| **ADMIN_TOOLS_QUICK_REFERENCE.md** | Commands & quick workflows |
-| **ADMIN_IMPROVEMENTS_SUMMARY.md** | Technical implementation details |
+| Document                           | Purpose                            |
+| ---------------------------------- | ---------------------------------- |
+| **START_HERE_ADMIN.md**            | 👈 Read this first! Complete guide |
+| **ADMIN_DASHBOARD_GUIDE.md**       | Feature-by-feature walkthrough     |
+| **ADMIN_TOOLS_QUICK_REFERENCE.md** | Commands & quick workflows         |
+| **ADMIN_IMPROVEMENTS_SUMMARY.md**  | Technical implementation details   |
 
 ---
 
 ## Using It
 
 ### Access the Dashboard
+
 ```
 https://yourapp.vercel.app/admin/generated-logos
 ```
 
 ### Run Health Check
+
 ```bash
 npm run admin:health
 ```
 
 ### Recover Missing Data
+
 ```bash
 npm run admin:recover
 ```
 
 ### Database Diagnostic
+
 ```bash
 npm run admin:diagnostic
 ```
@@ -85,17 +93,19 @@ npm run admin:diagnostic
 ## What You Can Now See
 
 ### In Table View
-| Column | Data | Example |
-|--------|------|---------|
-| Username | @farcaster handle | ladymel |
-| Logo Text | The prompt | "Battlestar" |
-| Seed | Reproducibility key | 874237097 |
-| Rarity | Quality level | LEGENDARY |
-| Likes | Engagement | ❤️ 5 |
-| Created | Timestamp | 1/20/2026 11:42 AM |
-| Action | Click "View" | → Opens detail |
+
+| Column    | Data                | Example            |
+| --------- | ------------------- | ------------------ |
+| Username  | @farcaster handle   | ladymel            |
+| Logo Text | The prompt          | "Battlestar"       |
+| Seed      | Reproducibility key | 874237097          |
+| Rarity    | Quality level       | LEGENDARY          |
+| Likes     | Engagement          | ❤️ 5               |
+| Created   | Timestamp           | 1/20/2026 11:42 AM |
+| Action    | Click "View"        | → Opens detail     |
 
 ### In Gallery View
+
 - **Actual logo image** from Blob storage
 - **Color-coded badge** for rarity
 - **Username** and text
@@ -104,6 +114,7 @@ npm run admin:diagnostic
 - **Cast status**
 
 ### In Detail Modal
+
 - **Full resolution image** preview
 - **All metadata fields**
 - **Direct Blob image URLs** (clickable)
@@ -115,6 +126,7 @@ npm run admin:diagnostic
 ## Dashboard Features
 
 ### 📊 Statistics Panel
+
 ```
 Total Entries: 20
 Unique Users: 8
@@ -128,6 +140,7 @@ Total Likes: 34
 ```
 
 ### 🔍 Search & Filter
+
 - Username search (real-time)
 - Rarity filter
 - Sort options:
@@ -136,7 +149,9 @@ Total Likes: 34
   - Rarest first
 
 ### 💾 Export
+
 Download CSV with all data:
+
 - ID, Username, Text, Seed
 - Rarity, Image URLs
 - Timestamps, Engagement
@@ -146,16 +161,19 @@ Download CSV with all data:
 ## Detecting Missing Data (Like 111iks "Coucou")
 
 ### In Dashboard
+
 1. **Entry shows ⚠️ UNKNOWN** in rarity column
 2. **Gallery shows "No Image"** placeholder
 3. **Modal shows empty URLs**
 
 ### Using Monitor
+
 ```bash
 npm run admin:health
 ```
 
 Output shows:
+
 ```
 Missing All Image URLs (1):
   ⚠️  111iks | "Coucou" | Seed: 960660649
@@ -166,6 +184,7 @@ Missing All Image URLs (1):
 ## Color Coding
 
 ### Rarity Colors
+
 - 🟨 **LEGENDARY** - Gold
 - 🟣 **EPIC** - Purple
 - 🔵 **RARE** - Blue
@@ -173,6 +192,7 @@ Missing All Image URLs (1):
 - 🟠 **UNKNOWN** - Orange (⚠️ Issue!)
 
 ### Status Indicators
+
 - ✅ = Complete
 - ⚠️ = Warning
 - ❌ = Error
@@ -184,12 +204,14 @@ Missing All Image URLs (1):
 ## Files Changed/Created
 
 ### Modified
+
 ```
 app/admin/generated-logos/page.tsx          (completely redesigned)
 package.json                                 (added npm scripts)
 ```
 
 ### Created
+
 ```
 data-integrity-monitor.js                   (automated health check)
 recover-missing-entry.js                    (data recovery tool)
@@ -205,24 +227,31 @@ ADMIN_IMPROVEMENTS_SUMMARY.md               (implementation details)
 ## Daily Workflow
 
 ### Morning (30 seconds)
+
 ```bash
 npm run admin:health
 ```
+
 Check health score - aim for 90%+
 
 ### If Issues Found
+
 ```bash
 npm run admin:recover
 ```
+
 Fix missing/incomplete entries interactively
 
 ### Weekly
+
 Open dashboard and:
+
 - Review new entries
 - Check statistics
 - Spot visual issues
 
 ### Monthly
+
 - Export CSV backup
 - Upload to cloud storage
 - Archive for audit trail
@@ -231,35 +260,39 @@ Open dashboard and:
 
 ## Key Improvements
 
-| Issue | Before | After |
-|-------|--------|-------|
-| See Blob images | ❌ No | ✅ Yes, in gallery |
-| Find missing data | ❌ Manual | ✅ Automatic detection |
-| View seed numbers | ❌ Hidden | ✅ Visible everywhere |
-| Search entries | ❌ None | ✅ Real-time search |
-| Filter by rarity | ❌ None | ✅ Dropdown filter |
-| Export data | ❌ None | ✅ CSV export |
-| Check health | ❌ None | ✅ Automated score |
-| Fix issues | ❌ Manual SQL | ✅ Interactive tool |
-| See statistics | ❌ Limited | ✅ Comprehensive |
-| Documentation | ❌ Minimal | ✅ Complete guides |
+| Issue             | Before        | After                  |
+| ----------------- | ------------- | ---------------------- |
+| See Blob images   | ❌ No         | ✅ Yes, in gallery     |
+| Find missing data | ❌ Manual     | ✅ Automatic detection |
+| View seed numbers | ❌ Hidden     | ✅ Visible everywhere  |
+| Search entries    | ❌ None       | ✅ Real-time search    |
+| Filter by rarity  | ❌ None       | ✅ Dropdown filter     |
+| Export data       | ❌ None       | ✅ CSV export          |
+| Check health      | ❌ None       | ✅ Automated score     |
+| Fix issues        | ❌ Manual SQL | ✅ Interactive tool    |
+| See statistics    | ❌ Limited    | ✅ Comprehensive       |
+| Documentation     | ❌ Minimal    | ✅ Complete guides     |
 
 ---
 
 ## Real Example: Finding Missing Entry
 
 ### Problem
+
 User 111iks's "Coucou" logo is missing from database
 
 ### Solution Path
 
 #### Step 1: Open Dashboard
+
 Visit `/admin/generated-logos`
 
 #### Step 2: Search
+
 Filter by username: "111iks"
 
 #### Result
+
 ```
 Entry shows:
 - Text: "Coucou"
@@ -269,17 +302,20 @@ Entry shows:
 ```
 
 #### Step 3: Run Monitor
+
 ```bash
 npm run admin:health
 ```
 
 Output:
+
 ```
 Missing All Image URLs (1):
   ⚠️  111iks | "Coucou" | Seed: 960660649
 ```
 
 #### Step 4: Recover
+
 ```bash
 npm run admin:recover
 # Mode 2: Recover missing entry
@@ -292,24 +328,28 @@ npm run admin:recover
 ## Prevention of Future Issues
 
 ### Detection ✅
+
 - Dashboard highlights ⚠️ UNKNOWN entries
 - Monitor auto-detects missing data
 - Health score drops below 90%
 - Can catch issues within hours
 
 ### Visibility ✅
+
 - All Blob images shown
 - All seed numbers visible
 - Complete data accessible
 - Easy to spot issues
 
 ### Recovery ✅
+
 - Interactive recovery tool
 - Manual entry restoration
 - Incomplete data fixing
 - CSV export for backup
 
 ### Monitoring ✅
+
 - Daily health checks possible
 - Timeline analysis
 - User statistics
@@ -331,6 +371,7 @@ npm run admin:diagnostic
 ```
 
 Or without npm:
+
 ```bash
 node data-integrity-monitor.js
 node recover-missing-entry.js
@@ -354,7 +395,7 @@ node db-diagnostic.js
 If another user's logo goes missing:
 
 1. **Spot it:** Dashboard shows ⚠️ UNKNOWN or missing image
-2. **Confirm:** Run `npm run admin:health` 
+2. **Confirm:** Run `npm run admin:health`
 3. **Fix:** Run `npm run admin:recover`, mode 2
 4. **Verify:** Check dashboard - entry restored!
 
@@ -398,6 +439,7 @@ If another user's logo goes missing:
 ✅ **Complete and Production Ready**
 
 All features tested:
+
 - ✅ Dashboard displays all data
 - ✅ Images load from Blob
 - ✅ Filtering works in real-time
@@ -411,15 +453,19 @@ All features tested:
 ## Need Help?
 
 ### Quick Questions
+
 → See `ADMIN_TOOLS_QUICK_REFERENCE.md`
 
 ### Complete Guide
+
 → Read `ADMIN_DASHBOARD_GUIDE.md`
 
 ### Troubleshooting
+
 → Check troubleshooting section in guide
 
 ### Commands
+
 → Check package.json scripts
 
 ---
@@ -427,6 +473,7 @@ All features tested:
 ## Summary
 
 You now have:
+
 - ✅ Professional admin dashboard with images
 - ✅ Complete visibility into all generated logos
 - ✅ Automated health monitoring
@@ -440,9 +487,10 @@ You now have:
 
 **Date:** January 22, 2026  
 **Status:** ✅ Production Ready  
-**Ready to Deploy:** Yes  
+**Ready to Deploy:** Yes
 
-**Next Steps:** 
+**Next Steps:**
+
 1. Run `npm run admin:health` to check status
 2. Visit dashboard at `/admin/generated-logos`
 3. Read `START_HERE_ADMIN.md` for complete guide

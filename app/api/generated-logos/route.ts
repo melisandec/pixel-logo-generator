@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
-import prisma from '@/lib/prisma';
-import { applyScoreActions, ScoreAction } from '@/lib/scoringEngine';
+import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import prisma from "@/lib/prisma";
+import { applyScoreActions, ScoreAction } from "@/lib/scoringEngine";
 
 type GeneratedLogo = {
   id: string;
@@ -95,36 +95,33 @@ const ensureGeneratedLogoTable = async () => {
 };
 
 const buildWhere = (params: URLSearchParams) => {
-  const usernameParam = params.get('username');
-  const rarity = params.get('rarity');
-  const presetKey = params.get('presetKey');
-  const casted = params.get('casted');
+  const usernameParam = params.get("username");
+  const rarity = params.get("rarity");
+  const presetKey = params.get("presetKey");
+  const casted = params.get("casted");
   const where: Prisma.GeneratedLogoWhereInput = {};
   if (usernameParam) {
     where.username = usernameParam.toLowerCase();
   }
-  if (rarity && rarity !== 'all') {
+  if (rarity && rarity !== "all") {
     where.rarity = rarity.toUpperCase();
   }
-  if (presetKey && presetKey !== 'all') {
+  if (presetKey && presetKey !== "all") {
     where.presetKey = presetKey;
   }
   // If casted filter is requested, include both explicit casted flag AND any logos with castUrl
-  if (casted === 'true') {
-    where.OR = [
-      { casted: true },
-      { castUrl: { not: null } }
-    ];
+  if (casted === "true") {
+    where.OR = [{ casted: true }, { castUrl: { not: null } }];
   }
-  const scope = params.get('scope');
-  const dateKey = params.get('date');
-  if (scope === 'daily' && dateKey) {
+  const scope = params.get("scope");
+  const dateKey = params.get("date");
+  if (scope === "daily" && dateKey) {
     const start = new Date(`${dateKey}T00:00:00.000Z`);
     const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + 1);
     where.createdAt = { gte: start, lt: end };
   }
-  if (scope === 'recent') {
+  if (scope === "recent") {
     const end = new Date();
     const start = new Date(end);
     start.setUTCDate(start.getUTCDate() - 7);
@@ -142,27 +139,27 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const where = buildWhere(searchParams);
-    const sort = searchParams.get('sort') ?? 'score';
-    const limitParam = Number.parseInt(searchParams.get('limit') ?? '50', 10);
+    const sort = searchParams.get("sort") ?? "score";
+    const limitParam = Number.parseInt(searchParams.get("limit") ?? "50", 10);
     const limit = clampLimit(limitParam);
 
-    if (sort === 'recent') {
+    if (sort === "recent") {
       // Get from both tables
       const [genEntries, legacyEntries] = await Promise.all([
         prisma.generatedLogo.findMany({
           where,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           take: 500,
         }),
         // For legacy entries, apply casted filter if requested
-        (searchParams.get('casted') === 'true')
+        searchParams.get("casted") === "true"
           ? prisma.leaderboardEntry.findMany({
               where: { castUrl: { not: null } },
-              orderBy: { createdAt: 'desc' },
+              orderBy: { createdAt: "desc" },
               take: 500,
             })
           : prisma.leaderboardEntry.findMany({
-              orderBy: { createdAt: 'desc' },
+              orderBy: { createdAt: "desc" },
               take: 500,
             }),
       ]);
@@ -212,27 +209,30 @@ export async function GET(request: Request) {
       }
 
       // Sort by recent and limit
-      merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      merged.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
       return NextResponse.json({ entries: merged.slice(0, limit) });
     }
 
-    if (sort === 'likes') {
+    if (sort === "likes") {
       // Get from both tables
       const [genEntries, legacyEntries] = await Promise.all([
         prisma.generatedLogo.findMany({
           where,
-          orderBy: [{ likes: 'desc' }, { createdAt: 'desc' }],
+          orderBy: [{ likes: "desc" }, { createdAt: "desc" }],
           take: 500,
         }),
         // For legacy entries, apply casted filter if requested
-        (searchParams.get('casted') === 'true')
+        searchParams.get("casted") === "true"
           ? prisma.leaderboardEntry.findMany({
               where: { castUrl: { not: null } },
-              orderBy: [{ likes: 'desc' }, { createdAt: 'desc' }],
+              orderBy: [{ likes: "desc" }, { createdAt: "desc" }],
               take: 500,
             })
           : prisma.leaderboardEntry.findMany({
-              orderBy: [{ likes: 'desc' }, { createdAt: 'desc' }],
+              orderBy: [{ likes: "desc" }, { createdAt: "desc" }],
               take: 500,
             }),
       ]);
@@ -290,18 +290,18 @@ export async function GET(request: Request) {
     const [pool, legacyPool] = await Promise.all([
       prisma.generatedLogo.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         take: 500,
       }),
       // For legacy entries, apply casted filter if requested
-      (searchParams.get('casted') === 'true')
+      searchParams.get("casted") === "true"
         ? prisma.leaderboardEntry.findMany({
             where: { castUrl: { not: null } },
-            orderBy: { createdAt: 'desc' },
+            orderBy: { createdAt: "desc" },
             take: 500,
           })
         : prisma.leaderboardEntry.findMany({
-            orderBy: { createdAt: 'desc' },
+            orderBy: { createdAt: "desc" },
             take: 500,
           }),
     ]);
@@ -349,7 +349,7 @@ export async function GET(request: Request) {
         seenIds.add(entry.id);
       }
     }
-    
+
     const scored = dataPool
       .map((entry) => ({ ...entry, score: computeScore(entry) }))
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
@@ -359,21 +359,21 @@ export async function GET(request: Request) {
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2021'
+      error.code === "P2021"
     ) {
       await ensureGeneratedLogoTable();
       return GET(request);
     }
-    console.error('generated-logos GET error:', error);
+    console.error("generated-logos GET error:", error);
     return NextResponse.json({ entries: [] }, { status: 200 });
   }
 }
 
 async function handlePOST(body: Partial<GeneratedLogo>) {
-  if (!body.text || typeof body.text !== 'string') {
-    return NextResponse.json({ error: 'Missing text' }, { status: 400 });
+  if (!body.text || typeof body.text !== "string") {
+    return NextResponse.json({ error: "Missing text" }, { status: 400 });
   }
-  const seedValue = typeof body.seed === 'number' ? body.seed : 0;
+  const seedValue = typeof body.seed === "number" ? body.seed : 0;
   const id = body.id || crypto.randomUUID();
   const username = body.username?.toLowerCase?.();
   const userId = body.userId ?? null;
@@ -410,13 +410,15 @@ async function handlePOST(body: Partial<GeneratedLogo>) {
   });
 
   // Skip scoring for now to avoid schema issues - will be fixed in later phase
-  if (username && username !== 'testuser') {
+  if (username && username !== "testuser") {
     try {
-      await applyScoreActions(username, [
-        { action: 'generate', bestRarity: body.rarity ?? null },
-      ], userId);
+      await applyScoreActions(
+        username,
+        [{ action: "generate", bestRarity: body.rarity ?? null }],
+        userId,
+      );
     } catch (scoreError) {
-      console.warn('Warning: Failed to apply score actions:', scoreError);
+      console.warn("Warning: Failed to apply score actions:", scoreError);
       // Continue anyway - logo was saved
     }
   }
@@ -431,14 +433,14 @@ export async function POST(request: Request) {
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2021'
+      error.code === "P2021"
     ) {
       await ensureGeneratedLogoTable();
       const body = (await request.clone().json()) as Partial<GeneratedLogo>;
       return handlePOST(body);
     }
-    console.error('generated-logos POST error:', error);
-    return NextResponse.json({ error: 'Failed to save logo' }, { status: 500 });
+    console.error("generated-logos POST error:", error);
+    return NextResponse.json({ error: "Failed to save logo" }, { status: 500 });
   }
 }
 
@@ -463,45 +465,45 @@ export async function PATCH(request: Request) {
     };
 
     if (!body.id) {
-      return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+      return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
     const updateData: Prisma.GeneratedLogoUpdateInput = {};
-    
+
     // Handle direct field updates
-    if (typeof body.text === 'string') {
+    if (typeof body.text === "string") {
       updateData.text = body.text;
     }
-    if (typeof body.rarity === 'string' || body.rarity === null) {
+    if (typeof body.rarity === "string" || body.rarity === null) {
       updateData.rarity = body.rarity;
     }
-    if (typeof body.castUrl === 'string' || body.castUrl === null) {
+    if (typeof body.castUrl === "string" || body.castUrl === null) {
       updateData.castUrl = body.castUrl;
     }
-    if (typeof body.logoImageUrl === 'string' || body.logoImageUrl === null) {
+    if (typeof body.logoImageUrl === "string" || body.logoImageUrl === null) {
       updateData.logoImageUrl = body.logoImageUrl;
     }
-    if (typeof body.cardImageUrl === 'string' || body.cardImageUrl === null) {
+    if (typeof body.cardImageUrl === "string" || body.cardImageUrl === null) {
       updateData.cardImageUrl = body.cardImageUrl;
     }
-    if (typeof body.username === 'string' || body.username === null) {
+    if (typeof body.username === "string" || body.username === null) {
       updateData.username = body.username;
     }
-    if (typeof body.displayName === 'string' || body.displayName === null) {
+    if (typeof body.displayName === "string" || body.displayName === null) {
       updateData.displayName = body.displayName;
     }
-    
+
     // Handle delta updates
-    if (typeof body.deltaLikes === 'number' && body.deltaLikes !== 0) {
+    if (typeof body.deltaLikes === "number" && body.deltaLikes !== 0) {
       updateData.likes = { increment: body.deltaLikes };
     }
-    if (typeof body.deltaRecasts === 'number' && body.deltaRecasts !== 0) {
+    if (typeof body.deltaRecasts === "number" && body.deltaRecasts !== 0) {
       updateData.recasts = { increment: body.deltaRecasts };
     }
-    if (typeof body.deltaSaves === 'number' && body.deltaSaves !== 0) {
+    if (typeof body.deltaSaves === "number" && body.deltaSaves !== 0) {
       updateData.saves = { increment: body.deltaSaves };
     }
-    if (typeof body.deltaRemixes === 'number' && body.deltaRemixes !== 0) {
+    if (typeof body.deltaRemixes === "number" && body.deltaRemixes !== 0) {
       updateData.remixes = { increment: body.deltaRemixes };
     }
     if (body.casted === true) {
@@ -514,37 +516,57 @@ export async function PATCH(request: Request) {
       data: updateData,
     });
 
-    const actions = [] as Array<{ action: ScoreAction; multiplier?: number; bestRarity?: string | null }>;
-    if (typeof body.deltaLikes === 'number' && body.deltaLikes > 0) {
-      actions.push({ action: 'like_received', multiplier: body.deltaLikes });
+    const actions = [] as Array<{
+      action: ScoreAction;
+      multiplier?: number;
+      bestRarity?: string | null;
+    }>;
+    if (typeof body.deltaLikes === "number" && body.deltaLikes > 0) {
+      actions.push({ action: "like_received", multiplier: body.deltaLikes });
     }
-    if (typeof body.deltaSaves === 'number' && body.deltaSaves > 0) {
-      actions.push({ action: 'save', multiplier: body.deltaSaves });
+    if (typeof body.deltaSaves === "number" && body.deltaSaves > 0) {
+      actions.push({ action: "save", multiplier: body.deltaSaves });
     }
-    if (typeof body.deltaRecasts === 'number' && body.deltaRecasts > 0) {
-      actions.push({ action: 'cast_share', multiplier: body.deltaRecasts });
+    if (typeof body.deltaRecasts === "number" && body.deltaRecasts > 0) {
+      actions.push({ action: "cast_share", multiplier: body.deltaRecasts });
     }
-    if (typeof body.deltaRemixes === 'number' && body.deltaRemixes > 0) {
-      actions.push({ action: 'remix_used', multiplier: body.deltaRemixes });
+    if (typeof body.deltaRemixes === "number" && body.deltaRemixes > 0) {
+      actions.push({ action: "remix_used", multiplier: body.deltaRemixes });
     }
 
     if (actions.length > 0 && updated.username) {
       await applyScoreActions(updated.username, actions, updated.userId);
     }
 
-    if (typeof body.actorUsername === 'string') {
-      const actorActions = [] as Array<{ action: ScoreAction; multiplier?: number }>;
-      if (typeof body.deltaLikes === 'number') {
-        actorActions.push({ action: 'like_given', multiplier: Math.abs(body.deltaLikes) });
+    if (typeof body.actorUsername === "string") {
+      const actorActions = [] as Array<{
+        action: ScoreAction;
+        multiplier?: number;
+      }>;
+      if (typeof body.deltaLikes === "number") {
+        actorActions.push({
+          action: "like_given",
+          multiplier: Math.abs(body.deltaLikes),
+        });
       }
-      if (typeof body.deltaSaves === 'number') {
-        actorActions.push({ action: 'save', multiplier: Math.abs(body.deltaSaves) });
+      if (typeof body.deltaSaves === "number") {
+        actorActions.push({
+          action: "save",
+          multiplier: Math.abs(body.deltaSaves),
+        });
       }
-      if (typeof body.deltaRecasts === 'number' && body.deltaRecasts > 0) {
-        actorActions.push({ action: 'cast_share', multiplier: body.deltaRecasts });
+      if (typeof body.deltaRecasts === "number" && body.deltaRecasts > 0) {
+        actorActions.push({
+          action: "cast_share",
+          multiplier: body.deltaRecasts,
+        });
       }
       if (actorActions.length > 0) {
-        await applyScoreActions(body.actorUsername, actorActions, body.actorUserId);
+        await applyScoreActions(
+          body.actorUsername,
+          actorActions,
+          body.actorUserId,
+        );
       }
     }
 
@@ -552,20 +574,23 @@ export async function PATCH(request: Request) {
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2021'
+      error.code === "P2021"
     ) {
       await ensureGeneratedLogoTable();
       return PATCH(request);
     }
-    console.error('generated-logos PATCH error:', error);
-    return NextResponse.json({ error: 'Failed to update logo' }, { status: 500 });
+    console.error("generated-logos PATCH error:", error);
+    return NextResponse.json(
+      { error: "Failed to update logo" },
+      { status: 500 },
+    );
   }
 }
 
 export async function DELETE(request: Request) {
   try {
     const url = new URL(request.url);
-    const id = url.searchParams.get('id');
+    const id = url.searchParams.get("id");
     let targetId = id;
     if (!targetId) {
       try {
@@ -577,7 +602,7 @@ export async function DELETE(request: Request) {
     }
 
     if (!targetId) {
-      return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+      return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
     await prisma.generatedLogo.delete({ where: { id: targetId } });
@@ -585,11 +610,11 @@ export async function DELETE(request: Request) {
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
+      error.code === "P2025"
     ) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    console.error('generated-logos DELETE error:', error);
-    return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
+    console.error("generated-logos DELETE error:", error);
+    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
   }
 }

@@ -14,11 +14,13 @@
 ## Investigation Findings
 
 ### Database Status
+
 - **GeneratedLogo table:** 20 entries ✅
 - **LeaderboardEntry (legacy) table:** 15 entries ✅
 - **Total:** 35 entries
 
 ### Search Results
+
 ```
 ❌ User "111iks" not found in GeneratedLogo
 ❌ Logo "Coucou" with seed 960660649 not found
@@ -61,7 +63,9 @@ The entry is completely absent, indicating one of these issues:
 ## Code Review
 
 ### API Endpoint (`/api/generated-logos` POST)
+
 ✅ **Code looks correct:**
+
 - Uses `prisma.generatedLogo.upsert()` with proper `await`
 - Error handling in place
 - Table creation fallback implemented
@@ -75,7 +79,9 @@ const saved = await prisma.generatedLogo.upsert({
 ```
 
 ### Client Logic (`LogoGenerator.tsx`)
+
 ✅ **Code looks correct:**
+
 - Proper error handling in try-catch
 - Response validation before using data
 - Fallback mechanisms in place
@@ -97,6 +103,7 @@ if (!response.ok) {
 ## Timeline of Recent Entries
 
 **Last 3 days of activity:**
+
 - Jan 22, 1:24 PM: coolbeans1r.eth - "Coolbeans1r" (RARE) ✅
 - Jan 22, 1:21 PM: coolbeans1r.eth - "Lil nouns" (RARE) ✅
 - Jan 22, 8:54 AM: happyeyeballs - "Crypto Lambo" (RARE) ✅
@@ -115,6 +122,7 @@ if (!response.ok) {
 ## Database Integrity Status
 
 ✅ **Overall health is good:**
+
 - 34 out of 35 entries are complete
 - All image URLs properly persisted
 - Rarity calculations correct (except 1 edge case)
@@ -126,12 +134,13 @@ if (!response.ok) {
 ## Recommendations
 
 ### Immediate Actions
+
 1. **Check server logs** from Jan 20, 2026, ~2 days ago
    - Look for user 111iks
    - Check for 500 errors or timeout
    - Verify if seed 960660649 appears in request logs
 
-2. **Verify Network** 
+2. **Verify Network**
    - Ask user if they saw error message
    - Check browser console logs they might have saved
    - Confirm they saw the logo generate (client-side worked)
@@ -139,6 +148,7 @@ if (!response.ok) {
 ### Short-term Fixes
 
 1. **Add Error Reporting**
+
    ```typescript
    // In persistGeneratedLogo catch block
    catch (error) {
@@ -156,6 +166,7 @@ if (!response.ok) {
    ```
 
 2. **Add User Notification**
+
    ```typescript
    if (!response.ok) {
      const errorMsg = `Failed to save logo: ${response.statusText}`;
@@ -206,11 +217,13 @@ if (!response.ok) {
 ## Data Recovery
 
 If the user has the logo data locally:
+
 1. **Request from user:** seed (960660649), text ("Coucou")
 2. **Regenerate in browser** to get the images
 3. **Re-submit to database** with original timestamp from Jan 20
 
 **Cannot recover without user cooperation** since:
+
 - Logo generation is deterministic but requires the seed
 - Image URLs point to external storage that may have expired
 - No backup of the image files themselves
@@ -220,6 +233,7 @@ If the user has the logo data locally:
 ## Unaffected Areas
 
 ✅ **System is functioning correctly for:**
+
 - Logo generation algorithm
 - Rarity calculation
 - Image URL persistence

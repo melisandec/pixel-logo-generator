@@ -3,11 +3,13 @@
 ## Access the Dashboard
 
 ### Direct Link
+
 ```
 https://yourapp.vercel.app/admin/generated-logos
 ```
 
 ### Local Development
+
 ```bash
 npm run dev
 # Then visit: http://localhost:3000/admin/generated-logos
@@ -18,11 +20,13 @@ npm run dev
 ## Command Reference
 
 ### Data Integrity Monitor (Recommended Daily)
+
 ```bash
 node data-integrity-monitor.js
 ```
 
 **What it does:**
+
 - Detects missing rarity values
 - Finds missing image URLs
 - Identifies orphaned entries
@@ -31,6 +35,7 @@ node data-integrity-monitor.js
 - Calculates health score (0-100%)
 
 **When to run:**
+
 - Daily health check
 - After user reports missing data
 - When adding new entries
@@ -39,16 +44,19 @@ node data-integrity-monitor.js
 ---
 
 ### Recovery Tool (For Fixing Issues)
+
 ```bash
 node recover-missing-entry.js
 ```
 
 **Modes:**
+
 - **1** = View current database
 - **2** = Manually restore missing entry
 - **3** = Fix incomplete entries
 
 **When to use:**
+
 - Recover missing logos
 - Fix entries with ⚠️ UNKNOWN rarity
 - Add data from external source
@@ -56,11 +64,13 @@ node recover-missing-entry.js
 ---
 
 ### Database Diagnostic
+
 ```bash
 node db-diagnostic.js
 ```
 
 **Shows:**
+
 - Entry counts & timeline
 - Data completeness metrics
 - Rarity distribution chart
@@ -68,6 +78,7 @@ node db-diagnostic.js
 - Data quality score
 
 **When to use:**
+
 - Detailed analysis needed
 - Trend analysis
 - User activity patterns
@@ -128,6 +139,7 @@ node db-diagnostic.js
 ## Color Legend
 
 ### Rarity Colors
+
 ```
 🟨 LEGENDARY  = #FFD700 (Gold)
 🟣 EPIC       = #9933FF (Purple)
@@ -137,6 +149,7 @@ node db-diagnostic.js
 ```
 
 ### Status Indicators
+
 ```
 ✅ = Complete/OK
 ⚠️  = Warning (incomplete)
@@ -154,6 +167,7 @@ node db-diagnostic.js
 ## Common Workflows
 
 ### 📋 Morning Health Check
+
 ```bash
 # 1. Run monitor
 node data-integrity-monitor.js
@@ -164,6 +178,7 @@ node recover-missing-entry.js
 ```
 
 ### 🔍 Investigate Missing Logo
+
 ```bash
 # 1. Open dashboard
 # https://app.com/admin/generated-logos
@@ -185,6 +200,7 @@ node recover-missing-entry.js
 ```
 
 ### 📊 Analyze User Activity
+
 ```bash
 # 1. Open dashboard
 # 2. Check stats panel (click to expand)
@@ -194,6 +210,7 @@ node recover-missing-entry.js
 ```
 
 ### 🛠️ Fix Incomplete Entry
+
 ```bash
 # 1. Run monitor to find issue
 node data-integrity-monitor.js
@@ -210,6 +227,7 @@ node recover-missing-entry.js
 ```
 
 ### 📥 Backup All Data
+
 ```bash
 # 1. Open dashboard
 # 2. Remove all filters
@@ -225,10 +243,11 @@ node recover-missing-entry.js
 ## Interpretation Guide
 
 ### Table View Reading
+
 ```
 Username: jpechi1191
 ├─ Text: "Crt"
-├─ Seed: 68037  
+├─ Seed: 68037
 ├─ Rarity: ⚠️ UNKNOWN      ← Issue: Should be LEGENDARY/EPIC/RARE/COMMON
 ├─ Created: 1/18 3:53 PM
 ├─ Likes: 0
@@ -238,6 +257,7 @@ What to do: Run recovery tool, mode 3 to fix rarity
 ```
 
 ### Gallery View Reading
+
 ```
 Card shows:
 ├─ Logo image (or "No Image" ❌)
@@ -254,6 +274,7 @@ If status shows ⏳: Not cast to Farcaster yet
 ```
 
 ### Monitor Health Score
+
 ```
 ✅ 95-100%  = Excellent (0 issues)
 ✅ 85-94%   = Good (1-2 minor issues)
@@ -268,12 +289,14 @@ Issues = Missing rarity + Missing images + Duplicates × 10
 ## Keyboard Shortcuts
 
 **In Dashboard:**
+
 - `Ctrl+F` or `Cmd+F` = Browser find (search page)
 - Click entry = Open detail modal
 - Click outside modal = Close modal
 - `Escape` = Close modal
 
 **In Terminal:**
+
 - `Ctrl+C` = Stop running command
 - `↑` Arrow = Repeat last command
 - `Tab` = Auto-complete command
@@ -283,6 +306,7 @@ Issues = Missing rarity + Missing images + Duplicates × 10
 ## Troubleshooting Quick Fixes
 
 ### Dashboard won't load
+
 ```bash
 # Check API is working
 curl http://localhost:3000/api/generated-logos?limit=10
@@ -290,6 +314,7 @@ curl http://localhost:3000/api/generated-logos?limit=10
 ```
 
 ### No images showing
+
 ```bash
 # Verify Blob storage
 # Check entries have imageUrl, logoImageUrl, or cardImageUrl
@@ -300,6 +325,7 @@ curl http://localhost:3000/api/generated-logos?limit=10
 ```
 
 ### Monitor shows errors
+
 ```bash
 # Verify database connection
 npm run dev
@@ -309,6 +335,7 @@ npx prisma studio
 ```
 
 ### Export produces empty file
+
 ```bash
 # Remove filters and try again
 # Or check: Are there actually entries in DB?
@@ -319,13 +346,13 @@ npx prisma studio
 
 ## File Locations
 
-| Tool | Path | Command |
-|------|------|---------|
-| Admin Dashboard | `/app/admin/generated-logos/page.tsx` | Visit `/admin/generated-logos` |
-| Integrity Monitor | `data-integrity-monitor.js` | `node data-integrity-monitor.js` |
-| Recovery Tool | `recover-missing-entry.js` | `node recover-missing-entry.js` |
-| Database Diagnostic | `db-diagnostic.js` | `node db-diagnostic.js` |
-| This Guide | `ADMIN_DASHBOARD_GUIDE.md` | Reference |
+| Tool                | Path                                  | Command                          |
+| ------------------- | ------------------------------------- | -------------------------------- |
+| Admin Dashboard     | `/app/admin/generated-logos/page.tsx` | Visit `/admin/generated-logos`   |
+| Integrity Monitor   | `data-integrity-monitor.js`           | `node data-integrity-monitor.js` |
+| Recovery Tool       | `recover-missing-entry.js`            | `node recover-missing-entry.js`  |
+| Database Diagnostic | `db-diagnostic.js`                    | `node db-diagnostic.js`          |
+| This Guide          | `ADMIN_DASHBOARD_GUIDE.md`            | Reference                        |
 
 ---
 
