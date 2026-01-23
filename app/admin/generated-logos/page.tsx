@@ -73,6 +73,12 @@ export default function AdminGeneratedLogos() {
   // Audit trail
   const [showAuditTrail, setShowAuditTrail] = useState(false);
 
+  // Generate card image & edit casted
+  const [generatingCardId, setGeneratingCardId] = useState<string | null>(null);
+  const [editingCastedId, setEditingCastedId] = useState<string | null>(null);
+  const [editingCastedValue, setEditingCastedValue] = useState(false);
+  const [editingCastUrl, setEditingCastUrl] = useState("");
+
   useEffect(() => {
     load();
   }, []);
@@ -238,6 +244,60 @@ export default function AdminGeneratedLogos() {
       alert(
         `Error: ${e instanceof Error ? e.message : "Failed to update entry"}`,
       );
+    }
+  }
+
+  async function generateCardImage(entry: Entry) {
+    if (!entry.logoImageUrl && !entry.imageUrl) {
+      alert("❌ Cannot generate card: No logo image URL found");
+      return;
+    }
+
+    setGeneratingCardId(entry.id);
+    try {
+      const logoUrl = entry.logoImageUrl || entry.imageUrl;
+      await updateEntry(entry.id, {
+        cardImageUrl: logoUrl,
+      });
+      alert("✅ Card image generated!");
+    } catch (error) {
+      console.error("Error generating card:", error);
+      alert("❌ Failed to generate card image");
+    } finally {
+      setGeneratingCardId(null);
+    }
+  }
+
+  async function updateCastedStatus(
+    id: string,
+    casted: boolean,
+    castUrl: string
+  ) {
+    if (casted && !castUrl.trim()) {
+      alert("⚠️ Cannot mark as casted without a cast URL");
+      return;
+    }
+
+    try {
+      const updates: any = { casted };
+      if (castUrl.trim()) {
+        updates.castUrl = castUrl;
+      }
+
+      await updateEntry(id, updates);
+
+      if (casted) {
+        alert("✅ Marked as casted!");
+      } else {
+        alert("✅ Status updated to pending!");
+      }
+
+      setEditingCastedId(null);
+      setEditingCastedValue(false);
+      setEditingCastUrl("");
+    } catch (error) {
+      console.error("Error updating casted status:", error);
+      alert("❌ Failed to update status");
     }
   }
 
@@ -2310,8 +2370,67 @@ export default function AdminGeneratedLogos() {
                     paddingTop: 12,
                     display: "flex",
                     gap: 8,
+                    flexWrap: "wrap",
                   }}
                 >
+                  {/* Generate Card Image Button */}
+                  {!selectedEntry.cardImageUrl &&
+                    selectedEntry.logoImageUrl && (
+                    <button
+                      onClick={() => generateCardImage(selectedEntry)}
+                      disabled={generatingCardId === selectedEntry.id}
+                      style={{
+                        flex: 1,
+                        minWidth: 120,
+                        padding: "8px 12px",
+                        backgroundColor:
+                          generatingCardId === selectedEntry.id
+                            ? "#333"
+                            : "#ff9900",
+                        color: "#000",
+                        border: "1px solid #ff9900",
+                        fontFamily: "monospace",
+                        cursor:
+                          generatingCardId === selectedEntry.id
+                            ? "not-allowed"
+                            : "pointer",
+                        borderRadius: 3,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {generatingCardId === selectedEntry.id
+                        ? "⏳ Generating..."
+                        : "🎨 Generate Card"}
+                    </button>
+                  )}
+
+                  {/* Edit Casted Status Button */}
+                  <button
+                    onClick={() => {
+                      setEditingCastedId(selectedEntry.id);
+                      setEditingCastedValue(selectedEntry.casted || false);
+                      setEditingCastUrl(selectedEntry.castUrl || "");
+                    }}
+                    style={{
+                      flex: 1,
+                      minWidth: 120,
+                      padding: "8px 12px",
+                      backgroundColor: selectedEntry.casted
+                        ? "#006600"
+                        : "#ff6600",
+                      color: "#fff",
+                      border: selectedEntry.casted
+                        ? "1px solid #00ff00"
+                        : "1px solid #ff6600",
+                      fontFamily: "monospace",
+                      cursor: "pointer",
+                      borderRadius: 3,
+                    }}
+                  >
+                    {selectedEntry.casted ? "✅ Casted" : "⏳ Edit Status"}
+                  </button>
+
+                  {/* Edit Entry Button */}
                   <button
                     onClick={() => {
                       setEditingEntry(selectedEntry);
@@ -2319,6 +2438,7 @@ export default function AdminGeneratedLogos() {
                     }}
                     style={{
                       flex: 1,
+                      minWidth: 120,
                       padding: "8px 12px",
                       backgroundColor: "#0066cc",
                       color: "#fff",
@@ -2328,12 +2448,22 @@ export default function AdminGeneratedLogos() {
                       borderRadius: 3,
                     }}
                   >
-                    ✏️ Edit
+                    ✏️ Edit Entry
                   </button>
+
+                  {/* Delete Button */}
                   <button
-                    onClick={() => remove(selectedEntry.id)}
+                    onClick={() => {
+                      if (
+                        confirm("Delete this entry? Cannot be undone.")
+                      ) {
+                        remove(selectedEntry.id);
+                        setSelectedEntry(null);
+                      }
+                    }}
                     style={{
                       flex: 1,
+                      minWidth: 120,
                       padding: "8px 12px",
                       backgroundColor: "#cc0000",
                       color: "#fff",
@@ -2345,10 +2475,13 @@ export default function AdminGeneratedLogos() {
                   >
                     🗑️ Delete
                   </button>
+
+                  {/* Close Button */}
                   <button
                     onClick={() => setSelectedEntry(null)}
                     style={{
                       flex: 1,
+                      minWidth: 120,
                       padding: "8px 12px",
                       backgroundColor: "#071026",
                       color: "#00ff00",
@@ -2359,6 +2492,228 @@ export default function AdminGeneratedLogos() {
                     }}
                   >
                     Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Casted Status Modal */}
+        {editingCastedId && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.8)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1001,
+            }}
+            onClick={() => setEditingCastedId(null)}
+          >
+            <div
+              style={{
+                backgroundColor: "#071026",
+                border: "2px solid #ff9900",
+                padding: 24,
+                borderRadius: 4,
+                maxWidth: 500,
+                color: "#00ff00",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 style={{ margin: "0 0 16px 0", color: "#ff9900" }}>
+                📡 Edit Cast Status
+              </h2>
+
+              <div style={{ display: "grid", gap: 16 }}>
+                {/* Current Status */}
+                <div>
+                  <label style={{ fontSize: 12, color: "#00aa00" }}>
+                    Logo: {selectedEntry?.text}
+                  </label>
+                  <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+                    Current status:{" "}
+                    {selectedEntry?.casted ? "✅ Casted" : "⏳ Pending"}
+                  </div>
+                </div>
+
+                {/* Casted Toggle */}
+                <div>
+                  <label
+                    style={{
+                      fontSize: 12,
+                      color: "#00aa00",
+                      display: "block",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Mark as Casted?
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => setEditingCastedValue(false)}
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        backgroundColor: !editingCastedValue
+                          ? "#ff6600"
+                          : "#071026",
+                        color: !editingCastedValue ? "#000" : "#ff6600",
+                        border: "1px solid #ff6600",
+                        fontFamily: "monospace",
+                        cursor: "pointer",
+                        borderRadius: 3,
+                      }}
+                    >
+                      ⏳ Pending
+                    </button>
+                    <button
+                      onClick={() => setEditingCastedValue(true)}
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        backgroundColor: editingCastedValue
+                          ? "#006600"
+                          : "#071026",
+                        color: editingCastedValue ? "#00ff00" : "#00aa00",
+                        border: "1px solid #00ff00",
+                        fontFamily: "monospace",
+                        cursor: "pointer",
+                        borderRadius: 3,
+                      }}
+                    >
+                      ✅ Casted
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cast URL (shown only if marking as casted) */}
+                {editingCastedValue && (
+                  <div>
+                    <label
+                      style={{
+                        fontSize: 12,
+                        color: "#00aa00",
+                        display: "block",
+                        marginBottom: 8,
+                      }}
+                    >
+                      Cast URL (Required for casted status)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="https://warpcast.com/..."
+                      value={editingCastUrl}
+                      onChange={(e) => setEditingCastUrl(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        backgroundColor: "#0a0e27",
+                        border: "1px solid #00aa00",
+                        color: "#00ff00",
+                        fontFamily: "monospace",
+                        fontSize: 11,
+                        boxSizing: "border-box",
+                        borderRadius: 3,
+                      }}
+                    />
+                    <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>
+                      {editingCastUrl
+                        ? "✅ URL provided"
+                        : "❌ URL required to mark as casted"}
+                    </div>
+                  </div>
+                )}
+
+                {/* Optional: URL field for pending status */}
+                {!editingCastedValue && editingCastUrl && (
+                  <div>
+                    <label
+                      style={{
+                        fontSize: 12,
+                        color: "#00aa00",
+                        display: "block",
+                        marginBottom: 8,
+                      }}
+                    >
+                      Clear Cast URL?
+                    </label>
+                    <button
+                      onClick={() => setEditingCastUrl("")}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        backgroundColor: "#333",
+                        color: "#ff6600",
+                        border: "1px solid #ff6600",
+                        fontFamily: "monospace",
+                        cursor: "pointer",
+                        borderRadius: 3,
+                      }}
+                    >
+                      Clear URL
+                    </button>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                  <button
+                    onClick={() => {
+                      updateCastedStatus(
+                        editingCastedId,
+                        editingCastedValue,
+                        editingCastUrl
+                      );
+                    }}
+                    disabled={editingCastedValue && !editingCastUrl.trim()}
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      backgroundColor:
+                        editingCastedValue && !editingCastUrl.trim()
+                          ? "#333"
+                          : "#00ff00",
+                      color:
+                        editingCastedValue && !editingCastUrl.trim()
+                          ? "#666"
+                          : "#0a0e27",
+                      border: "1px solid #00ff00",
+                      fontFamily: "monospace",
+                      fontWeight: "bold",
+                      cursor:
+                        editingCastedValue && !editingCastUrl.trim()
+                          ? "not-allowed"
+                          : "pointer",
+                      borderRadius: 3,
+                    }}
+                  >
+                    💾 Save Changes
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingCastedId(null);
+                      setEditingCastedValue(false);
+                      setEditingCastUrl("");
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      backgroundColor: "#071026",
+                      color: "#ff6600",
+                      border: "1px solid #ff6600",
+                      fontFamily: "monospace",
+                      cursor: "pointer",
+                      borderRadius: 3,
+                    }}
+                  >
+                    ✕ Cancel
                   </button>
                 </div>
               </div>
