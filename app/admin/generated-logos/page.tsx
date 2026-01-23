@@ -84,6 +84,15 @@ export default function AdminGeneratedLogos() {
   const [blobAuditData, setBlobAuditData] = useState<any>(null);
   const [loadingBlobAudit, setLoadingBlobAudit] = useState(false);
 
+  // Create new entry
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createText, setCreateText] = useState("");
+  const [createUsername, setCreateUsername] = useState("");
+  const [createSeed, setCreateSeed] = useState("");
+  const [createRarity, setCreateRarity] = useState("COMMON");
+  const [generatedLogoPreview, setGeneratedLogoPreview] = useState<any>(null);
+  const [creatingEntry, setCreatingEntry] = useState(false);
+
   useEffect(() => {
     load();
   }, []);
@@ -318,6 +327,88 @@ export default function AdminGeneratedLogos() {
       alert("❌ Failed to load blob audit data");
     } finally {
       setLoadingBlobAudit(false);
+    }
+  }
+
+  async function generatePreviewLogo() {
+    if (!createText.trim()) {
+      alert("⚠️ Please enter text for the logo");
+      return;
+    }
+
+    try {
+      const { generateLogo } = await import("@/lib/logoGenerator");
+      const seed = createSeed ? parseInt(createSeed, 10) : undefined;
+      const result = generateLogo({
+        text: createText,
+        seed,
+        rarity: createRarity as any,
+      });
+
+      setGeneratedLogoPreview(result);
+    } catch (error) {
+      console.error("Error generating logo:", error);
+      alert("❌ Failed to generate logo preview");
+    }
+  }
+
+  async function createNewEntry() {
+    if (!createText.trim()) {
+      alert("⚠️ Please enter text for the logo");
+      return;
+    }
+
+    if (!generatedLogoPreview) {
+      alert("⚠️ Please generate a preview first");
+      return;
+    }
+
+    setCreatingEntry(true);
+    try {
+      const dataUrl = generatedLogoPreview.dataUrl;
+      const seed = generatedLogoPreview.seed;
+
+      // Upload to blob
+      const uploadRes = await fetch("/api/logo-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logoDataUrl: dataUrl }),
+      });
+
+      if (!uploadRes.ok) throw new Error("Failed to upload image");
+      const uploadData = await uploadRes.json();
+
+      // Create database entry
+      const createRes = await fetch("/api/generated-logos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: createText,
+          seed,
+          rarity: createRarity,
+          username: createUsername || "admin-created",
+          logoImageUrl: uploadData.logoImageUrl,
+          imageUrl: uploadData.logoImageUrl,
+          casted: false,
+        }),
+      });
+
+      if (!createRes.ok) throw new Error("Failed to create entry");
+      const newEntry = await createRes.json();
+
+      setEntries((s) => [newEntry.entry || newEntry, ...s]);
+      alert(`✅ Entry created successfully! Seed: ${seed}`);
+      setShowCreateModal(false);
+      setCreateText("");
+      setCreateUsername("");
+      setCreateSeed("");
+      setCreateRarity("COMMON");
+      setGeneratedLogoPreview(null);
+    } catch (error) {
+      console.error("Error creating entry:", error);
+      alert(`❌ Failed to create entry: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setCreatingEntry(false);
     }
   }
 
@@ -1179,6 +1270,20 @@ export default function AdminGeneratedLogos() {
             }}
           >
             🔗 Blob Audit {loadingBlobAudit ? "..." : blobAuditData ? `(${blobAuditData.stats?.totalBlobs || 0})` : ""}
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              padding: "8px 12px",
+              backgroundColor: showCreateModal ? "#ff00ff" : "#071026",
+              color: showCreateModal ? "#fff" : "#ff00ff",
+              border: "1px solid #ff00ff",
+              fontFamily: "monospace",
+              cursor: "pointer",
+              marginLeft: 8,
+            }}
+          >
+            ✨ Create Entry
           </button>
         </div>
 
@@ -3491,7 +3596,199 @@ export default function AdminGeneratedLogos() {
             </div>
           </div>
         )}
+
+        {/* Create New Entry Modal */}
+        {showCreateModal && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.8)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1002,
+            }}
+            onClick={() => {
+              if (!creatingEntry) setShowCreateModal(false);
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "#071026",
+                border: "2px solid #ff00ff",
+                padding: 24,
+                borderRadius: 4,
+                maxWidth: 700,
+                maxHeight: "90vh",
+                overflowY: "auto",
+                color: "#ff00ff",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 style={{ margin: "0 0 16px 0" }}>✨ Create New Logo Entry</h2>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
+                  Logo Text:
+                </label>
+                <input
+                  type="text"
+                  value={createText}
+                  onChange={(e) => setCreateText(e.target.value)}
+                  placeholder="Enter text for logo"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    backgroundColor: "#0a2540",
+                    border: "1px solid #ff00ff",
+                    color: "#fff",
+                    fontFamily: "monospace",
+                    boxSizing: "border-box",
+                    marginBottom: 12,
+                  }}
+                />
+
+                <label style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
+                  Username:
+                </label>
+                <input
+                  type="text"
+                  value={createUsername}
+                  onChange={(e) => setCreateUsername(e.target.value)}
+                  placeholder="Leave blank for 'admin-created'"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    backgroundColor: "#0a2540",
+                    border: "1px solid #ff00ff",
+                    color: "#fff",
+                    fontFamily: "monospace",
+                    boxSizing: "border-box",
+                    marginBottom: 12,
+                  }}
+                />
+
+                <label style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
+                  Seed (optional):
+                </label>
+                <input
+                  type="text"
+                  value={createSeed}
+                  onChange={(e) => setCreateSeed(e.target.value)}
+                  placeholder="Leave blank to generate random seed"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    backgroundColor: "#0a2540",
+                    border: "1px solid #ff00ff",
+                    color: "#fff",
+                    fontFamily: "monospace",
+                    boxSizing: "border-box",
+                    marginBottom: 12,
+                  }}
+                />
+
+                <label style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
+                  Rarity:
+                </label>
+                <select
+                  value={createRarity}
+                  onChange={(e) => setCreateRarity(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    backgroundColor: "#0a2540",
+                    border: "1px solid #ff00ff",
+                    color: "#fff",
+                    fontFamily: "monospace",
+                    boxSizing: "border-box",
+                    marginBottom: 16,
+                  }}
+                >
+                  <option>COMMON</option>
+                  <option>RARE</option>
+                  <option>EPIC</option>
+                  <option>LEGENDARY</option>
+                </select>
+
+                <button
+                  onClick={generatePreviewLogo}
+                  disabled={creatingEntry}
+                  style={{
+                    padding: "10px 16px",
+                    backgroundColor: "#0a2540",
+                    color: "#ff00ff",
+                    border: "1px solid #ff00ff",
+                    fontFamily: "monospace",
+                    cursor: creatingEntry ? "not-allowed" : "pointer",
+                    borderRadius: 3,
+                    marginBottom: 16,
+                    width: "100%",
+                  }}
+                >
+                  🎨 Generate Preview
+                </button>
+
+                {generatedLogoPreview && (
+                  <div style={{ marginBottom: 16, padding: 12, backgroundColor: "#0a2540", borderRadius: 4 }}>
+                    <h4 style={{ margin: "0 0 8px 0", color: "#ff00ff" }}>Preview:</h4>
+                    <img
+                      src={generatedLogoPreview.dataUrl}
+                      alt="Logo preview"
+                      style={{
+                        maxWidth: "100%",
+                        height: "auto",
+                        borderRadius: 3,
+                        marginBottom: 8,
+                      }}
+                    />
+                    <div style={{ fontSize: 11, color: "#999" }}>
+                      Seed: {generatedLogoPreview.seed} | Rarity: {generatedLogoPreview.rarity}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={createNewEntry}
+                  disabled={creatingEntry || !generatedLogoPreview}
+                  style={{
+                    flex: 1,
+                    padding: "10px 16px",
+                    backgroundColor: generatedLogoPreview && !creatingEntry ? "#ff00ff" : "#333",
+                    color: "#fff",
+                    border: "1px solid #ff00ff",
+                    fontFamily: "monospace",
+                    cursor: generatedLogoPreview && !creatingEntry ? "pointer" : "not-allowed",
+                    borderRadius: 3,
+                  }}
+                >
+                  {creatingEntry ? "Creating..." : "✅ Create Entry"}
+                </button>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  disabled={creatingEntry}
+                  style={{
+                    flex: 1,
+                    padding: "10px 16px",
+                    backgroundColor: "#0a2540",
+                    color: "#ff00ff",
+                    border: "1px solid #ff00ff",
+                    fontFamily: "monospace",
+                    cursor: "pointer",
+                    borderRadius: 3,
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
