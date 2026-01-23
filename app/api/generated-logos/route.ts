@@ -458,6 +458,8 @@ export async function PATCH(request: Request) {
       castUrl?: string | null;
       logoImageUrl?: string | null;
       cardImageUrl?: string | null;
+      username?: string | null;
+      displayName?: string | null;
     };
 
     if (!body.id) {
@@ -481,6 +483,12 @@ export async function PATCH(request: Request) {
     }
     if (typeof body.cardImageUrl === 'string' || body.cardImageUrl === null) {
       updateData.cardImageUrl = body.cardImageUrl;
+    }
+    if (typeof body.username === 'string' || body.username === null) {
+      updateData.username = body.username;
+    }
+    if (typeof body.displayName === 'string' || body.displayName === null) {
+      updateData.displayName = body.displayName;
     }
     
     // Handle delta updates

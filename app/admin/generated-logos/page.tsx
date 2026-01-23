@@ -780,6 +780,48 @@ export default function AdminGeneratedLogos() {
                   </select>
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 10, color: '#00aa00', display: 'block', marginBottom: 4 }}>USERNAME</label>
+                    <input
+                      type="text"
+                      value={editData.username || ''}
+                      onChange={(e) => setEditData((s) => ({ ...s, username: e.target.value }))}
+                      placeholder="@username"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        backgroundColor: '#0a0e27',
+                        border: '1px solid #00aa00',
+                        color: '#00ff00',
+                        fontFamily: 'monospace',
+                        borderRadius: 3,
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 10, color: '#00aa00', display: 'block', marginBottom: 4 }}>DISPLAY NAME</label>
+                    <input
+                      type="text"
+                      value={editData.displayName || ''}
+                      onChange={(e) => setEditData((s) => ({ ...s, displayName: e.target.value }))}
+                      placeholder="Display Name"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        backgroundColor: '#0a0e27',
+                        border: '1px solid #00aa00',
+                        color: '#00ff00',
+                        fontFamily: 'monospace',
+                        borderRadius: 3,
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label style={{ fontSize: 10, color: '#00aa00', display: 'block', marginBottom: 4 }}>CAST URL</label>
                   <input
