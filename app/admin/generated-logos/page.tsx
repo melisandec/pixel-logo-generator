@@ -79,6 +79,11 @@ export default function AdminGeneratedLogos() {
   const [editingCastedValue, setEditingCastedValue] = useState(false);
   const [editingCastUrl, setEditingCastUrl] = useState("");
 
+  // Blob audit
+  const [showBlobAudit, setShowBlobAudit] = useState(false);
+  const [blobAuditData, setBlobAuditData] = useState<any>(null);
+  const [loadingBlobAudit, setLoadingBlobAudit] = useState(false);
+
   useEffect(() => {
     load();
   }, []);
@@ -298,6 +303,21 @@ export default function AdminGeneratedLogos() {
     } catch (error) {
       console.error("Error updating casted status:", error);
       alert("❌ Failed to update status");
+    }
+  }
+
+  async function loadBlobAudit() {
+    setLoadingBlobAudit(true);
+    try {
+      const res = await fetch(`/api/admin/blob-audit`);
+      if (!res.ok) throw new Error("Failed to load blob audit");
+      const data = await res.json();
+      setBlobAuditData(data);
+    } catch (error) {
+      console.error("Error loading blob audit:", error);
+      alert("❌ Failed to load blob audit data");
+    } finally {
+      setLoadingBlobAudit(false);
     }
   }
 
@@ -1143,7 +1163,202 @@ export default function AdminGeneratedLogos() {
           >
             📋 Audit Trail ({getAuditTrail().length})
           </button>
+          <button
+            onClick={() => {
+              setShowBlobAudit(!showBlobAudit);
+              if (!showBlobAudit && !blobAuditData) loadBlobAudit();
+            }}
+            style={{
+              padding: "8px 12px",
+              backgroundColor: showBlobAudit ? "#ff6b35" : "#071026",
+              color: showBlobAudit ? "#fff" : "#ff6b35",
+              border: "1px solid #ff6b35",
+              fontFamily: "monospace",
+              cursor: "pointer",
+              marginLeft: 8,
+            }}
+          >
+            🔗 Blob Audit {loadingBlobAudit ? "..." : blobAuditData ? `(${blobAuditData.stats?.totalBlobs || 0})` : ""}
+          </button>
         </div>
+
+        {/* Blob Audit Panel */}
+        {showBlobAudit && (
+          <div
+            style={{
+              backgroundColor: "#071026",
+              border: "2px solid #ff6b35",
+              padding: 16,
+              marginBottom: 20,
+              borderRadius: 4,
+            }}
+          >
+            <h3 style={{ margin: "0 0 12px 0", color: "#ff6b35" }}>
+              🔗 Blob Storage Audit
+            </h3>
+            {loadingBlobAudit ? (
+              <p style={{ color: "#fff" }}>Loading blob audit data...</p>
+            ) : blobAuditData ? (
+              <div>
+                {/* Stats */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr 1fr",
+                    gap: 12,
+                    marginBottom: 20,
+                  }}
+                >
+                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
+                    <div style={{ fontSize: 11, color: "#999" }}>Total Blobs</div>
+                    <div style={{ fontSize: 18, color: "#00ff00", fontWeight: "bold" }}>
+                      {blobAuditData.stats?.totalBlobs || 0}
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
+                    <div style={{ fontSize: 11, color: "#999" }}>Unique Logos</div>
+                    <div style={{ fontSize: 18, color: "#00aaff", fontWeight: "bold" }}>
+                      {blobAuditData.stats?.uniqueLogos || 0}
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
+                    <div style={{ fontSize: 11, color: "#999" }}>Unique Cards</div>
+                    <div style={{ fontSize: 18, color: "#ff6b35", fontWeight: "bold" }}>
+                      {blobAuditData.stats?.uniqueCards || 0}
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
+                    <div style={{ fontSize: 11, color: "#999" }}>Total Entries</div>
+                    <div style={{ fontSize: 18, color: "#ffaa00", fontWeight: "bold" }}>
+                      {blobAuditData.stats?.totalEntries || 0}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Entry Distribution */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: 12,
+                    marginBottom: 20,
+                  }}
+                >
+                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
+                    <div style={{ fontSize: 11, color: "#999" }}>Both Images</div>
+                    <div style={{ fontSize: 16, color: "#00ff00" }}>
+                      {blobAuditData.stats?.entriesWithBothImages || 0}
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
+                    <div style={{ fontSize: 11, color: "#999" }}>Only Logo</div>
+                    <div style={{ fontSize: 16, color: "#00aaff" }}>
+                      {blobAuditData.stats?.entriesWithOnlyLogo || 0}
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
+                    <div style={{ fontSize: 11, color: "#999" }}>Only Card</div>
+                    <div style={{ fontSize: 16, color: "#ff6b35" }}>
+                      {blobAuditData.stats?.entriesWithOnlyCard || 0}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Daily Breakdown */}
+                {blobAuditData.dailyBreakdown?.length > 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    <h4 style={{ color: "#ff6b35", fontSize: 12, marginBottom: 8 }}>
+                      📅 Daily Breakdown (Last 7 days)
+                    </h4>
+                    <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
+                      {blobAuditData.dailyBreakdown?.slice(0, 7)?.map((day: any) => (
+                        <div
+                          key={day.date}
+                          style={{
+                            backgroundColor: "#0a2540",
+                            padding: 12,
+                            borderRadius: 4,
+                            minWidth: 120,
+                          }}
+                        >
+                          <div style={{ fontSize: 11, color: "#999" }}>{day.date}</div>
+                          <div style={{ fontSize: 12, color: "#00aaff" }}>
+                            📸 {day.logoCount}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#ff6b35" }}>
+                            🎨 {day.cardCount}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#00ff00", fontWeight: "bold" }}>
+                            Σ {day.totalCount}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Entries */}
+                {blobAuditData.entries?.length > 0 && (
+                  <div>
+                    <h4 style={{ color: "#ff6b35", fontSize: 12, marginBottom: 8 }}>
+                      🔗 Recent Blob References (Last 50)
+                    </h4>
+                    <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                      {blobAuditData.entries?.map((entry: any) => (
+                        <div
+                          key={entry.id}
+                          style={{
+                            backgroundColor: "#0a2540",
+                            padding: 10,
+                            marginBottom: 8,
+                            borderLeft: `3px solid ${entry.type === "logo" ? "#00aaff" : "#ff6b35"}`,
+                            cursor: "pointer",
+                            borderRadius: 2,
+                            fontSize: 11,
+                          }}
+                          onClick={() => {
+                            const logoId = entry.entryId;
+                            const foundEntry = entries.find((e) => e.id === logoId);
+                            if (foundEntry) setSelectedEntry(foundEntry);
+                          }}
+                        >
+                          <div style={{ color: "#fff", marginBottom: 4 }}>
+                            <strong>
+                              {entry.type === "logo" ? "📸" : "🎨"} {entry.entryText.substring(0, 40)}
+                              {entry.entryText.length > 40 ? "..." : ""}
+                            </strong>{" "}
+                            by <span style={{ color: "#00ff00" }}>{entry.username || "Unknown"}</span>
+                          </div>
+                          <div style={{ color: "#999", fontSize: 10, marginBottom: 4 }}>
+                            Seed: {entry.seed} • {new Date(entry.createdAt).toLocaleString()}
+                          </div>
+                          <div
+                            style={{
+                              color: "#00aaff",
+                              fontSize: 9,
+                              wordBreak: "break-all",
+                              maxHeight: 30,
+                              overflow: "hidden",
+                            }}
+                          >
+                            {entry.url}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!blobAuditData?.entries?.length && !loadingBlobAudit && (
+                  <p style={{ color: "#999" }}>No blob references found.</p>
+                )}
+              </div>
+            ) : (
+              <p style={{ color: "#ff6b35" }}>Failed to load blob audit data.</p>
+            )}
+          </div>
+        )}
+
 
         {/* Analytics Panel */}
         {showAnalytics && (
