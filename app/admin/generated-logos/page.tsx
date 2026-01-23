@@ -14,6 +14,7 @@ type Entry = {
   cardImageUrl?: string | null;
   imageUrl?: string | null;
   createdAt: string;
+  updatedAt?: string | null;
   casted?: boolean;
   castUrl?: string | null;
   likes?: number;
@@ -66,6 +67,9 @@ export default function AdminGeneratedLogos() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showCompleteness, setShowCompleteness] = useState(false);
   const [showDuplicates, setShowDuplicates] = useState(false);
+  
+  // Audit trail
+  const [showAuditTrail, setShowAuditTrail] = useState(false);
 
 
   useEffect(() => {
@@ -358,6 +362,30 @@ export default function AdminGeneratedLogos() {
     }
 
     return potentialDupes.slice(0, 10); // Limit to 10 for performance
+  };
+
+  const getAuditTrail = () => {
+    // Return entries sorted by updatedAt or createdAt, showing most recent edits first
+    return [...entries]
+      .filter((e) => e.updatedAt) // Only show entries that have been edited
+      .sort((a, b) => {
+        const dateA = new Date(a.updatedAt || 0).getTime();
+        const dateB = new Date(b.updatedAt || 0).getTime();
+        return dateB - dateA; // Most recent first
+      })
+      .slice(0, 20); // Show last 20 edits
+  };
+
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (seconds < 60) return "Just now";
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return date.toLocaleDateString();
   };
 
   const downloadCSV = () => {
@@ -1001,6 +1029,20 @@ export default function AdminGeneratedLogos() {
           >
             🔄 Duplicates ({getDuplicates().length})
           </button>
+          <button
+            onClick={() => setShowAuditTrail(!showAuditTrail)}
+            style={{
+              padding: "8px 12px",
+              backgroundColor: showAuditTrail ? "#9966ff" : "#071026",
+              color: showAuditTrail ? "#fff" : "#9966ff",
+              border: "1px solid #9966ff",
+              fontFamily: "monospace",
+              cursor: "pointer",
+              marginLeft: 8,
+            }}
+          >
+            📋 Audit Trail ({getAuditTrail().length})
+          </button>
         </div>
 
         {/* Analytics Panel */}
@@ -1173,6 +1215,77 @@ export default function AdminGeneratedLogos() {
                         <strong>{e.username}</strong> - &quot;{e.text}&quot; (Seed: {e.seed})
                       </div>
                     ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Audit Trail Panel */}
+        {showAuditTrail && (
+          <div
+            style={{
+              backgroundColor: "#1a0a1a",
+              border: "2px solid #9966ff",
+              padding: 16,
+              marginBottom: 20,
+              borderRadius: 4,
+            }}
+          >
+            <h3 style={{ margin: "0 0 12px 0", color: "#9966ff" }}>📋 Edit History (Last 20 Changes)</h3>
+            {getAuditTrail().length === 0 ? (
+              <div style={{ color: "#00ff00" }}>✅ No edits yet!</div>
+            ) : (
+              <div style={{ display: "grid", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+                {getAuditTrail().map((entry) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      fontSize: 11,
+                      padding: 10,
+                      backgroundColor: "#0a0e27",
+                      borderRadius: 3,
+                      border: "1px solid #9966ff",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => setSelectedEntry(entry)}
+                  >
+                    <div>
+                      <div style={{ fontWeight: "bold", marginBottom: 4 }}>
+                        {entry.username || "—"} - &quot;{entry.text.substring(0, 40)}&quot;
+                      </div>
+                      <div style={{ color: "#9966ff" }}>
+                        ⏱️ Last edited: <strong>{getTimeAgo(entry.updatedAt || entry.createdAt)}</strong>
+                      </div>
+                      <div style={{ color: "#7744dd", marginTop: 2, fontSize: 10 }}>
+                        Created: {new Date(entry.createdAt).toLocaleDateString()} | Last: {entry.updatedAt ? new Date(entry.updatedAt).toLocaleDateString() : "—"}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedEntry(entry);
+                        setEditingEntry(entry);
+                        setEditData(entry);
+                      }}
+                      style={{
+                        padding: "4px 8px",
+                        backgroundColor: "#9966ff",
+                        color: "#fff",
+                        border: "none",
+                        fontFamily: "monospace",
+                        cursor: "pointer",
+                        borderRadius: 3,
+                        fontSize: 10,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      View
+                    </button>
                   </div>
                 ))}
               </div>
