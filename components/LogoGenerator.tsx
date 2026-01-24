@@ -237,6 +237,8 @@ export default function LogoGenerator() {
   const [expandedCastImage, setExpandedCastImage] = useState<string | null>(
     null,
   );
+  const [expandedGalleryEntry, setExpandedGalleryEntry] =
+    useState<LeaderboardEntry | null>(null);
   const [animatingLikeIds, setAnimatingLikeIds] = useState<Set<string>>(
     new Set(),
   );
@@ -4015,6 +4017,9 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                     <span className="gallery-chip">{presetValue}</span>
                   </div>
                   <div className="gallery-card-seed">Seed: {entry.seed}</div>
+                  <div className="gallery-card-views">
+                    👁 {entry.views || 0} views
+                  </div>
                   <div className="gallery-actions">
                     <button
                       type="button"
@@ -4043,7 +4048,32 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                 {CardBody}
               </a>
             ) : (
-              <div key={`gallery-${entry.id}`} className="gallery-card">
+              <div
+                key={`gallery-${entry.id}`}
+                className="gallery-card"
+                onClick={() => {
+                  setExpandedGalleryEntry(entry);
+                  // Increment view count
+                  fetch(`/api/leaderboard/${entry.id}/view`, {
+                    method: "POST",
+                  }).catch((error) =>
+                    console.error("Failed to record view:", error),
+                  );
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    setExpandedGalleryEntry(entry);
+                    fetch(`/api/leaderboard/${entry.id}/view`, {
+                      method: "POST",
+                    }).catch((error) =>
+                      console.error("Failed to record view:", error),
+                    );
+                  }
+                }}
+                aria-label={`View logo by ${entry.username}`}
+              >
                 {CardBody}
               </div>
             );
@@ -4923,6 +4953,107 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
             }
           }}
         />
+      )}
+      {expandedCastImage && (
+        <div
+          className="expanded-image-modal"
+          onClick={() => setExpandedCastImage(null)}
+        >
+          <div
+            className="expanded-image-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="expanded-image-close"
+              onClick={() => setExpandedCastImage(null)}
+              aria-label="Close expanded image"
+            >
+              ✕
+            </button>
+            <NextImage
+              src={expandedCastImage}
+              alt="Expanded cast logo"
+              className="expanded-image"
+              width={600}
+              height={600}
+              loading="lazy"
+              unoptimized
+            />
+          </div>
+        </div>
+      )}
+      {expandedGalleryEntry && (
+        <div
+          className="gallery-modal"
+          onClick={() => setExpandedGalleryEntry(null)}
+        >
+          <div
+            className="gallery-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="gallery-modal-close"
+              onClick={() => setExpandedGalleryEntry(null)}
+              aria-label="Close gallery modal"
+            >
+              ✕
+            </button>
+            <div className="gallery-modal-body">
+              {expandedGalleryEntry.logoImageUrl && (
+                <NextImage
+                  src={expandedGalleryEntry.logoImageUrl}
+                  alt={`Logo by ${expandedGalleryEntry.username}`}
+                  className="gallery-modal-image"
+                  width={500}
+                  height={500}
+                  loading="lazy"
+                  unoptimized
+                />
+              )}
+              <div className="gallery-modal-info">
+                <h3>{expandedGalleryEntry.text}</h3>
+                <p className="gallery-modal-username">
+                  by @{expandedGalleryEntry.username}
+                </p>
+                <div className="gallery-modal-stats">
+                  <div className="gallery-modal-stat">
+                    <span className="stat-label">Views</span>
+                    <span className="stat-value">
+                      👁 {expandedGalleryEntry.views || 0}
+                    </span>
+                  </div>
+                  <div className="gallery-modal-stat">
+                    <span className="stat-label">Likes</span>
+                    <span className="stat-value">❤️ {expandedGalleryEntry.likes || 0}</span>
+                  </div>
+                  {expandedGalleryEntry.recasts ? (
+                    <div className="gallery-modal-stat">
+                      <span className="stat-label">Recasts</span>
+                      <span className="stat-value">
+                        🔄 {expandedGalleryEntry.recasts}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="gallery-modal-details">
+                  <div>
+                    <strong>Seed:</strong> {expandedGalleryEntry.seed}
+                  </div>
+                  <div>
+                    <strong>Rarity:</strong> {expandedGalleryEntry.rarity || "Unknown"}
+                  </div>
+                  {expandedGalleryEntry.presetKey && (
+                    <div>
+                      <strong>Preset:</strong> {expandedGalleryEntry.presetKey}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       {expandedCastImage && (
         <div
