@@ -74,6 +74,7 @@ type LeaderboardEntry = {
   displayName: string;
   pfpUrl: string;
   likes: number;
+  views?: number;
   recasts?: number;
   saves?: number;
   remixes?: number;
