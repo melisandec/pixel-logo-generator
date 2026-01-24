@@ -74,7 +74,6 @@ type LeaderboardEntry = {
   displayName: string;
   pfpUrl: string;
   likes: number;
-  views?: number;
   recasts?: number;
   saves?: number;
   remixes?: number;
@@ -246,6 +245,9 @@ export default function LogoGenerator() {
   );
   const [reorderingCastIds, setReorderingCastIds] = useState<Set<string>>(
     new Set(),
+  );
+  const [castViewCounts, setCastViewCounts] = useState<Record<string, number>>(
+    {},
   );
   const [activeTab, setActiveTab] = useState<
     "home" | "gallery" | "leaderboard" | "rewards" | "profile"
@@ -5636,12 +5638,11 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                                 className="home-top-cast-image-btn"
                                 onClick={() => {
                                   setExpandedCastImage(previewImageUrl);
-                                  // Increment view count in database
-                                  fetch(`/api/leaderboard/${entry.id}/view`, {
-                                    method: "POST",
-                                  }).catch((error) =>
-                                    console.error("Failed to record view:", error),
-                                  );
+                                  // Increment local view count
+                                  setCastViewCounts((prev) => ({
+                                    ...prev,
+                                    [entry.id]: (prev[entry.id] || 0) + 1,
+                                  }));
                                 }}
                                 aria-label={`Expand logo by ${entry.username}`}
                               >
@@ -5769,7 +5770,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                         </div>
                       </div>
                       <div className="home-top-cast-views">
-                        viewed {entry.views || 0}
+                        viewed {castViewCounts[entry.id] || 0}
                       </div>
                       {floatingComboIds.has(entry.id) && (
                         <div className="floating-combo-text">+1 LIKE!</div>
