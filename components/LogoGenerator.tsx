@@ -4017,8 +4017,13 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                     <span className="gallery-chip">{presetValue}</span>
                   </div>
                   <div className="gallery-card-seed">Seed: {entry.seed}</div>
-                  <div className="gallery-card-views">
-                    👁 {entry.views || 0} views
+                  <div className="gallery-card-stats">
+                    <div className="gallery-card-views">
+                      👁 {entry.views || 0} views
+                    </div>
+                    <div className="gallery-card-likes">
+                      ❤️ {entry.likes || 0} likes
+                    </div>
                   </div>
                   <div className="gallery-actions">
                     <button

@@ -5313,6 +5313,20 @@ body::after {
   padding: 4px 0;
 }
 
+.gallery-card-stats {
+  display: flex;
+  justify-content: space-around;
+  padding: 4px 0;
+  gap: 8px;
+}
+
+.gallery-card-likes {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: center;
+  padding: 4px 0;
+}
+
 @media (max-width: 480px) {
   .gallery-modal-content {
     max-width: 95vw;
