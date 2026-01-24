@@ -2293,9 +2293,12 @@ export default function LogoGenerator() {
         selectedPreset,
       );
       setIsGenerating(true);
+      
+      // Persist to gallery immediately so all attempts are saved
+      void persistGeneratedLogo(result);
+      
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
-        void persistGeneratedLogo(result);
         if (limitCheck.ok) {
           finalizeDailyLimit(
             limitCheck.normalizedText,
