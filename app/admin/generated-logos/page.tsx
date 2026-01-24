@@ -284,7 +284,7 @@ export default function AdminGeneratedLogos() {
   async function updateCastedStatus(
     id: string,
     casted: boolean,
-    castUrl: string
+    castUrl: string,
   ) {
     if (casted && !castUrl.trim()) {
       alert("⚠️ Cannot mark as casted without a cast URL");
@@ -403,7 +403,9 @@ export default function AdminGeneratedLogos() {
       setGeneratedLogoPreview(null);
     } catch (error) {
       console.error("Error creating entry:", error);
-      alert(`❌ Failed to create entry: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `❌ Failed to create entry: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     } finally {
       setCreatingEntry(false);
     }
@@ -1266,7 +1268,12 @@ export default function AdminGeneratedLogos() {
               marginLeft: 8,
             }}
           >
-            🔗 Blob Audit {loadingBlobAudit ? "..." : blobAuditData ? `(${blobAuditData.stats?.totalBlobs || 0})` : ""}
+            🔗 Blob Audit{" "}
+            {loadingBlobAudit
+              ? "..."
+              : blobAuditData
+                ? `(${blobAuditData.stats?.totalBlobs || 0})`
+                : ""}
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -1311,27 +1318,83 @@ export default function AdminGeneratedLogos() {
                     marginBottom: 20,
                   }}
                 >
-                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
-                    <div style={{ fontSize: 11, color: "#999" }}>Total Blobs</div>
-                    <div style={{ fontSize: 18, color: "#00ff00", fontWeight: "bold" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#0a2540",
+                      padding: 12,
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, color: "#999" }}>
+                      Total Blobs
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        color: "#00ff00",
+                        fontWeight: "bold",
+                      }}
+                    >
                       {blobAuditData.stats?.totalBlobs || 0}
                     </div>
                   </div>
-                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
-                    <div style={{ fontSize: 11, color: "#999" }}>Unique Logos</div>
-                    <div style={{ fontSize: 18, color: "#00aaff", fontWeight: "bold" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#0a2540",
+                      padding: 12,
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, color: "#999" }}>
+                      Unique Logos
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        color: "#00aaff",
+                        fontWeight: "bold",
+                      }}
+                    >
                       {blobAuditData.stats?.uniqueLogos || 0}
                     </div>
                   </div>
-                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
-                    <div style={{ fontSize: 11, color: "#999" }}>Unique Cards</div>
-                    <div style={{ fontSize: 18, color: "#ff6b35", fontWeight: "bold" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#0a2540",
+                      padding: 12,
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, color: "#999" }}>
+                      Unique Cards
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        color: "#ff6b35",
+                        fontWeight: "bold",
+                      }}
+                    >
                       {blobAuditData.stats?.uniqueCards || 0}
                     </div>
                   </div>
-                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
-                    <div style={{ fontSize: 11, color: "#999" }}>Total Entries</div>
-                    <div style={{ fontSize: 18, color: "#ffaa00", fontWeight: "bold" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#0a2540",
+                      padding: 12,
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, color: "#999" }}>
+                      Total Entries
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        color: "#ffaa00",
+                        fontWeight: "bold",
+                      }}
+                    >
                       {blobAuditData.stats?.totalEntries || 0}
                     </div>
                   </div>
@@ -1346,19 +1409,39 @@ export default function AdminGeneratedLogos() {
                     marginBottom: 20,
                   }}
                 >
-                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
-                    <div style={{ fontSize: 11, color: "#999" }}>Both Images</div>
+                  <div
+                    style={{
+                      backgroundColor: "#0a2540",
+                      padding: 12,
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, color: "#999" }}>
+                      Both Images
+                    </div>
                     <div style={{ fontSize: 16, color: "#00ff00" }}>
                       {blobAuditData.stats?.entriesWithBothImages || 0}
                     </div>
                   </div>
-                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
+                  <div
+                    style={{
+                      backgroundColor: "#0a2540",
+                      padding: 12,
+                      borderRadius: 4,
+                    }}
+                  >
                     <div style={{ fontSize: 11, color: "#999" }}>Only Logo</div>
                     <div style={{ fontSize: 16, color: "#00aaff" }}>
                       {blobAuditData.stats?.entriesWithOnlyLogo || 0}
                     </div>
                   </div>
-                  <div style={{ backgroundColor: "#0a2540", padding: 12, borderRadius: 4 }}>
+                  <div
+                    style={{
+                      backgroundColor: "#0a2540",
+                      padding: 12,
+                      borderRadius: 4,
+                    }}
+                  >
                     <div style={{ fontSize: 11, color: "#999" }}>Only Card</div>
                     <div style={{ fontSize: 16, color: "#ff6b35" }}>
                       {blobAuditData.stats?.entriesWithOnlyCard || 0}
@@ -1369,32 +1452,48 @@ export default function AdminGeneratedLogos() {
                 {/* Daily Breakdown */}
                 {blobAuditData.dailyBreakdown?.length > 0 && (
                   <div style={{ marginBottom: 20 }}>
-                    <h4 style={{ color: "#ff6b35", fontSize: 12, marginBottom: 8 }}>
+                    <h4
+                      style={{
+                        color: "#ff6b35",
+                        fontSize: 12,
+                        marginBottom: 8,
+                      }}
+                    >
                       📅 Daily Breakdown (Last 7 days)
                     </h4>
                     <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
-                      {blobAuditData.dailyBreakdown?.slice(0, 7)?.map((day: any) => (
-                        <div
-                          key={day.date}
-                          style={{
-                            backgroundColor: "#0a2540",
-                            padding: 12,
-                            borderRadius: 4,
-                            minWidth: 120,
-                          }}
-                        >
-                          <div style={{ fontSize: 11, color: "#999" }}>{day.date}</div>
-                          <div style={{ fontSize: 12, color: "#00aaff" }}>
-                            📸 {day.logoCount}
+                      {blobAuditData.dailyBreakdown
+                        ?.slice(0, 7)
+                        ?.map((day: any) => (
+                          <div
+                            key={day.date}
+                            style={{
+                              backgroundColor: "#0a2540",
+                              padding: 12,
+                              borderRadius: 4,
+                              minWidth: 120,
+                            }}
+                          >
+                            <div style={{ fontSize: 11, color: "#999" }}>
+                              {day.date}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#00aaff" }}>
+                              📸 {day.logoCount}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#ff6b35" }}>
+                              🎨 {day.cardCount}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: "#00ff00",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              Σ {day.totalCount}
+                            </div>
                           </div>
-                          <div style={{ fontSize: 12, color: "#ff6b35" }}>
-                            🎨 {day.cardCount}
-                          </div>
-                          <div style={{ fontSize: 12, color: "#00ff00", fontWeight: "bold" }}>
-                            Σ {day.totalCount}
-                          </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   </div>
                 )}
@@ -1402,7 +1501,13 @@ export default function AdminGeneratedLogos() {
                 {/* Recent Entries */}
                 {blobAuditData.entries?.length > 0 && (
                   <div>
-                    <h4 style={{ color: "#ff6b35", fontSize: 12, marginBottom: 8 }}>
+                    <h4
+                      style={{
+                        color: "#ff6b35",
+                        fontSize: 12,
+                        marginBottom: 8,
+                      }}
+                    >
                       🔗 Recent Blob References (Last 50)
                     </h4>
                     <div style={{ maxHeight: 400, overflowY: "auto" }}>
@@ -1420,19 +1525,32 @@ export default function AdminGeneratedLogos() {
                           }}
                           onClick={() => {
                             const logoId = entry.entryId;
-                            const foundEntry = entries.find((e) => e.id === logoId);
+                            const foundEntry = entries.find(
+                              (e) => e.id === logoId,
+                            );
                             if (foundEntry) setSelectedEntry(foundEntry);
                           }}
                         >
                           <div style={{ color: "#fff", marginBottom: 4 }}>
                             <strong>
-                              {entry.type === "logo" ? "📸" : "🎨"} {entry.entryText.substring(0, 40)}
+                              {entry.type === "logo" ? "📸" : "🎨"}{" "}
+                              {entry.entryText.substring(0, 40)}
                               {entry.entryText.length > 40 ? "..." : ""}
                             </strong>{" "}
-                            by <span style={{ color: "#00ff00" }}>{entry.username || "Unknown"}</span>
+                            by{" "}
+                            <span style={{ color: "#00ff00" }}>
+                              {entry.username || "Unknown"}
+                            </span>
                           </div>
-                          <div style={{ color: "#999", fontSize: 10, marginBottom: 4 }}>
-                            Seed: {entry.seed} • {new Date(entry.createdAt).toLocaleString()}
+                          <div
+                            style={{
+                              color: "#999",
+                              fontSize: 10,
+                              marginBottom: 4,
+                            }}
+                          >
+                            Seed: {entry.seed} •{" "}
+                            {new Date(entry.createdAt).toLocaleString()}
                           </div>
                           <div
                             style={{
@@ -1456,11 +1574,12 @@ export default function AdminGeneratedLogos() {
                 )}
               </div>
             ) : (
-              <p style={{ color: "#ff6b35" }}>Failed to load blob audit data.</p>
+              <p style={{ color: "#ff6b35" }}>
+                Failed to load blob audit data.
+              </p>
             )}
           </div>
         )}
-
 
         {/* Analytics Panel */}
         {showAnalytics && (
@@ -2693,33 +2812,33 @@ export default function AdminGeneratedLogos() {
                   {/* Generate Card Image Button */}
                   {!selectedEntry.cardImageUrl &&
                     selectedEntry.logoImageUrl && (
-                    <button
-                      onClick={() => generateCardImage(selectedEntry)}
-                      disabled={generatingCardId === selectedEntry.id}
-                      style={{
-                        flex: 1,
-                        minWidth: 120,
-                        padding: "8px 12px",
-                        backgroundColor:
-                          generatingCardId === selectedEntry.id
-                            ? "#333"
-                            : "#ff9900",
-                        color: "#000",
-                        border: "1px solid #ff9900",
-                        fontFamily: "monospace",
-                        cursor:
-                          generatingCardId === selectedEntry.id
-                            ? "not-allowed"
-                            : "pointer",
-                        borderRadius: 3,
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {generatingCardId === selectedEntry.id
-                        ? "⏳ Generating..."
-                        : "🎨 Generate Card"}
-                    </button>
-                  )}
+                      <button
+                        onClick={() => generateCardImage(selectedEntry)}
+                        disabled={generatingCardId === selectedEntry.id}
+                        style={{
+                          flex: 1,
+                          minWidth: 120,
+                          padding: "8px 12px",
+                          backgroundColor:
+                            generatingCardId === selectedEntry.id
+                              ? "#333"
+                              : "#ff9900",
+                          color: "#000",
+                          border: "1px solid #ff9900",
+                          fontFamily: "monospace",
+                          cursor:
+                            generatingCardId === selectedEntry.id
+                              ? "not-allowed"
+                              : "pointer",
+                          borderRadius: 3,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {generatingCardId === selectedEntry.id
+                          ? "⏳ Generating..."
+                          : "🎨 Generate Card"}
+                      </button>
+                    )}
 
                   {/* Edit Casted Status Button */}
                   <button
@@ -2771,9 +2890,7 @@ export default function AdminGeneratedLogos() {
                   {/* Delete Button */}
                   <button
                     onClick={() => {
-                      if (
-                        confirm("Delete this entry? Cannot be undone.")
-                      ) {
+                      if (confirm("Delete this entry? Cannot be undone.")) {
                         remove(selectedEntry.id);
                         setSelectedEntry(null);
                       }
@@ -2986,7 +3103,7 @@ export default function AdminGeneratedLogos() {
                       updateCastedStatus(
                         editingCastedId,
                         editingCastedValue,
-                        editingCastUrl
+                        editingCastUrl,
                       );
                     }}
                     disabled={editingCastedValue && !editingCastUrl.trim()}
@@ -3626,7 +3743,9 @@ export default function AdminGeneratedLogos() {
               <h2 style={{ margin: "0 0 16px 0" }}>✨ Create New Logo Entry</h2>
 
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
+                <label
+                  style={{ display: "block", marginBottom: 6, fontSize: 12 }}
+                >
                   Logo Text:
                 </label>
                 <input
@@ -3646,7 +3765,9 @@ export default function AdminGeneratedLogos() {
                   }}
                 />
 
-                <label style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
+                <label
+                  style={{ display: "block", marginBottom: 6, fontSize: 12 }}
+                >
                   Username:
                 </label>
                 <input
@@ -3666,7 +3787,9 @@ export default function AdminGeneratedLogos() {
                   }}
                 />
 
-                <label style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
+                <label
+                  style={{ display: "block", marginBottom: 6, fontSize: 12 }}
+                >
                   Seed (optional):
                 </label>
                 <input
@@ -3705,8 +3828,17 @@ export default function AdminGeneratedLogos() {
                 </button>
 
                 {generatedLogoPreview && (
-                  <div style={{ marginBottom: 16, padding: 12, backgroundColor: "#0a2540", borderRadius: 4 }}>
-                    <h4 style={{ margin: "0 0 8px 0", color: "#ff00ff" }}>Preview:</h4>
+                  <div
+                    style={{
+                      marginBottom: 16,
+                      padding: 12,
+                      backgroundColor: "#0a2540",
+                      borderRadius: 4,
+                    }}
+                  >
+                    <h4 style={{ margin: "0 0 8px 0", color: "#ff00ff" }}>
+                      Preview:
+                    </h4>
                     <img
                       src={generatedLogoPreview.dataUrl}
                       alt="Logo preview"
@@ -3718,7 +3850,8 @@ export default function AdminGeneratedLogos() {
                       }}
                     />
                     <div style={{ fontSize: 11, color: "#999" }}>
-                      Seed: {generatedLogoPreview.seed} | Rarity: {generatedLogoPreview.rarity}
+                      Seed: {generatedLogoPreview.seed} | Rarity:{" "}
+                      {generatedLogoPreview.rarity}
                     </div>
                   </div>
                 )}
@@ -3731,11 +3864,17 @@ export default function AdminGeneratedLogos() {
                   style={{
                     flex: 1,
                     padding: "10px 16px",
-                    backgroundColor: generatedLogoPreview && !creatingEntry ? "#ff00ff" : "#333",
+                    backgroundColor:
+                      generatedLogoPreview && !creatingEntry
+                        ? "#ff00ff"
+                        : "#333",
                     color: "#fff",
                     border: "1px solid #ff00ff",
                     fontFamily: "monospace",
-                    cursor: generatedLogoPreview && !creatingEntry ? "pointer" : "not-allowed",
+                    cursor:
+                      generatedLogoPreview && !creatingEntry
+                        ? "pointer"
+                        : "not-allowed",
                     borderRadius: 3,
                   }}
                 >
@@ -3765,4 +3904,3 @@ export default function AdminGeneratedLogos() {
     </div>
   );
 }
-

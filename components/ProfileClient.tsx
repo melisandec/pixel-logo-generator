@@ -710,14 +710,6 @@ export default function ProfileClient({
         >
           Copy profile link
         </button>
-        {!isOwnProfile && (
-          <button
-            type="button"
-            className="profile-follow-button"
-          >
-            Follow
-          </button>
-        )}
       </div>
 
       {/* Signature Logo Section */}

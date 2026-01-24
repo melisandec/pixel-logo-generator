@@ -233,6 +233,22 @@ export default function LogoGenerator() {
   const [hasNewProfile, setHasNewProfile] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [expandedStat, setExpandedStat] = useState<string | null>(null);
+  const [expandedCastImage, setExpandedCastImage] = useState<string | null>(
+    null,
+  );
+  const [animatingLikeIds, setAnimatingLikeIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [shakingCardIds, setShakingCardIds] = useState<Set<string>>(new Set());
+  const [floatingComboIds, setFloatingComboIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [reorderingCastIds, setReorderingCastIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [castViewCounts, setCastViewCounts] = useState<Record<string, number>>(
+    {},
+  );
   const [activeTab, setActiveTab] = useState<
     "home" | "gallery" | "leaderboard" | "rewards" | "profile"
   >("home");
@@ -313,21 +329,26 @@ export default function LogoGenerator() {
   );
 
   const getPromptOfDay = useCallback(() => {
-    const dayKey = getTodayKey();
-    let hash = 0;
-    for (let i = 0; i < dayKey.length; i += 1) {
-      hash = (hash * 31 + dayKey.charCodeAt(i)) % DAILY_PROMPTS.length;
-    }
-    return DAILY_PROMPTS[hash];
-  }, [getTodayKey]);
+    // Calculate days since epoch (Jan 1, 2020) for deterministic daily rotation
+    const epochDate = new Date("2020-01-01").getTime();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysSinceEpoch = Math.floor(
+      (today.getTime() - epochDate) / (1000 * 60 * 60 * 24),
+    );
+    const index = daysSinceEpoch % DAILY_PROMPTS.length;
+    return DAILY_PROMPTS[index];
+  }, []);
 
   const getDailyChallenges = useCallback(() => {
-    const dayKey = getTodayKey();
-    // Use day key to deterministically select 6 challenges for today
-    let hash = 0;
-    for (let i = 0; i < dayKey.length; i += 1) {
-      hash = (hash * 31 + dayKey.charCodeAt(i)) % ALL_CHALLENGE_PROMPTS.length;
-    }
+    // Calculate days since epoch (Jan 1, 2020) for deterministic daily rotation
+    const epochDate = new Date("2020-01-01").getTime();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysSinceEpoch = Math.floor(
+      (today.getTime() - epochDate) / (1000 * 60 * 60 * 24),
+    );
+    const hash = daysSinceEpoch % ALL_CHALLENGE_PROMPTS.length;
 
     // Select 6 challenges starting from the hash position, wrapping around if needed
     const challenges: (typeof ALL_CHALLENGE_PROMPTS)[number][] = [];
@@ -337,7 +358,7 @@ export default function LogoGenerator() {
     }
 
     return challenges;
-  }, [getTodayKey]);
+  }, []);
 
   const getChallengeStreak = useCallback(
     (days: string[]) => {
@@ -2293,10 +2314,10 @@ export default function LogoGenerator() {
         selectedPreset,
       );
       setIsGenerating(true);
-      
+
       // Persist to gallery immediately so all attempts are saved
       void persistGeneratedLogo(result);
-      
+
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
         if (limitCheck.ok) {
@@ -3521,9 +3542,16 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                 }}
                 aria-label={`Load logo "${entry.text}" with seed ${entry.seed}`}
               >
-                {entry.thumbImageUrl || entry.logoImageUrl || entry.cardImageUrl ? (
+                {entry.thumbImageUrl ||
+                entry.logoImageUrl ||
+                entry.cardImageUrl ? (
                   <NextImage
-                    src={entry.thumbImageUrl || entry.logoImageUrl || entry.cardImageUrl || ""}
+                    src={
+                      entry.thumbImageUrl ||
+                      entry.logoImageUrl ||
+                      entry.cardImageUrl ||
+                      ""
+                    }
                     alt={`Recent logo: ${entry.text}`}
                     className="history-image"
                     width={64}
@@ -3578,11 +3606,13 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           </div>
         </div>
       )}
-      {favorites.length === 0 && logoHistory.length === 0 && recentLogosFromGallery.length === 0 && (
-        <div className="leaderboard-status">
-          No favorites or recent logos yet.
-        </div>
-      )}
+      {favorites.length === 0 &&
+        logoHistory.length === 0 &&
+        recentLogosFromGallery.length === 0 && (
+          <div className="leaderboard-status">
+            No favorites or recent logos yet.
+          </div>
+        )}
     </>
   );
 
@@ -3611,6 +3641,34 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
     if (bScore !== aScore) return bScore - aScore;
     return bCreated - aCreated;
   });
+
+  // Top 3 sorted purely by likes for the home page display (last 24 hours only)
+  const now = new Date().getTime();
+  const oneDayAgo = now - 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  const topThreeSortedByLikes = [...leaderboard]
+    .filter((entry) => {
+      const createdTime =
+        typeof entry.createdAt === "string"
+          ? new Date(entry.createdAt).getTime()
+          : entry.createdAt;
+      return createdTime >= oneDayAgo;
+    })
+    .sort((a, b) => {
+      const bLikes = b.likes || 0;
+      const aLikes = a.likes || 0;
+      if (bLikes !== aLikes) return bLikes - aLikes;
+      // Tiebreaker: most recent
+      const bCreated =
+        typeof b.createdAt === "string"
+          ? new Date(b.createdAt).getTime()
+          : b.createdAt;
+      const aCreated =
+        typeof a.createdAt === "string"
+          ? new Date(a.createdAt).getTime()
+          : a.createdAt;
+      return bCreated - aCreated;
+    })
+    .slice(0, 3);
 
   useEffect(() => {
     if (!userInfo?.username) return;
@@ -4868,6 +4926,35 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           }}
         />
       )}
+      {expandedCastImage && (
+        <div
+          className="expanded-image-modal"
+          onClick={() => setExpandedCastImage(null)}
+        >
+          <div
+            className="expanded-image-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="expanded-image-close"
+              onClick={() => setExpandedCastImage(null)}
+              aria-label="Close expanded image"
+            >
+              ✕
+            </button>
+            <NextImage
+              src={expandedCastImage}
+              alt="Expanded cast logo"
+              className="expanded-image"
+              width={600}
+              height={600}
+              loading="lazy"
+              unoptimized
+            />
+          </div>
+        </div>
+      )}
       {rewardAnimation && (
         <RewardAnimation
           type={rewardAnimation.type}
@@ -5520,50 +5607,176 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
               </div>
             ) : (
               <div className="home-top-casts-grid">
-                {sortedLeaderboard.slice(0, 3).map((entry, index) => (
-                  <div key={`home-top-${entry.id}`} className="home-top-cast">
-                    {index === 0 && (
-                      <div className="home-top-cast-champion">
-                        <span className="champion-crown" aria-hidden="true">
-                          👑
-                        </span>
-                        Today&apos;s Champion
-                      </div>
-                    )}
-                    {(() => {
-                      // Use card image for highlighted cast display (like trophy display)
-                      const previewImageUrl = getImageForContext(
-                        {
-                          logoImageUrl: entry.logoImageUrl,
-                          cardImageUrl: entry.cardImageUrl,
-                          thumbImageUrl: entry.thumbImageUrl,
-                          mediumImageUrl: entry.mediumImageUrl,
-                          imageUrl: entry.imageUrl,
-                        },
-                        "preview",
-                      );
-                      return previewImageUrl ? (
-                        <NextImage
-                          src={previewImageUrl}
-                          alt={`Logo by ${entry.username}`}
-                          className="home-top-cast-image"
-                          width={160}
-                          height={110}
-                          loading="lazy"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="home-top-cast-text">
-                          {entry.text || "View cast"}
+                {topThreeSortedByLikes.map((entry, index) => {
+                  const medalEmoji =
+                    index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉";
+                  const medalClass =
+                    index === 0 ? "gold" : index === 1 ? "silver" : "bronze";
+                  return (
+                    <div
+                      key={`home-top-${entry.id}`}
+                      className={`home-top-cast home-top-cast-${medalClass} ${
+                        shakingCardIds.has(entry.id) ? "shake" : ""
+                      } ${reorderingCastIds.has(entry.id) ? "reordering" : ""}`}
+                    >
+                      <div className="home-top-cast-left">
+                        <div className="home-top-cast-image-wrapper">
+                          {(() => {
+                            const previewImageUrl = getImageForContext(
+                              {
+                                logoImageUrl: entry.logoImageUrl,
+                                cardImageUrl: entry.cardImageUrl,
+                                thumbImageUrl: entry.thumbImageUrl,
+                                mediumImageUrl: entry.mediumImageUrl,
+                                imageUrl: entry.imageUrl,
+                              },
+                              "preview",
+                            );
+                            return previewImageUrl ? (
+                              <button
+                                type="button"
+                                className="home-top-cast-image-btn"
+                                onClick={() => {
+                                  setExpandedCastImage(previewImageUrl);
+                                  setCastViewCounts((prev) => ({
+                                    ...prev,
+                                    [entry.id]: (prev[entry.id] || 0) + 1,
+                                  }));
+                                }}
+                                aria-label={`Expand logo by ${entry.username}`}
+                              >
+                                <NextImage
+                                  src={previewImageUrl}
+                                  alt={`Logo by ${entry.username}`}
+                                  className="home-top-cast-image"
+                                  width={140}
+                                  height={140}
+                                  loading="lazy"
+                                  unoptimized
+                                />
+                              </button>
+                            ) : (
+                              <div className="home-top-cast-text">
+                                {entry.text || "View cast"}
+                              </div>
+                            );
+                          })()}
                         </div>
-                      );
-                    })()}
-                    <div className="home-top-cast-meta">
-                      <span>@{entry.username}</span>
-                      <span>❤️ {entry.likes}</span>
+                      </div>
+                      <div className="home-top-cast-right">
+                        <div className="home-top-cast-rank">
+                          {medalEmoji} #{index + 1}
+                        </div>
+                        <Link
+                          href={`/profile/${encodeURIComponent(entry.username)}`}
+                          className="home-top-cast-username"
+                          aria-label={`View profile for ${entry.username}`}
+                        >
+                          @{entry.username}
+                        </Link>
+                        <div className="home-top-cast-likes-section">
+                          <span className="home-top-cast-likes-count">
+                            {entry.likes}
+                          </span>
+                          <button
+                            type="button"
+                            className={`home-top-cast-like-btn ${
+                              animatingLikeIds.has(entry.id) ? "animate" : ""
+                            } ${likedEntryIds.has(entry.id) ? "liked" : ""}`}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              // Only allow like if not already liked
+                              if (likedEntryIds.has(entry.id)) {
+                                return;
+                              }
+
+                              // Track previous positions in top 3
+                              const prevTop3Ids = new Set(
+                                topThreeSortedByLikes.map((e) => e.id),
+                              );
+                              const likedCastIndex =
+                                topThreeSortedByLikes.findIndex(
+                                  (e) => e.id === entry.id,
+                                );
+
+                              // Heart pop animation
+                              setAnimatingLikeIds(
+                                (prev) => new Set([...prev, entry.id]),
+                              );
+                              // Screen shake animation
+                              setShakingCardIds(
+                                (prev) => new Set([...prev, entry.id]),
+                              );
+                              // Combo counter animation
+                              setFloatingComboIds(
+                                (prev) => new Set([...prev, entry.id]),
+                              );
+
+                              // Toggle like and trigger reorder if position changes
+                              toggleLeaderboardLike(entry.id);
+
+                              // Schedule reorder animation after brief delay
+                              setTimeout(() => {
+                                // Check if cast moved position in top 3
+                                const newTop3Ids = new Set(
+                                  topThreeSortedByLikes.map((e) => e.id),
+                                );
+                                const newLikedCastIndex =
+                                  topThreeSortedByLikes.findIndex(
+                                    (e) => e.id === entry.id,
+                                  );
+
+                                // If position changed or new entry entered top 3, trigger reorder
+                                if (
+                                  likedCastIndex !== newLikedCastIndex ||
+                                  !prevTop3Ids.has(entry.id)
+                                ) {
+                                  // Trigger reorder animation for affected cards
+                                  setReorderingCastIds(
+                                    (prev) =>
+                                      new Set([...prevTop3Ids, ...newTop3Ids]),
+                                  );
+
+                                  // Clear reorder animation after transition
+                                  setTimeout(() => {
+                                    setReorderingCastIds(new Set());
+                                  }, 500);
+                                }
+
+                                // Clear other animations
+                                setAnimatingLikeIds((prev) => {
+                                  const next = new Set(prev);
+                                  next.delete(entry.id);
+                                  return next;
+                                });
+                                setShakingCardIds((prev) => {
+                                  const next = new Set(prev);
+                                  next.delete(entry.id);
+                                  return next;
+                                });
+                                setFloatingComboIds((prev) => {
+                                  const next = new Set(prev);
+                                  next.delete(entry.id);
+                                  return next;
+                                });
+                              }, 800);
+                            }}
+                            disabled={likedEntryIds.has(entry.id)}
+                            aria-label={`Like cast by ${entry.username}`}
+                          >
+                            {likedEntryIds.has(entry.id) ? "❤️" : "🤍"}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="home-top-cast-views">
+                        viewed {castViewCounts[entry.id] || 0}
+                      </div>
+                      {floatingComboIds.has(entry.id) && (
+                        <div className="floating-combo-text">+1 LIKE!</div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
