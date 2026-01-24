@@ -5350,3 +5350,17 @@ body::after {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+@media (max-width: 600px) {
+  .gallery-card-views {
+    font-size: 10px;
+  }
+
+  .gallery-card-likes {
+    font-size: 10px;
+  }
+
+  .gallery-card-stats {
+    gap: 4px;
+  }
+}
