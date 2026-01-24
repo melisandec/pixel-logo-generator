@@ -247,7 +247,15 @@ export default function LogoGenerator() {
     new Set(),
   );
   const [castViewCounts, setCastViewCounts] = useState<Record<string, number>>(
-    {},
+    () => {
+      if (typeof window === "undefined") return {};
+      try {
+        const saved = localStorage.getItem("plf:castViewCounts");
+        return saved ? JSON.parse(saved) : {};
+      } catch {
+        return {};
+      }
+    },
   );
   const [activeTab, setActiveTab] = useState<
     "home" | "gallery" | "leaderboard" | "rewards" | "profile"
@@ -869,6 +877,15 @@ export default function LogoGenerator() {
       loadUserBadges(userInfo.username);
     }
   }, [userInfo?.username, loadUserBadges]);
+
+  // Persist cast view counts to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("plf:castViewCounts", JSON.stringify(castViewCounts));
+    } catch (error) {
+      console.error("Failed to save view counts:", error);
+    }
+  }, [castViewCounts]);
 
   const hasBadge = useCallback(
     (badgeType: string) => {
