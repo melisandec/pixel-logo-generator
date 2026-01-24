@@ -72,9 +72,7 @@ export async function GET(request: NextRequest) {
         });
 
         // Track daily breakdown
-        const date = entry.createdAt
-          .toISOString()
-          .split("T")[0];
+        const date = entry.createdAt.toISOString().split("T")[0];
         if (!dailyBreakdown.has(date)) {
           dailyBreakdown.set(date, { logos: 0, cards: 0 });
         }
@@ -96,9 +94,7 @@ export async function GET(request: NextRequest) {
         });
 
         // Track daily breakdown
-        const date = entry.createdAt
-          .toISOString()
-          .split("T")[0];
+        const date = entry.createdAt.toISOString().split("T")[0];
         if (!dailyBreakdown.has(date)) {
           dailyBreakdown.set(date, { logos: 0, cards: 0 });
         }
@@ -111,15 +107,16 @@ export async function GET(request: NextRequest) {
     const uniqueCards = blobEntries.filter((e) => e.type === "card").length;
 
     const entriesWithBothImages = entries.filter(
-      (e) => e.logoImageUrl && e.cardImageUrl && e.cardImageUrl !== e.logoImageUrl
+      (e) =>
+        e.logoImageUrl && e.cardImageUrl && e.cardImageUrl !== e.logoImageUrl,
     ).length;
     const entriesWithOnlyLogo = entries.filter(
       (e) =>
         e.logoImageUrl &&
-        (!e.cardImageUrl || e.cardImageUrl === e.logoImageUrl)
+        (!e.cardImageUrl || e.cardImageUrl === e.logoImageUrl),
     ).length;
     const entriesWithOnlyCard = entries.filter(
-      (e) => e.cardImageUrl && !e.logoImageUrl
+      (e) => e.cardImageUrl && !e.logoImageUrl,
     ).length;
 
     const stats: BlobAuditStats = {
@@ -137,7 +134,7 @@ export async function GET(request: NextRequest) {
     // Sort entries by creation date (newest first)
     blobEntries.sort(
       (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
 
     // Convert daily breakdown to array and sort by date (newest first)
@@ -163,9 +160,11 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to audit blob storage",
+          error instanceof Error
+            ? error.message
+            : "Failed to audit blob storage",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
