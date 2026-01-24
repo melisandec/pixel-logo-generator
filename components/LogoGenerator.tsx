@@ -3441,6 +3441,28 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
     }
   };
 
+  // Get today's gallery entries for "recent logos" section
+  const recentLogosFromGallery = galleryEntries
+    .filter((entry) => {
+      const createdAtValue =
+        typeof entry.createdAt === "string"
+          ? new Date(entry.createdAt).getTime()
+          : entry.createdAt;
+      return getDayKeyFromTimestamp(createdAtValue) === getTodayKey();
+    })
+    .sort((a, b) => {
+      const bCreated =
+        typeof b.createdAt === "string"
+          ? new Date(b.createdAt).getTime()
+          : b.createdAt;
+      const aCreated =
+        typeof a.createdAt === "string"
+          ? new Date(a.createdAt).getTime()
+          : a.createdAt;
+      return bCreated - aCreated;
+    })
+    .slice(0, 5);
+
   const favoritesContent = (
     <>
       {favorites.length > 0 && (
@@ -3525,7 +3547,38 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
         </div>
       )}
       {logoHistory.length > 0 && recentLogosFromGallery.length === 0 && (
-      {favorites.length === 0 && logoHistory.length === 0 && (
+        <div className="history-strip" aria-label="Recent logos">
+          <div className="history-title">Recent logos</div>
+          <div className="history-list">
+            {logoHistory.map((item) => (
+              <button
+                key={`${item.result.seed}-${item.result.config.text}`}
+                className="history-item"
+                onClick={() => {
+                  setLogoResult(item.result);
+                  setInputText(item.result.config.text);
+                  setActiveTab("home");
+                }}
+                aria-label={`Load logo "${item.result.config.text}" with seed ${item.result.seed}`}
+              >
+                <NextImage
+                  src={item.result.dataUrl}
+                  alt={`Recent logo: ${item.result.config.text}`}
+                  className="history-image"
+                  width={64}
+                  height={64}
+                  loading="lazy"
+                  unoptimized
+                />
+                <span className="history-time">
+                  {formatHistoryTime(item.createdAt)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {favorites.length === 0 && logoHistory.length === 0 && recentLogosFromGallery.length === 0 && (
         <div className="leaderboard-status">
           No favorites or recent logos yet.
         </div>
@@ -3558,28 +3611,6 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
     if (bScore !== aScore) return bScore - aScore;
     return bCreated - aCreated;
   });
-
-  // Combine local history + today's gallery entries for "recent logos"
-  const recentLogosFromGallery = galleryEntries
-    .filter((entry) => {
-      const createdAtValue =
-        typeof entry.createdAt === "string"
-          ? new Date(entry.createdAt).getTime()
-          : entry.createdAt;
-      return getDayKeyFromTimestamp(createdAtValue) === getTodayKey();
-    })
-    .sort((a, b) => {
-      const bCreated =
-        typeof b.createdAt === "string"
-          ? new Date(b.createdAt).getTime()
-          : b.createdAt;
-      const aCreated =
-        typeof a.createdAt === "string"
-          ? new Date(a.createdAt).getTime()
-          : a.createdAt;
-      return bCreated - aCreated;
-    })
-    .slice(0, 5);
 
   useEffect(() => {
     if (!userInfo?.username) return;
