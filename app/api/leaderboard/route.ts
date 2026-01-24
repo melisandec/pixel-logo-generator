@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 type LeaderboardEntry = {
   id: string;
@@ -25,7 +25,7 @@ const logDebug = (..._args: unknown[]) => {};
 
 const ensureLeaderboardTable = async () => {
   // #region agent log
-  logDebug('H5', 'ensure table start', {});
+  logDebug("H5", "ensure table start", {});
   // #endregion agent log
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "LeaderboardEntry" (
@@ -50,15 +50,15 @@ const ensureLeaderboardTable = async () => {
     ON "LeaderboardEntry" ("createdAt");
   `);
   // #region agent log
-  logDebug('H5', 'ensure table done', {});
+  logDebug("H5", "ensure table done", {});
   // #endregion agent log
 };
 
 const getTodayKey = () => {
   const now = new Date();
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
 
@@ -78,30 +78,44 @@ const getRecentRange = (days: number) => {
 };
 
 const computeScore = (entry: LeaderboardEntry) => {
-  const createdAtMs = typeof entry.createdAt === 'number' ? entry.createdAt : new Date(entry.createdAt).getTime();
+  const createdAtMs =
+    typeof entry.createdAt === "number"
+      ? entry.createdAt
+      : new Date(entry.createdAt).getTime();
   const hoursSince = (Date.now() - createdAtMs) / 36e5;
   const saves = (entry as any).saves ?? 0;
   const remixes = (entry as any).remixes ?? 0;
-  return entry.likes + entry.recasts * 2 + remixes * 3 + saves * 0.5 - hoursSince * 0.25;
+  return (
+    entry.likes +
+    entry.recasts * 2 +
+    remixes * 3 +
+    saves * 0.5 -
+    hoursSince * 0.25
+  );
 };
 
 export async function GET(request: Request) {
   try {
     // #region agent log
-    logDebug('H1', 'GET start', {
+    logDebug("H1", "GET start", {
       hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
-      databaseUrlPrefix: process.env.DATABASE_URL?.split(':')[0] ?? 'missing',
+      databaseUrlPrefix: process.env.DATABASE_URL?.split(":")[0] ?? "missing",
     });
     // #endregion agent log
     const { searchParams } = new URL(request.url);
-    const dateKey = searchParams.get('date');
-    const scope = searchParams.get('scope');
-    const limitParam = Number.parseInt(searchParams.get('limit') ?? '50', 10);
-    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 50;
+    const dateKey = searchParams.get("date");
+    const scope = searchParams.get("scope");
+    const limitParam = Number.parseInt(searchParams.get("limit") ?? "50", 10);
+    const limit = Number.isFinite(limitParam)
+      ? Math.min(Math.max(limitParam, 1), 200)
+      : 50;
 
     // Prefer new GeneratedLogo entries for leaderboard
     try {
-      const range = scope === 'daily' && dateKey ? getDateRange(dateKey) : getRecentRange(7);
+      const range =
+        scope === "daily" && dateKey
+          ? getDateRange(dateKey)
+          : getRecentRange(7);
       const where = {
         createdAt: {
           gte: range.start,
@@ -109,18 +123,23 @@ export async function GET(request: Request) {
         },
       } satisfies Prisma.GeneratedLogoWhereInput;
 
-      const generated = await prisma.generatedLogo.findMany({ where, take: 200, orderBy: { createdAt: 'desc' } });
+      const generated = await prisma.generatedLogo.findMany({
+        where,
+        take: 200,
+        orderBy: { createdAt: "desc" },
+      });
       if (generated.length > 0) {
         const mapped = generated.map((entry) => ({
           id: entry.id,
           text: entry.text,
           seed: entry.seed,
-          imageUrl: entry.logoImageUrl || entry.cardImageUrl || entry.imageUrl || '',
+          imageUrl:
+            entry.logoImageUrl || entry.cardImageUrl || entry.imageUrl || "",
           logoImageUrl: entry.logoImageUrl,
           cardImageUrl: entry.cardImageUrl,
-          username: entry.username ?? '',
-          displayName: entry.displayName ?? entry.username ?? '',
-          pfpUrl: entry.pfpUrl ?? '',
+          username: entry.username ?? "",
+          displayName: entry.displayName ?? entry.username ?? "",
+          pfpUrl: entry.pfpUrl ?? "",
           likes: entry.likes,
           recasts: entry.recasts,
           rarity: entry.rarity,
@@ -131,15 +150,20 @@ export async function GET(request: Request) {
           remixes: entry.remixes ?? 0,
         }));
         const sortedGenerated = mapped
-          .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+          .map((entry) => ({
+            ...entry,
+            score: computeScore(entry as LeaderboardEntry),
+          }))
           .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
           .slice(0, limit);
         return NextResponse.json({ entries: sortedGenerated });
       }
     } catch (generatedError) {
-      logDebug('H1', 'GeneratedLogo fallback to legacy', { error: (generatedError as Error)?.message });
+      logDebug("H1", "GeneratedLogo fallback to legacy", {
+        error: (generatedError as Error)?.message,
+      });
     }
-    if (scope === 'recent') {
+    if (scope === "recent") {
       const range = getRecentRange(7);
       const entries = await prisma.leaderboardEntry.findMany({
         where: {
@@ -149,13 +173,14 @@ export async function GET(request: Request) {
           },
         },
         orderBy: {
-          createdAt: 'desc',
+          createdAt: "desc",
         },
         take: limit,
       });
       return NextResponse.json({ entries });
     }
-    const range = scope === 'daily' && dateKey ? getDateRange(dateKey) : getRecentRange(7);
+    const range =
+      scope === "daily" && dateKey ? getDateRange(dateKey) : getRecentRange(7);
     const entries = await prisma.leaderboardEntry.findMany({
       where: {
         createdAt: {
@@ -166,31 +191,39 @@ export async function GET(request: Request) {
       take: 200,
     });
     const sorted = entries
-      .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+      .map((entry) => ({
+        ...entry,
+        score: computeScore(entry as LeaderboardEntry),
+      }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 25);
     // #region agent log
-    logDebug('H2', 'GET success', { count: sorted.length });
+    logDebug("H2", "GET success", { count: sorted.length });
     // #endregion agent log
     return NextResponse.json({ entries: sorted });
   } catch (error) {
     // #region agent log
-    logDebug('H2', 'GET error', {
-      errorName: error instanceof Error ? error.name : 'unknown',
+    logDebug("H2", "GET error", {
+      errorName: error instanceof Error ? error.name : "unknown",
       errorMessage: error instanceof Error ? error.message : String(error),
     });
     // #endregion agent log
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2021"
+    ) {
       // #region agent log
-      logDebug('H5', 'GET missing table detected', { code: error.code });
+      logDebug("H5", "GET missing table detected", { code: error.code });
       // #endregion agent log
       await ensureLeaderboardTable();
       const { searchParams } = new URL(request.url);
-      const dateKey = searchParams.get('date');
-      const scope = searchParams.get('scope');
-      const limitParam = Number.parseInt(searchParams.get('limit') ?? '50', 10);
-      const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 50;
-      if (scope === 'recent') {
+      const dateKey = searchParams.get("date");
+      const scope = searchParams.get("scope");
+      const limitParam = Number.parseInt(searchParams.get("limit") ?? "50", 10);
+      const limit = Number.isFinite(limitParam)
+        ? Math.min(Math.max(limitParam, 1), 200)
+        : 50;
+      if (scope === "recent") {
         const range = getRecentRange(7);
         const entries = await prisma.leaderboardEntry.findMany({
           where: {
@@ -200,13 +233,16 @@ export async function GET(request: Request) {
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            createdAt: "desc",
           },
           take: limit,
         });
         return NextResponse.json({ entries });
       }
-      const range = scope === 'daily' && dateKey ? getDateRange(dateKey) : getRecentRange(7);
+      const range =
+        scope === "daily" && dateKey
+          ? getDateRange(dateKey)
+          : getRecentRange(7);
       const entries = await prisma.leaderboardEntry.findMany({
         where: {
           createdAt: {
@@ -217,15 +253,18 @@ export async function GET(request: Request) {
         take: 200,
       });
       const sorted = entries
-        .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+        .map((entry) => ({
+          ...entry,
+          score: computeScore(entry as LeaderboardEntry),
+        }))
         .sort((a, b) => b.score - a.score)
         .slice(0, 25);
       // #region agent log
-      logDebug('H5', 'GET retry success', { count: sorted.length });
+      logDebug("H5", "GET retry success", { count: sorted.length });
       // #endregion agent log
       return NextResponse.json({ entries: sorted });
     }
-    console.error('Leaderboard GET error:', error);
+    console.error("Leaderboard GET error:", error);
     return NextResponse.json({ entries: [] }, { status: 200 });
   }
 }
@@ -235,32 +274,35 @@ export async function POST(request: Request) {
   let body: Partial<LeaderboardEntry> | null = null;
   try {
     // #region agent log
-    logDebug('H1', 'POST start', {
+    logDebug("H1", "POST start", {
       hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
-      databaseUrlPrefix: process.env.DATABASE_URL?.split(':')[0] ?? 'missing',
+      databaseUrlPrefix: process.env.DATABASE_URL?.split(":")[0] ?? "missing",
     });
     // #endregion agent log
     body = (await request.json()) as Partial<LeaderboardEntry>;
 
     if (!body || !body.id || !body.text || !body.username) {
       // #region agent log
-      logDebug('H4', 'POST invalid payload', {
+      logDebug("H4", "POST invalid payload", {
         hasId: Boolean(body?.id),
         hasText: Boolean(body?.text),
         hasUsername: Boolean(body?.username),
       });
       // #endregion agent log
-      return NextResponse.json({ error: 'Invalid entry payload.' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid entry payload." },
+        { status: 400 },
+      );
     }
 
     entry = {
       id: body.id,
       text: body.text,
       seed: body.seed ?? 0,
-      imageUrl: body.imageUrl ?? '',
+      imageUrl: body.imageUrl ?? "",
       username: body.username,
       displayName: body.displayName ?? body.username,
-      pfpUrl: body.pfpUrl ?? '',
+      pfpUrl: body.pfpUrl ?? "",
       likes: body.likes ?? 0,
       recasts: body.recasts ?? 0,
       rarity: body.rarity ?? null,
@@ -269,8 +311,10 @@ export async function POST(request: Request) {
       castUrl: body.castUrl,
     };
 
-    const isNewEntry = !(await prisma.leaderboardEntry.findUnique({ where: { id: entry.id } }));
-    
+    const isNewEntry = !(await prisma.leaderboardEntry.findUnique({
+      where: { id: entry.id },
+    }));
+
     await prisma.leaderboardEntry.upsert({
       where: { id: entry.id },
       update: {
@@ -304,27 +348,27 @@ export async function POST(request: Request) {
       },
     });
     // #region agent log
-    logDebug('H3', 'POST upsert success', { id: entry.id });
+    logDebug("H3", "POST upsert success", { id: entry.id });
     // #endregion agent log
 
     // Check and award badges for new casts
     if (isNewEntry) {
       try {
-        const { checkAndAwardBadges } = await import('@/lib/badgeTracker');
-        
+        const { checkAndAwardBadges } = await import("@/lib/badgeTracker");
+
         // Check if this is user's first cast
         const userCastCount = await prisma.leaderboardEntry.count({
           where: { username: entry.username },
         });
-        
-        await checkAndAwardBadges(entry.username, 'cast', {
+
+        await checkAndAwardBadges(entry.username, "cast", {
           isFirstCast: userCastCount === 1,
           castCount: userCastCount,
           rarity: entry.rarity,
         });
       } catch (badgeError) {
         // Badge system might not be initialized yet, continue
-        console.log('Badge check skipped:', badgeError);
+        console.log("Badge check skipped:", badgeError);
       }
     }
 
@@ -339,23 +383,30 @@ export async function POST(request: Request) {
       take: 200,
     });
     const sorted = entries
-      .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+      .map((entry) => ({
+        ...entry,
+        score: computeScore(entry as LeaderboardEntry),
+      }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 25);
     // #region agent log
-    logDebug('H2', 'POST fetch success', { count: sorted.length });
+    logDebug("H2", "POST fetch success", { count: sorted.length });
     // #endregion agent log
     return NextResponse.json({ entries: sorted });
   } catch (error) {
     // #region agent log
-    logDebug('H2', 'POST error', {
-      errorName: error instanceof Error ? error.name : 'unknown',
+    logDebug("H2", "POST error", {
+      errorName: error instanceof Error ? error.name : "unknown",
       errorMessage: error instanceof Error ? error.message : String(error),
     });
     // #endregion agent log
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021' && entry) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2021" &&
+      entry
+    ) {
       // #region agent log
-      logDebug('H5', 'POST missing table detected', { code: error.code });
+      logDebug("H5", "POST missing table detected", { code: error.code });
       // #endregion agent log
       await ensureLeaderboardTable();
       try {
@@ -402,24 +453,33 @@ export async function POST(request: Request) {
           take: 200,
         });
         const sorted = entries
-          .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+          .map((entry) => ({
+            ...entry,
+            score: computeScore(entry as LeaderboardEntry),
+          }))
           .sort((a, b) => b.score - a.score)
           .slice(0, 25);
         // #region agent log
-        logDebug('H5', 'POST retry success', { count: sorted.length });
+        logDebug("H5", "POST retry success", { count: sorted.length });
         // #endregion agent log
         return NextResponse.json({ entries: sorted });
       } catch (retryError) {
         // #region agent log
-        logDebug('H5', 'POST retry error', {
-          errorName: retryError instanceof Error ? retryError.name : 'unknown',
-          errorMessage: retryError instanceof Error ? retryError.message : String(retryError),
+        logDebug("H5", "POST retry error", {
+          errorName: retryError instanceof Error ? retryError.name : "unknown",
+          errorMessage:
+            retryError instanceof Error
+              ? retryError.message
+              : String(retryError),
         });
         // #endregion agent log
       }
     }
-    console.error('Leaderboard POST error:', error);
-    return NextResponse.json({ error: 'Failed to save leaderboard entry.' }, { status: 500 });
+    console.error("Leaderboard POST error:", error);
+    return NextResponse.json(
+      { error: "Failed to save leaderboard entry." },
+      { status: 500 },
+    );
   }
 }
 
@@ -427,22 +487,22 @@ export async function PATCH(request: Request) {
   let body: { id?: string; delta?: number } | null = null;
   try {
     // #region agent log
-    logDebug('H1', 'PATCH start', {
+    logDebug("H1", "PATCH start", {
       hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
-      databaseUrlPrefix: process.env.DATABASE_URL?.split(':')[0] ?? 'missing',
+      databaseUrlPrefix: process.env.DATABASE_URL?.split(":")[0] ?? "missing",
     });
     // #endregion agent log
     body = (await request.json()) as { id?: string; delta?: number };
 
     if (!body?.id) {
       // #region agent log
-      logDebug('H4', 'PATCH invalid payload', { hasId: false });
+      logDebug("H4", "PATCH invalid payload", { hasId: false });
       // #endregion agent log
-      return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
+      return NextResponse.json({ error: "Missing id." }, { status: 400 });
     }
-    const delta = typeof body.delta === 'number' ? body.delta : 1;
+    const delta = typeof body.delta === "number" ? body.delta : 1;
     if (![1, -1].includes(delta)) {
-      return NextResponse.json({ error: 'Invalid delta.' }, { status: 400 });
+      return NextResponse.json({ error: "Invalid delta." }, { status: 400 });
     }
 
     let updatedEntry = await prisma.leaderboardEntry.update({
@@ -460,19 +520,22 @@ export async function PATCH(request: Request) {
       });
     }
     // #region agent log
-    logDebug('H3', 'PATCH update success', { id: updatedEntry.id, likes: updatedEntry.likes });
+    logDebug("H3", "PATCH update success", {
+      id: updatedEntry.id,
+      likes: updatedEntry.likes,
+    });
     // #endregion agent log
 
     // Check for social badges when likes increase
     if (delta > 0 && updatedEntry.likes > 0) {
       try {
-        const { checkAndAwardBadges } = await import('@/lib/badgeTracker');
-        await checkAndAwardBadges(updatedEntry.username, 'like', {
+        const { checkAndAwardBadges } = await import("@/lib/badgeTracker");
+        await checkAndAwardBadges(updatedEntry.username, "like", {
           entry: updatedEntry as LeaderboardEntry,
         });
       } catch (badgeError) {
         // Badge system might not be initialized yet, continue
-        console.log('Badge check skipped:', badgeError);
+        console.log("Badge check skipped:", badgeError);
       }
     }
 
@@ -487,29 +550,39 @@ export async function PATCH(request: Request) {
       take: 200,
     });
     const sorted = entries
-      .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+      .map((entry) => ({
+        ...entry,
+        score: computeScore(entry as LeaderboardEntry),
+      }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 25);
     // #region agent log
-    logDebug('H2', 'PATCH fetch success', { count: sorted.length });
+    logDebug("H2", "PATCH fetch success", { count: sorted.length });
     // #endregion agent log
     return NextResponse.json({ entry: updatedEntry, entries: sorted });
   } catch (error) {
     // #region agent log
-    logDebug('H2', 'PATCH error', {
-      errorName: error instanceof Error ? error.name : 'unknown',
+    logDebug("H2", "PATCH error", {
+      errorName: error instanceof Error ? error.name : "unknown",
       errorMessage: error instanceof Error ? error.message : String(error),
     });
     // #endregion agent log
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021' && body?.id) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2021" &&
+      body?.id
+    ) {
       // #region agent log
-      logDebug('H5', 'PATCH missing table detected', { code: error.code });
+      logDebug("H5", "PATCH missing table detected", { code: error.code });
       // #endregion agent log
       await ensureLeaderboardTable();
       try {
-        const delta = typeof body.delta === 'number' ? body.delta : 1;
+        const delta = typeof body.delta === "number" ? body.delta : 1;
         if (![1, -1].includes(delta)) {
-          return NextResponse.json({ error: 'Invalid delta.' }, { status: 400 });
+          return NextResponse.json(
+            { error: "Invalid delta." },
+            { status: 400 },
+          );
         }
         let updatedEntry = await prisma.leaderboardEntry.update({
           where: { id: body.id },
@@ -536,23 +609,35 @@ export async function PATCH(request: Request) {
           take: 200,
         });
         const sorted = entries
-          .map((entry) => ({ ...entry, score: computeScore(entry as LeaderboardEntry) }))
+          .map((entry) => ({
+            ...entry,
+            score: computeScore(entry as LeaderboardEntry),
+          }))
           .sort((a, b) => b.score - a.score)
           .slice(0, 25);
         // #region agent log
-        logDebug('H5', 'PATCH retry success', { id: updatedEntry.id, count: sorted.length });
+        logDebug("H5", "PATCH retry success", {
+          id: updatedEntry.id,
+          count: sorted.length,
+        });
         // #endregion agent log
         return NextResponse.json({ entry: updatedEntry, entries: sorted });
       } catch (retryError) {
         // #region agent log
-        logDebug('H5', 'PATCH retry error', {
-          errorName: retryError instanceof Error ? retryError.name : 'unknown',
-          errorMessage: retryError instanceof Error ? retryError.message : String(retryError),
+        logDebug("H5", "PATCH retry error", {
+          errorName: retryError instanceof Error ? retryError.name : "unknown",
+          errorMessage:
+            retryError instanceof Error
+              ? retryError.message
+              : String(retryError),
         });
         // #endregion agent log
       }
     }
-    console.error('Leaderboard PATCH error:', error);
-    return NextResponse.json({ error: 'Failed to update like.' }, { status: 500 });
+    console.error("Leaderboard PATCH error:", error);
+    return NextResponse.json(
+      { error: "Failed to update like." },
+      { status: 500 },
+    );
   }
 }
