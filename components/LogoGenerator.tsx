@@ -246,17 +246,6 @@ export default function LogoGenerator() {
   const [reorderingCastIds, setReorderingCastIds] = useState<Set<string>>(
     new Set(),
   );
-  const [castViewCounts, setCastViewCounts] = useState<Record<string, number>>(
-    () => {
-      if (typeof window === "undefined") return {};
-      try {
-        const saved = localStorage.getItem("plf:castViewCounts");
-        return saved ? JSON.parse(saved) : {};
-      } catch {
-        return {};
-      }
-    },
-  );
   const [activeTab, setActiveTab] = useState<
     "home" | "gallery" | "leaderboard" | "rewards" | "profile"
   >("home");
@@ -877,15 +866,6 @@ export default function LogoGenerator() {
       loadUserBadges(userInfo.username);
     }
   }, [userInfo?.username, loadUserBadges]);
-
-  // Persist cast view counts to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem("plf:castViewCounts", JSON.stringify(castViewCounts));
-    } catch (error) {
-      console.error("Failed to save view counts:", error);
-    }
-  }, [castViewCounts]);
 
   const hasBadge = useCallback(
     (badgeType: string) => {
@@ -5655,10 +5635,12 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                                 className="home-top-cast-image-btn"
                                 onClick={() => {
                                   setExpandedCastImage(previewImageUrl);
-                                  setCastViewCounts((prev) => ({
-                                    ...prev,
-                                    [entry.id]: (prev[entry.id] || 0) + 1,
-                                  }));
+                                  // Increment view count in database
+                                  fetch(`/api/leaderboard/${entry.id}/view`, {
+                                    method: "POST",
+                                  }).catch((error) =>
+                                    console.error("Failed to record view:", error),
+                                  );
                                 }}
                                 aria-label={`Expand logo by ${entry.username}`}
                               >
@@ -5786,7 +5768,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                         </div>
                       </div>
                       <div className="home-top-cast-views">
-                        viewed {castViewCounts[entry.id] || 0}
+                        viewed {entry.views || 0}
                       </div>
                       {floatingComboIds.has(entry.id) && (
                         <div className="floating-combo-text">+1 LIKE!</div>

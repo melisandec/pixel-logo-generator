@@ -12,6 +12,7 @@ type LeaderboardEntry = {
   pfpUrl: string;
   likes: number;
   recasts: number;
+  views?: number;
   saves?: number;
   remixes?: number;
   rarity?: string | null;
@@ -37,6 +38,7 @@ const ensureLeaderboardTable = async () => {
       "pfpUrl" TEXT NOT NULL,
       "likes" INTEGER NOT NULL DEFAULT 0,
       "recasts" INTEGER NOT NULL DEFAULT 0,
+      "views" INTEGER NOT NULL DEFAULT 0,
       "rarity" TEXT,
       "presetKey" TEXT,
       "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
