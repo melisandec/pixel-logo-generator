@@ -1,6 +1,6 @@
 'use client';
 
-import { LeaderboardEntry } from '@/hooks/useLogoGenerator';
+import { LeaderboardEntry } from '@/lib/badgeTracker';
 
 interface LogoGeneratorGalleryProps {
   entries: LeaderboardEntry[];
