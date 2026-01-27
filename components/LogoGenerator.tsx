@@ -8,6 +8,7 @@ import {
   type LogoConfig,
   type LogoResult,
   type Rarity,
+  stringToSeed,
 } from "@/lib/logoGenerator";
 import {
   getImageForContext,
@@ -25,6 +26,21 @@ import {
   ALL_CHALLENGE_PROMPTS,
   DAILY_PROMPTS,
 } from "@/lib/logoGeneratorConstants";
+import {
+  DEMO_MODE_LABEL,
+  DEMO_PRESET_CONFIG,
+  DEMO_PRESET_KEY,
+  DEMO_SEED_BASE,
+  DEMO_SEED_TOTAL,
+  IS_DEMO_MODE,
+} from "@/lib/demoMode";
+import {
+  requestAndConsumeDemoSeed,
+  requestDemoSeed,
+} from "@/lib/demoSeedClient";
+import { storeDemoLogoStyle } from "@/lib/demoLogoStyleManager";
+import { storeLogoDemoStyle } from "@/lib/demoLogoStyleActions";
+import DemoLogoDisplay from "./DemoLogoDisplay";
 import dynamic from "next/dynamic";
 import Toast from "./Toast";
 import OnboardingWizard from "./OnboardingWizard";
@@ -108,7 +124,11 @@ const buildWarpcastComposeUrl = (
   return `https://warpcast.com/~/compose?${params.toString()}`;
 };
 
-export default function LogoGenerator() {
+interface LogoGeneratorProps {
+  demoMode?: boolean;
+}
+
+export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGeneratorProps = {}) {
   const [inputText, setInputText] = useState("");
   const [customSeed, setCustomSeed] = useState<string>("");
   const [seedError, setSeedError] = useState<string>("");
@@ -262,7 +282,9 @@ export default function LogoGenerator() {
   const initRef = useRef(false);
 
   // NEW UX ENHANCEMENT STATES
-  const [uiMode, setUiMode] = useState<"simple" | "advanced">("simple");
+  const [uiMode, setUiMode] = useState<"simple" | "advanced">(
+    demoMode ? "advanced" : "simple",
+  );
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -274,7 +296,9 @@ export default function LogoGenerator() {
   const [generationCount, setGenerationCount] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
 
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(
+    demoMode ? DEMO_PRESET_KEY : null,
+  );
   const [challengeDone, setChallengeDone] = useState<Record<string, boolean>>(
     {},
   );
@@ -1095,6 +1119,13 @@ export default function LogoGenerator() {
         const data = (await response.json()) as { entry?: LeaderboardEntry };
         if (data.entry?.id) {
           setCurrentEntryId(data.entry.id);
+
+          // Store demo logo style fingerprint if in demo mode
+          if (demoMode) {
+            const seedString = result.seed.toString();
+            // Use server action to store style (Prisma must run server-side)
+            void storeLogoDemoStyle(seedString, result, data.entry.id);
+          }
         }
         return data.entry;
       } catch (error) {
@@ -1353,13 +1384,59 @@ export default function LogoGenerator() {
   );
 
   const getPresetConfig = useCallback((presetKey?: string | null) => {
+    if (demoMode) return DEMO_PRESET_CONFIG;
     if (!presetKey) return undefined;
     return PRESETS.find((preset) => preset.key === presetKey)?.config;
+  }, [demoMode]);
+
+  // Demo mode: 1 try every 5 minutes (300 seconds)
+  const checkDemoRateLimit = useCallback((): { ok: boolean; message?: string; timeUntilNext?: number } => {
+    const storageKey = "plf:demoRateLimit";
+    const stored = localStorage.getItem(storageKey);
+    const now = Date.now();
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+    if (!stored) {
+      localStorage.setItem(storageKey, JSON.stringify(now));
+      return { ok: true };
+    }
+
+    try {
+      const lastAttempt = JSON.parse(stored) as number;
+      const timeSinceLastAttempt = now - lastAttempt;
+
+      if (timeSinceLastAttempt < FIVE_MINUTES_MS) {
+        const timeUntilNext = Math.ceil((FIVE_MINUTES_MS - timeSinceLastAttempt) / 1000);
+        return {
+          ok: false,
+          message: `Demo forge available in ${timeUntilNext}s (1 try every 5 minutes)`,
+          timeUntilNext,
+        };
+      }
+
+      localStorage.setItem(storageKey, JSON.stringify(now));
+      return { ok: true };
+    } catch (error) {
+      console.error("Failed to check demo rate limit:", error);
+      localStorage.setItem(storageKey, JSON.stringify(now));
+      return { ok: true };
+    }
   }, []);
 
   const checkDailyLimits = useCallback(
     (text: string, seedProvided: boolean): LimitCheck => {
       const normalizedText = normalizeWord(text);
+
+      // Demo mode: 1 try every 5 minutes
+      if (demoMode) {
+        const rateLimit = checkDemoRateLimit();
+        if (!rateLimit.ok) {
+          return { ok: false, message: rateLimit.message || "Rate limit reached" } as any;
+        }
+        return { ok: true, normalizedText, todayState: { date: "", words: [], seedUsed: false } } as any;
+      }
+
+      // Normal mode: daily limits
       const todayState = ensureDailyLimit();
       const isUnlimitedUser = userInfo?.username?.toLowerCase() === "ladymel";
       if (isUnlimitedUser) {
@@ -1391,7 +1468,7 @@ export default function LogoGenerator() {
       }
       return { ok: true, normalizedText, todayState };
     },
-    [ensureDailyLimit, normalizeWord, userInfo?.username, hasBadge],
+    [ensureDailyLimit, normalizeWord, userInfo?.username, hasBadge, demoMode, checkDemoRateLimit],
   );
 
   const finalizeDailyLimit = useCallback(
@@ -1413,16 +1490,76 @@ export default function LogoGenerator() {
     [saveDailyLimit, userInfo?.username],
   );
 
+  const resolveDemoSeed = useCallback((value?: number) => {
+    if (typeof value === "number") {
+      // Check if seed is already in demo range
+      if (
+        value >= DEMO_SEED_BASE &&
+        value <= DEMO_SEED_BASE + DEMO_SEED_TOTAL - 1
+      ) {
+        return value;
+      }
+      // Map external seed to demo range using modulo
+      const index = Math.abs(value) % DEMO_SEED_TOTAL;
+      return DEMO_SEED_BASE + index;
+    }
+    // Return a random seed within demo range
+    const randomIndex = Math.floor(Math.random() * DEMO_SEED_TOTAL);
+    return DEMO_SEED_BASE + randomIndex;
+  }, []);
   const createLogoResult = useCallback(
-    (text: string, seed?: number, presetKey?: string | null) => {
-      const presetConfig = getPresetConfig(presetKey);
+    async (text: string, seed?: number, presetKey?: string | null) => {
+      const effectivePresetKey = demoMode ? DEMO_PRESET_KEY : presetKey;
+      const presetConfig = getPresetConfig(effectivePresetKey);
+      const presetConfigCopy = presetConfig
+        ? {
+            ...presetConfig,
+            textEffects: presetConfig.textEffects
+              ? { ...presetConfig.textEffects }
+              : undefined,
+            depthConfig: presetConfig.depthConfig
+              ? {
+                  ...presetConfig.depthConfig,
+                  colorShades: [...presetConfig.depthConfig.colorShades],
+                }
+              : undefined,
+            badges: presetConfig.badges ? [...presetConfig.badges] : undefined,
+          }
+        : undefined;
+
+      let seedToUse = demoMode ? resolveDemoSeed(seed) : seed;
+
+      // In demo mode, atomically get and consume seed from database
+      if (demoMode) {
+        try {
+          console.log("[LogoGenerator] Requesting demo seed for user:", userInfo?.username);
+          const demoSeed = await requestAndConsumeDemoSeed(userInfo?.username);
+          console.log("[LogoGenerator] Demo seed response:", demoSeed, "type:", typeof demoSeed);
+          if (demoSeed) {
+            // Convert hex seed string to deterministic number using stringToSeed
+            seedToUse = stringToSeed(demoSeed);
+            console.log("[LogoGenerator] Converted demo seed:", demoSeed, "to:", seedToUse);
+          } else {
+            // Pool exhausted - show error message
+            console.error("[LogoGenerator] Demo seed pool exhausted");
+            throw new Error(
+              "The 80s Forge has exhausted its unreleased seeds.",
+            );
+          }
+        } catch (error) {
+          console.error("[LogoGenerator] Error getting demo seed:", error);
+          throw error;
+        }
+      }
+
+      console.log("[LogoGenerator] About to generate logo with seed:", seedToUse, "text:", text);
       return generateLogo({
         text,
-        seed,
-        ...presetConfig,
+        seed: seedToUse,
+        ...(presetConfigCopy ?? {}),
       });
     },
-    [getPresetConfig],
+    [getPresetConfig, resolveDemoSeed, userInfo?.username],
   );
 
   const getProfileTitle = useCallback(
@@ -1978,10 +2115,14 @@ export default function LogoGenerator() {
 
     // NEW: Initialize UX enhancements
     try {
-      // Load UI mode preference
-      const storedMode = localStorage.getItem("plf:uiMode");
-      if (storedMode === "advanced" || storedMode === "simple") {
-        setUiMode(storedMode);
+      // Load UI mode preference (locked to advanced in demo mode)
+      if (!demoMode) {
+        const storedMode = localStorage.getItem("plf:uiMode");
+        if (storedMode === "advanced" || storedMode === "simple") {
+          setUiMode(storedMode);
+        }
+      } else {
+        setUiMode("advanced");
       }
 
       // Check onboarding status
@@ -2132,29 +2273,35 @@ export default function LogoGenerator() {
 
       // Auto-generate if we have text
       const seedToUse = seed ?? Math.floor(Math.random() * 2147483647);
-      try {
-        const result = createLogoResult(textParam, seedToUse, selectedPreset);
-        setIsGenerating(true);
-        startSeedCrackSequence(result, () => {
-          commitLogoResult(result);
-          if (limitCheck.ok) {
-            finalizeDailyLimit(
-              limitCheck.normalizedText,
-              limitCheck.todayState,
-              !!seedParam,
-            );
-          }
+      (async () => {
+        try {
+          const result = await createLogoResult(
+            textParam,
+            seedToUse,
+            selectedPreset,
+          );
+          setIsGenerating(true);
+          startSeedCrackSequence(result, () => {
+            commitLogoResult(result);
+            if (limitCheck.ok) {
+              finalizeDailyLimit(
+                limitCheck.normalizedText,
+                limitCheck.todayState,
+                !!seedParam,
+              );
+            }
+            setIsGenerating(false);
+          });
+        } catch (error) {
+          console.error("Error loading logo from URL:", error);
+          setToast({
+            message:
+              "Failed to load logo from URL. Please try generating manually.",
+            type: "error",
+          });
           setIsGenerating(false);
-        });
-      } catch (error) {
-        console.error("Error loading logo from URL:", error);
-        setToast({
-          message:
-            "Failed to load logo from URL. Please try generating manually.",
-          type: "error",
-        });
-        setIsGenerating(false);
-      }
+        }
+      })();
     }
   }, [
     checkDailyLimits,
@@ -2271,7 +2418,7 @@ export default function LogoGenerator() {
     userInfo?.username,
   ]);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!inputText.trim()) {
       setToast({
         message: "Please enter some text to generate a logo",
@@ -2282,41 +2429,56 @@ export default function LogoGenerator() {
 
     setRemixMode(false);
 
-    const limitCheck = checkDailyLimits(inputText, !!customSeed.trim());
+    const seedProvided = demoMode ? false : !!customSeed.trim();
+    const limitCheck = checkDailyLimits(inputText, seedProvided);
     if (!limitCheck.ok) {
       setToast({ message: limitCheck.message, type: "info" });
       return;
     }
 
+    const effectivePresetKey = demoMode ? DEMO_PRESET_KEY : selectedPreset;
+
     setCurrentEntryId(null);
 
-    const seedValue = customSeed.trim();
     let seed: number | undefined = undefined;
-    if (seedValue) {
-      const parsedSeed = parseInt(seedValue, 10);
-      if (isNaN(parsedSeed)) {
-        setSeedError("Seed must be a number");
-        return;
+    if (!demoMode) {
+      const seedValue = customSeed.trim();
+      if (seedValue) {
+        const parsedSeed = parseInt(seedValue, 10);
+        if (isNaN(parsedSeed)) {
+          setSeedError("Seed must be a number");
+          return;
+        }
+        if (parsedSeed < 0 || parsedSeed > 2147483647) {
+          setSeedError("Seed must be between 0 and 2147483647");
+          return;
+        }
+        seed = parsedSeed;
       }
-      if (parsedSeed < 0 || parsedSeed > 2147483647) {
-        setSeedError("Seed must be between 0 and 2147483647");
-        return;
-      }
-      seed = parsedSeed;
       setSeedError("");
+    } else {
+      setSeedError("");
+      setSelectedPreset(DEMO_PRESET_KEY);
     }
 
-    const seedToUse = seed ?? Math.floor(Math.random() * 2147483647);
+    const seedToUse = demoMode
+      ? resolveDemoSeed()
+      : (seed ?? Math.floor(Math.random() * 2147483647));
     try {
-      const result = createLogoResult(
+      const result = await createLogoResult(
         inputText.trim(),
         seedToUse,
-        selectedPreset,
+        effectivePresetKey,
       );
       setIsGenerating(true);
 
       // Persist to gallery immediately so all attempts are saved
       void persistGeneratedLogo(result);
+
+      // Mark demo seed as consumed if in demo mode
+      if (demoMode && result.seed >= 100_000_000) {
+        void requestAndConsumeDemoSeed(userInfo?.username);
+      }
 
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
@@ -2346,13 +2508,13 @@ export default function LogoGenerator() {
                 text: inputText.trim(),
                 seed: seedToUse,
                 rarity: result.rarity,
-                preset: selectedPreset,
+                preset: effectivePresetKey,
               },
             }),
           }).catch(() => {});
 
           // Auto-upgrade to advanced mode after 3 successful generations
-          if (uiMode === "simple" && newCount >= 3) {
+          if (!demoMode && uiMode === "simple" && newCount >= 3) {
             setUiMode("advanced");
             localStorage.setItem("plf:uiMode", "advanced");
             setToast({
@@ -2381,13 +2543,13 @@ export default function LogoGenerator() {
     }
   };
 
-  const handleRandomize = () => {
+  const handleRandomize = async () => {
     const randomText =
       RANDOM_WORDS[Math.floor(Math.random() * RANDOM_WORDS.length)];
     setInputText(randomText);
     setCustomSeed("");
     setSeedError("");
-    setSelectedPreset(null);
+    setSelectedPreset(demoMode ? DEMO_PRESET_KEY : null);
     setRemixMode(false);
 
     setCurrentEntryId(null);
@@ -2398,10 +2560,22 @@ export default function LogoGenerator() {
       return;
     }
 
-    const seedToUse = Math.floor(Math.random() * 2147483647);
+    const seedToUse = demoMode
+      ? resolveDemoSeed()
+      : Math.floor(Math.random() * 2147483647);
     try {
-      const result = createLogoResult(randomText, seedToUse, null);
+      const result = await createLogoResult(
+        randomText,
+        seedToUse,
+        demoMode ? DEMO_PRESET_KEY : null,
+      );
       setIsGenerating(true);
+
+      // Mark demo seed as consumed if in demo mode
+      if (demoMode && result.seed >= 100_000_000) {
+        void requestAndConsumeDemoSeed(userInfo?.username);
+      }
+
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
         void persistGeneratedLogo(result);
@@ -2428,7 +2602,7 @@ export default function LogoGenerator() {
     }
   };
 
-  const handleRemixCast = () => {
+  const handleRemixCast = async () => {
     if (!inputText.trim()) {
       setToast({ message: "Enter the original text to remix.", type: "error" });
       return;
@@ -2459,12 +2633,18 @@ export default function LogoGenerator() {
     setCurrentEntryId(null);
 
     try {
-      const result = createLogoResult(
+      const result = await createLogoResult(
         inputText.trim(),
         parsedSeed,
         selectedPreset,
       );
       setIsGenerating(true);
+
+      // Mark demo seed as consumed if in demo mode
+      if (IS_DEMO_MODE && result.seed >= 100_000_000) {
+        void requestAndConsumeDemoSeed(userInfo?.username);
+      }
+
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
         void persistGeneratedLogo(result);
@@ -3713,13 +3893,17 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
     });
 
   const openGalleryEntry = useCallback(
-    (entry: LeaderboardEntry, label: string) => {
+    async (entry: LeaderboardEntry, label: string) => {
       try {
         const presetKey = entry.presetKey ?? null;
-        const result = createLogoResult(entry.text, entry.seed, presetKey);
+        const result = await createLogoResult(
+          entry.text,
+          entry.seed,
+          presetKey,
+        );
         commitLogoResult(result);
         setInputText(entry.text);
-        setSelectedPreset(presetKey);
+        setSelectedPreset(demoMode ? DEMO_PRESET_KEY : presetKey);
         setActiveTab("home");
         setToast({ message: label, type: "success" });
       } catch (error) {
@@ -3730,7 +3914,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
         });
       }
     },
-    [commitLogoResult, createLogoResult, setActiveTab, setInputText],
+    [commitLogoResult, createLogoResult, setActiveTab, setInputText, demoMode],
   );
 
   const handleRandomEntry = useCallback(
@@ -5131,8 +5315,20 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
               <p>Each logo is generated from your text and a seed.</p>
               <p>The same text + seed always recreates the exact logo.</p>
               <p>Rarity is a random roll that unlocks extra effects.</p>
-              <p>You can generate up to 3 words per day.</p>
-              <p>You can enter a custom seed once per day.</p>
+              {demoMode ? (
+                <>
+                  <p>Demo mode locks every forge to neon 80s chrome visuals.</p>
+                  <p>
+                    Seeds rotate from our unreleased vault—no custom seeds here.
+                  </p>
+                  <p>Demo limit: One forge every 5 minutes.</p>
+                </>
+              ) : (
+                <>
+                  <p>You can generate up to 3 words per day.</p>
+                  <p>You can enter a custom seed once per day.</p>
+                </>
+              )}
             </div>
             <button
               className="how-modal-close"
@@ -5157,63 +5353,88 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                 justifyContent: "center",
               }}
             >
-              <button
-                type="button"
-                className={`mode-toggle-button ${uiMode === "simple" ? "active" : ""}`}
-                onClick={() => {
-                  setUiMode("simple");
-                  try {
-                    localStorage.setItem("plf:uiMode", "simple");
-                  } catch (error) {
-                    console.error("Failed to save UI mode:", error);
-                  }
-                }}
-                style={{
-                  padding: "3px 6px",
-                  fontSize: "9px",
-                  border: "1px solid",
-                  borderColor: uiMode === "simple" ? "#00ff00" : "#444",
-                  background: uiMode === "simple" ? "#00ff0020" : "transparent",
-                  color: uiMode === "simple" ? "#00ff00" : "#888",
-                  borderRadius: "1px",
-                  cursor: "pointer",
-                  fontFamily: "monospace",
-                  transition: "all 0.2s",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                Simple
-              </button>
-              <button
-                type="button"
-                className={`mode-toggle-button ${uiMode === "advanced" ? "active" : ""}`}
-                onClick={() => {
-                  setUiMode("advanced");
-                  try {
-                    localStorage.setItem("plf:uiMode", "advanced");
-                  } catch (error) {
-                    console.error("Failed to save UI mode:", error);
-                  }
-                }}
-                style={{
-                  padding: "3px 6px",
-                  fontSize: "9px",
-                  border: "1px solid",
-                  borderColor: uiMode === "advanced" ? "#00ff00" : "#444",
-                  background:
-                    uiMode === "advanced" ? "#00ff0020" : "transparent",
-                  color: uiMode === "advanced" ? "#00ff00" : "#888",
-                  borderRadius: "1px",
-                  cursor: "pointer",
-                  fontFamily: "monospace",
-                  transition: "all 0.2s",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                Advanced
-              </button>
+              {demoMode ? (
+                <div
+                  className="demo-mode-pill"
+                  aria-label={DEMO_MODE_LABEL}
+                  style={{
+                    padding: "6px 10px",
+                    fontSize: "10px",
+                    border: "1px solid #8a7bff",
+                    background:
+                      "linear-gradient(90deg, #1b102f, #2b1056, #1b102f)",
+                    color: "#e6d6ff",
+                    borderRadius: "2px",
+                    fontFamily: "'Press Start 2P', monospace",
+                    letterSpacing: "0.4px",
+                    textTransform: "uppercase",
+                    boxShadow: "0 0 12px #8a7bff80",
+                  }}
+                >
+                  {DEMO_MODE_LABEL}
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={`mode-toggle-button ${uiMode === "simple" ? "active" : ""}`}
+                    onClick={() => {
+                      setUiMode("simple");
+                      try {
+                        localStorage.setItem("plf:uiMode", "simple");
+                      } catch (error) {
+                        console.error("Failed to save UI mode:", error);
+                      }
+                    }}
+                    style={{
+                      padding: "3px 6px",
+                      fontSize: "9px",
+                      border: "1px solid",
+                      borderColor: uiMode === "simple" ? "#00ff00" : "#444",
+                      background:
+                        uiMode === "simple" ? "#00ff0020" : "transparent",
+                      color: uiMode === "simple" ? "#00ff00" : "#888",
+                      borderRadius: "1px",
+                      cursor: "pointer",
+                      fontFamily: "monospace",
+                      transition: "all 0.2s",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    Simple
+                  </button>
+                  <button
+                    type="button"
+                    className={`mode-toggle-button ${uiMode === "advanced" ? "active" : ""}`}
+                    onClick={() => {
+                      setUiMode("advanced");
+                      try {
+                        localStorage.setItem("plf:uiMode", "advanced");
+                      } catch (error) {
+                        console.error("Failed to save UI mode:", error);
+                      }
+                    }}
+                    style={{
+                      padding: "3px 6px",
+                      fontSize: "9px",
+                      border: "1px solid",
+                      borderColor: uiMode === "advanced" ? "#00ff00" : "#444",
+                      background:
+                        uiMode === "advanced" ? "#00ff0020" : "transparent",
+                      color: uiMode === "advanced" ? "#00ff00" : "#888",
+                      borderRadius: "1px",
+                      cursor: "pointer",
+                      fontFamily: "monospace",
+                      transition: "all 0.2s",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    Advanced
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="daily-limit">
@@ -5248,7 +5469,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
               aria-required="true"
             />
             {/* Only show seed input in Advanced Mode */}
-            {uiMode === "advanced" && (
+            {!demoMode && uiMode === "advanced" && (
               <div className="seed-input-group">
                 <div className="seed-label">
                   <svg
@@ -5357,16 +5578,31 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                 onClick={handleGenerate}
                 disabled={isGenerating || !inputText.trim()}
                 className="arcade-button"
-                aria-label="Generate pixel logo"
+                aria-label={
+                  demoMode
+                    ? "Forge an 80s logo using unreleased exclusive seeds"
+                    : "Generate pixel logo"
+                }
                 aria-busy={isGenerating ? "true" : "false"}
+                title={
+                  demoMode
+                    ? "This uses unreleased 80s seeds. Each can only be used once."
+                    : undefined
+                }
               >
-                {isGenerating ? "FORGING..." : "FORGE"}
+                {isGenerating
+                  ? demoMode
+                    ? "FORGING 80s..."
+                    : "FORGING..."
+                  : demoMode
+                    ? "⚡ Forge 80s Logo"
+                    : "FORGE"}
               </button>
               <button
                 onClick={handleRandomize}
                 disabled={isGenerating}
-                className="arcade-button secondary"
-                aria-label="Randomize logo"
+                className={`arcade-button secondary${demoMode ? " hidden" : ""}`}
+                aria-label={demoMode ? undefined : "Randomize logo"}
               >
                 RANDOMIZE
               </button>
@@ -5462,33 +5698,42 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
               </div>
             )}
             <div className="preset-group">
-              <div className="preset-title">Style presets</div>
-              <div className="preset-list">
-                {PRESETS.map((preset) => (
-                  <button
-                    key={preset.key}
-                    className={`preset-button${selectedPreset === preset.key ? " active" : ""}`}
-                    onClick={() => {
-                      setSelectedPreset(preset.key);
-                      if (inputText.trim()) {
-                        setTimeout(() => handleGenerate(), 0);
-                      }
-                    }}
-                    type="button"
-                    aria-pressed={selectedPreset === preset.key}
-                  >
-                    {preset.label}
-                    <span className="preset-swatches">
-                      <span
-                        className="preset-thumb"
-                        style={{
-                          background: `linear-gradient(90deg, ${(PRESET_SWATCHES[preset.key] || []).join(", ")})`,
-                        }}
-                      />
-                    </span>
-                  </button>
-                ))}
+              <div className="preset-title">
+                {IS_DEMO_MODE ? DEMO_MODE_LABEL : "Style presets"}
               </div>
+              {IS_DEMO_MODE ? (
+                <div className="preset-locked">
+                  Locked to neon synthwave chrome. All logos use the exclusive
+                  preset and hidden seeds.
+                </div>
+              ) : (
+                <div className="preset-list">
+                  {PRESETS.map((preset) => (
+                    <button
+                      key={preset.key}
+                      className={`preset-button${selectedPreset === preset.key ? " active" : ""}`}
+                      onClick={() => {
+                        setSelectedPreset(preset.key);
+                        if (inputText.trim()) {
+                          setTimeout(() => handleGenerate(), 0);
+                        }
+                      }}
+                      type="button"
+                      aria-pressed={selectedPreset === preset.key}
+                    >
+                      {preset.label}
+                      <span className="preset-swatches">
+                        <span
+                          className="preset-thumb"
+                          style={{
+                            background: `linear-gradient(90deg, ${(PRESET_SWATCHES[preset.key] || []).join(", ")})`,
+                          }}
+                        />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -5528,17 +5773,28 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
               className={`logo-image-wrapper rarity-${logoResult.rarity.toLowerCase()}`}
             >
               <div className="logo-card-frame" aria-hidden="true" />
-              <NextImage
-                key={`${logoResult.seed}-${logoResult.config.text}`}
-                src={logoResult.dataUrl}
-                alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
-                className="logo-image logo-image-reveal"
-                role="img"
-                aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity.${isMobile ? " Long-press to save to camera roll." : ""}`}
-                width={512}
-                height={512}
-                unoptimized
-              />
+              {IS_DEMO_MODE ? (
+                <DemoLogoDisplay
+                  logoResult={logoResult}
+                  className="logo-image logo-image-reveal"
+                  alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
+                  width={512}
+                  height={512}
+                  unoptimized
+                />
+              ) : (
+                <NextImage
+                  key={`${logoResult.seed}-${logoResult.config.text}`}
+                  src={logoResult.dataUrl}
+                  alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
+                  className="logo-image logo-image-reveal"
+                  role="img"
+                  aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity.${isMobile ? " Long-press to save to camera roll." : ""}`}
+                  width={512}
+                  height={512}
+                  unoptimized
+                />
+              )}
               <div className="logo-shine" aria-hidden="true" />
               <div className="rarity-sparkle" aria-hidden="true" />
               <button

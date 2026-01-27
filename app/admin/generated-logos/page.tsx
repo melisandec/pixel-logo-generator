@@ -3839,9 +3839,11 @@ export default function AdminGeneratedLogos() {
                     <h4 style={{ margin: "0 0 8px 0", color: "#ff00ff" }}>
                       Preview:
                     </h4>
-                    <img
+                    <Image
                       src={generatedLogoPreview.dataUrl}
                       alt="Logo preview"
+                      width={300}
+                      height={300}
                       style={{
                         maxWidth: "100%",
                         height: "auto",

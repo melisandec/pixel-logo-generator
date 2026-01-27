@@ -167,3 +167,39 @@ model UserPreferences {
 
   @@index([username])
 }
+// Demo mode seed pool: 5000 exclusive unreleased seeds
+// Each seed can be consumed exactly once
+model DemoSeedPool {
+  seed         String   @id // Seed as string for uniqueness
+  used         Boolean  @default(false)
+  usedAt       DateTime?
+  usedByUserId String?
+
+  @@index([used])
+  @@index([usedAt])
+}
+
+// Demo mode logo styles: store style fingerprints for each demo logo
+// Enables reconstruction and gallery display of demo-exclusive logos
+model DemoLogoStyle {
+  id          String   @id @default(cuid())
+  seed        String   @unique // Seed used (references DemoSeedPool) - unique for deterministic retrieval
+  
+  // 7 style variant components (deterministic names, not IDs)
+  palette     String   // PaletteVariant: neonPinkBlue, magentaCyan, etc. (12 options)
+  gradient    String   // GradientVariant: horizontal, vertical, radial, etc. (6 options)
+  glow        String   // GlowVariant: softNeon, hardNeon, pulseGlow, etc. (4 options)
+  chrome      String   // ChromeVariant: mirrorChrome, brushedMetal, etc. (4 options)
+  bloom       String   // BloomVariant: low, medium, heavy (3 options)
+  texture     String   // TextureVariant: none, grain, halftone, scanlines (4 options)
+  lighting    String   // LightingVariant: topLeft, topRight, bottomLeft, front (4 options)
+  
+  // Optional: link to GeneratedLogo if stored
+  generatedLogoId String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([palette])
+  @@index([glow])
+  @@index([createdAt])
+}
