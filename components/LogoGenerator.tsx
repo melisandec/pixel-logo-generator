@@ -5031,7 +5031,9 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                   </div>
                   <div className="gallery-modal-stat">
                     <span className="stat-label">Likes</span>
-                    <span className="stat-value">❤️ {expandedGalleryEntry.likes || 0}</span>
+                    <span className="stat-value">
+                      ❤️ {expandedGalleryEntry.likes || 0}
+                    </span>
                   </div>
                   {expandedGalleryEntry.recasts ? (
                     <div className="gallery-modal-stat">
@@ -5047,7 +5049,8 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                     <strong>Seed:</strong> {expandedGalleryEntry.seed}
                   </div>
                   <div>
-                    <strong>Rarity:</strong> {expandedGalleryEntry.rarity || "Unknown"}
+                    <strong>Rarity:</strong>{" "}
+                    {expandedGalleryEntry.rarity || "Unknown"}
                   </div>
                   {expandedGalleryEntry.presetKey && (
                     <div>
@@ -5776,7 +5779,10 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                                   fetch(`/api/leaderboard/${entry.id}/view`, {
                                     method: "POST",
                                   }).catch((error) =>
-                                    console.error("Failed to record view:", error),
+                                    console.error(
+                                      "Failed to record view:",
+                                      error,
+                                    ),
                                   );
                                 }}
                                 aria-label={`Expand logo by ${entry.username}`}

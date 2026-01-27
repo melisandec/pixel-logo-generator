@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import { LeaderboardEntry } from '@/lib/badgeTracker';
+import { LeaderboardEntry } from "@/lib/badgeTracker";
 
 interface LogoGeneratorGalleryProps {
   entries: LeaderboardEntry[];
   isLoading: boolean;
   error: string | null;
-  
+
   rarityFilter: string;
   onRarityFilterChange: (rarity: string) => void;
-  
-  viewMode: 'logos' | 'casts';
-  onViewModeChange: (mode: 'logos' | 'casts') => void;
-  
+
+  viewMode: "logos" | "casts";
+  onViewModeChange: (mode: "logos" | "casts") => void;
+
   page: number;
   onPageChange: (page: number) => void;
-  
+
   onLike: (entryId: string) => Promise<void>;
   onRemix: (entry: LeaderboardEntry) => void;
 }

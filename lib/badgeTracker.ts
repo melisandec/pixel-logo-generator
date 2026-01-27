@@ -3,7 +3,7 @@ import { BADGE_TYPES, BadgeType } from "@/lib/badgeTypes";
 import { EXTRA_BADGE_TYPES, ExtraBadgeType } from "@/lib/badgeTypes";
 import { Prisma } from "@prisma/client";
 
-type LeaderboardEntry = {
+export type LeaderboardEntry = {
   id: string;
   username: string;
   likes: number;

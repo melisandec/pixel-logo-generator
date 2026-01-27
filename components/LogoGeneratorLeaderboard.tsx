@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { LeaderboardEntry } from '@/hooks/useLogoGenerator';
+import { LeaderboardEntry } from "@/lib/badgeTracker";
 
 interface LogoGeneratorLeaderboardProps {
   entries: LeaderboardEntry[];
   isLoading: boolean;
-  
-  sortBy: 'score' | 'recent' | 'likes';
-  onSortChange: (sort: 'score' | 'recent' | 'likes') => void;
-  
+
+  sortBy: "score" | "recent" | "likes";
+  onSortChange: (sort: "score" | "recent" | "likes") => void;
+
   page: number;
   onPageChange: (page: number) => void;
-  
+
   onLike: (entryId: string) => Promise<void>;
   onRemix: (entry: LeaderboardEntry) => void;
 }
