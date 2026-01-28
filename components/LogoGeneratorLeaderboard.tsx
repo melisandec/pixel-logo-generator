@@ -3,26 +3,9 @@
 import NextImage from "next/image";
 import Link from "next/link";
 import { getImageForContext } from "@/lib/imageContext";
+import { LeaderboardEntry, formatHistoryTime } from "@/lib/logoGeneratorTypes";
 
-type ExtendedLeaderboardEntry = {
-  id: string;
-  username: string;
-  displayName: string;
-  likes: number;
-  recasts?: number;
-  rarity?: string | null;
-  presetKey?: string | null;
-  text: string;
-  castUrl?: string | null;
-  pfpUrl?: string | null;
-  logoImageUrl?: string | null | undefined;
-  cardImageUrl?: string | null | undefined;
-  thumbImageUrl?: string | null | undefined;
-  mediumImageUrl?: string | null | undefined;
-  imageUrl?: string | null | undefined;
-  createdAt: number | string | Date;
-  seed: number;
-};
+type ExtendedLeaderboardEntry = LeaderboardEntry;
 
 interface LogoGeneratorLeaderboardProps {
   entries: ExtendedLeaderboardEntry[];
@@ -67,15 +50,6 @@ export default function LogoGeneratorLeaderboard(
 
   const totalPages = Math.max(1, Math.ceil(entries.length / pageSize));
   const pagedEntries = entries.slice((page - 1) * pageSize, page * pageSize);
-
-  const formatHistoryTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   return (
     <div className="leaderboard">
@@ -336,16 +310,12 @@ export default function LogoGeneratorLeaderboard(
                 const bCreated =
                   typeof b.createdAt === "string"
                     ? new Date(b.createdAt).getTime()
-                    : b.createdAt instanceof Date
-                      ? b.createdAt.getTime()
-                      : b.createdAt;
+                    : Number(b.createdAt);
                 const aCreated =
                   typeof a.createdAt === "string"
                     ? new Date(a.createdAt).getTime()
-                    : a.createdAt instanceof Date
-                      ? a.createdAt.getTime()
-                      : a.createdAt;
-                return (bCreated as number) - (aCreated as number);
+                    : Number(a.createdAt);
+                return bCreated - aCreated;
               })
               .slice(0, 5)
               .map((entry) => (
@@ -362,9 +332,7 @@ export default function LogoGeneratorLeaderboard(
                           {formatHistoryTime(
                             typeof entry.createdAt === "string"
                               ? new Date(entry.createdAt).getTime()
-                              : entry.createdAt instanceof Date
-                                ? entry.createdAt.getTime()
-                                : entry.createdAt,
+                              : Number(entry.createdAt),
                           )}
                         </span>
                         <span>@{entry.username}</span>

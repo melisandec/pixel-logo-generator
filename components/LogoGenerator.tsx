@@ -49,6 +49,9 @@ import EmptyState from "./EmptyState";
 import ResultCount from "./ResultCount";
 import LogoGeneratorLeaderboard from "./LogoGeneratorLeaderboard";
 import LogoGeneratorProfile from "./LogoGeneratorProfile";
+import LogoGeneratorRewards from "./LogoGeneratorRewards";
+import LogoGeneratorGallery from "./LogoGeneratorGallery";
+import LogoGeneratorHome from "./LogoGeneratorHome";
 
 const CastPreviewModal = dynamic(() => import("./CastPreviewModal"), {
   ssr: false,
@@ -4551,35 +4554,6 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           </div>
         </div>
       )}
-      {expandedCastImage && (
-        <div
-          className="expanded-image-modal"
-          onClick={() => setExpandedCastImage(null)}
-        >
-          <div
-            className="expanded-image-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="expanded-image-close"
-              onClick={() => setExpandedCastImage(null)}
-              aria-label="Close expanded image"
-            >
-              ✕
-            </button>
-            <NextImage
-              src={expandedCastImage}
-              alt="Expanded cast logo"
-              className="expanded-image"
-              width={600}
-              height={600}
-              loading="lazy"
-              unoptimized
-            />
-          </div>
-        </div>
-      )}
       {rewardAnimation && (
         <RewardAnimation
           type={rewardAnimation.type}
@@ -4643,796 +4617,133 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           </div>
         </div>
       )}
+
+      {/* TAB ROUTING */}
       {activeTab === "home" && (
-        <div className="input-panel">
-          <div className="input-section">
-            {/* NEW: Mode Toggle */}
-            <div className={`mode-toggle-wrapper ${styles.modeToggleWrapper}`}>
-              {demoMode ? (
-                <div
-                  className={`demo-mode-pill ${styles.demoModePill}`}
-                  aria-label={DEMO_MODE_LABEL}
-                >
-                  {DEMO_MODE_LABEL}
-                </div>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className={`mode-toggle-button ${uiMode === "simple" ? "active" : ""} ${styles.modeToggleButtonSimple}`}
-                    onClick={() => {
-                      setUiMode("simple");
-                      try {
-                        localStorage.setItem("plf:uiMode", "simple");
-                      } catch (error) {
-                        console.error("Failed to save UI mode:", error);
-                      }
-                    }}
-                  >
-                    Simple
-                  </button>
-                  <button
-                    type="button"
-                    className={`mode-toggle-button ${uiMode === "advanced" ? "active" : ""} ${styles.modeToggleButtonAdvanced}`}
-                    onClick={() => {
-                      setUiMode("advanced");
-                      try {
-                        localStorage.setItem("plf:uiMode", "advanced");
-                      } catch (error) {
-                        console.error("Failed to save UI mode:", error);
-                      }
-                    }}
-                  >
-                    Advanced
-                  </button>
-                </>
-              )}
-            </div>
-
-            <div className="daily-limit">
-              Tries left today:{" "}
-              {userInfo?.username?.toLowerCase() === "ladymel"
-                ? "Unlimited"
-                : `${Math.max(0, TRIES_PER_DAY - dailyLimit.words.length)}/${TRIES_PER_DAY}`}
-            </div>
-            <div className="prompt-of-day">
-              Prompt of the day: <span>{getPromptOfDay()}</span>
-              <button
-                type="button"
-                className="prompt-button"
-                onClick={() => {
-                  setInputText(getPromptOfDay());
-                  // Note: Seed field remains available - you can use any seed with prompts
-                }}
-              >
-                Use prompt
-              </button>
-            </div>
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleGenerate()}
-              placeholder="Enter your text (max 30 chars)"
-              maxLength={30}
-              className="terminal-input"
-              disabled={isGenerating}
-              aria-label="Text input for logo generation"
-              aria-required="true"
-            />
-            {/* Only show seed input in Advanced Mode */}
-            {!demoMode && uiMode === "advanced" && (
-              <div className="seed-input-group">
-                <div className="seed-label">
-                  <svg
-                    className="seed-icon"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <rect x="6" y="2" width="4" height="2" />
-                    <rect x="5" y="4" width="6" height="2" />
-                    <rect x="4" y="6" width="8" height="2" />
-                    <rect x="4" y="8" width="8" height="2" />
-                    <rect x="5" y="10" width="6" height="2" />
-                    <rect x="6" y="12" width="4" height="2" />
-                  </svg>
-                  <span>Seed</span>
-                  <button
-                    type="button"
-                    className={`remix-pill${remixMode ? " active" : ""}`}
-                    onClick={() => {
-                      if (!customSeed.trim()) {
-                        setToast({
-                          message: "Enter a seed to enable remix.",
-                          type: "info",
-                        });
-                        return;
-                      }
-                      if (!inputText.trim()) {
-                        setToast({
-                          message: "Enter the original text to remix.",
-                          type: "info",
-                        });
-                        return;
-                      }
-                      setRemixMode((prev) => !prev);
-                    }}
-                    aria-pressed={remixMode}
-                  >
-                    Remix
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={customSeed}
-                  onChange={(e) => {
-                    const value = e.target.value.trim();
-                    setCustomSeed(value);
-
-                    if (value === "") {
-                      setSeedError("");
-                      return;
-                    }
-
-                    const parsedSeed = parseInt(value, 10);
-                    if (isNaN(parsedSeed)) {
-                      setSeedError("Seed must be a number");
-                    } else if (parsedSeed < 0 || parsedSeed > 2147483647) {
-                      setSeedError("Seed must be between 0 and 2147483647");
-                    } else {
-                      setSeedError("");
-                    }
-                  }}
-                  placeholder="Optional: Use a seed once per day"
-                  className="seed-input"
-                  disabled={isGenerating || dailyLimit.seedUsed}
-                  aria-label="Optional seed input for deterministic logo generation"
-                  aria-invalid={seedError !== ""}
-                  aria-describedby={seedError ? "seed-error" : "seed-hint"}
-                />
-                {seedError ? (
-                  <span id="seed-error" className="seed-error" role="alert">
-                    {seedError}
-                  </span>
-                ) : (
-                  <span id="seed-hint" className="seed-hint">
-                    {dailyLimit.seedUsed
-                      ? "Seed used today — try again tomorrow"
-                      : "One seed entry per day"}
-                  </span>
-                )}
-                <span className="seed-tip">Tip: seed = recreate</span>
-              </div>
-            )}
-            {/* End of Advanced Mode section */}
-            <button
-              type="button"
-              className="how-link"
-              onClick={() => setShowHowItWorks(true)}
-              aria-label="How it works"
-            >
-              How it works
-            </button>
-            <button
-              type="button"
-              className="sound-toggle"
-              onClick={toggleSound}
-              aria-pressed={soundEnabled}
-              aria-label={`Sound ${soundEnabled ? "on" : "off"}`}
-            >
-              Sound: {soundEnabled ? "On" : "Off"}
-            </button>
-            <div className="button-group">
-              <button
-                onClick={handleGenerate}
-                disabled={isGenerating || !inputText.trim()}
-                className="arcade-button"
-                aria-label={
-                  demoMode
-                    ? "Forge an 80s logo using unreleased exclusive seeds"
-                    : "Generate pixel logo"
-                }
-                aria-busy={isGenerating}
-                title={
-                  demoMode
-                    ? "This uses unreleased 80s seeds. Each can only be used once."
-                    : undefined
-                }
-              >
-                {isGenerating
-                  ? demoMode
-                    ? "FORGING 80s..."
-                    : "FORGING..."
-                  : demoMode
-                    ? "⚡ Forge 80s Logo"
-                    : "FORGE"}
-              </button>
-              <button
-                onClick={handleRandomize}
-                disabled={isGenerating}
-                className={`arcade-button secondary${demoMode ? " hidden" : ""}`}
-                aria-label={demoMode ? undefined : "Randomize logo"}
-              >
-                RANDOMIZE
-              </button>
-            </div>
-            {isGenerating && seedCrackStage && (
-              <div className="seed-crack-overlay">
-                <div
-                  className={`seed-crack${seedCrackRarity ? ` rarity-${seedCrackRarity.toLowerCase()}` : ""}`}
-                  aria-live="polite"
-                >
-                  {(seedCrackStage === "dormant" ||
-                    seedCrackStage === "stress" ||
-                    seedCrackStage === "crawl-1" ||
-                    seedCrackStage === "crawl-2" ||
-                    seedCrackStage === "fissure" ||
-                    seedCrackStage === "swell" ||
-                    seedCrackStage === "shake" ||
-                    seedCrackStage === "pause" ||
-                    seedCrackStage === "bloom") && (
-                    <>
-                      <span className="seed-crack-label">Cracking seed</span>
-                      <div
-                        className={`seed-crack-icon stage-${seedCrackStage}${
-                          seedCrackStage === "bloom" ? " is-split" : ""
-                        } ${styles.seedCrackIcon}`}
-                        style={{
-                          ["--seed-shake" as any]: seedCrackVariance
-                            ? `${seedCrackVariance.shakeAmp.toFixed(2)}px`
-                            : undefined,
-                          ["--seed-crack-offset" as any]: seedCrackVariance
-                            ? `${seedCrackVariance.crackOffset.toFixed(2)}px`
-                            : undefined,
-                          ["--seed-glow-hue" as any]: seedCrackVariance
-                            ? `${seedCrackVariance.glowHue.toFixed(2)}deg`
-                            : undefined,
-                          ["--seed-bloom-angle" as any]: seedCrackVariance
-                            ? `${seedCrackVariance.bloomAngle.toFixed(2)}deg`
-                            : undefined,
-                        }}
-                        aria-hidden="true"
-                      >
-                        <div
-                          className={`seed-crack-shake${seedCrackStage === "shake" ? " is-active" : ""}`}
-                        >
-                          <div className="seed-crack-body" />
-                          <div className="seed-crack-flap left" />
-                          <div className="seed-crack-flap right" />
-                          <div className="seed-crack-line" />
-                          <div className="seed-crack-highlight" />
-                          <div className="seed-crack-glow" />
-                          <div
-                            className="seed-crack-sparkles"
-                            aria-hidden="true"
-                          >
-                            <span className="seed-sparkle sparkle-1" />
-                            <span className="seed-sparkle sparkle-2" />
-                            <span className="seed-sparkle sparkle-3" />
-                          </div>
-                        </div>
-                      </div>
-                      <span className="seed-crack-stage">
-                        {seedCrackStage === "dormant" && "Stage 1/9"}
-                        {seedCrackStage === "stress" && "Stage 2/9"}
-                        {seedCrackStage === "crawl-1" && "Stage 3/9"}
-                        {seedCrackStage === "crawl-2" && "Stage 4/9"}
-                        {seedCrackStage === "fissure" && "Stage 5/9"}
-                        {seedCrackStage === "swell" && "Stage 6/9"}
-                        {seedCrackStage === "shake" && "Stage 7/9"}
-                        {seedCrackStage === "pause" && "Stage 8/9"}
-                        {seedCrackStage === "bloom" && "Stage 9/9"}
-                      </span>
-                    </>
-                  )}
-                  {seedCrackStage === "ticket" && (
-                    <>
-                      <div
-                        className={`seed-ticket from-seed rarity-${(seedCrackRarity || "COMMON").toLowerCase()}`}
-                      >
-                        <span className="seed-ticket-label">Seed ticket</span>
-                        <span className="seed-ticket-value">
-                          {seedCrackValue}
-                        </span>
-                      </div>
-                      <span className="seed-crack-stage">Stage 10/10</span>
-                      <div className="seed-congrats">
-                        {seedCrackRarity === "LEGENDARY"
-                          ? "Legendary forge unlocked."
-                          : "Congratulations."}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-            <div className="preset-group">
-              <div className="preset-title">
-                {IS_DEMO_MODE ? DEMO_MODE_LABEL : "Style presets"}
-              </div>
-              {IS_DEMO_MODE ? (
-                <div className="preset-locked">
-                  Locked to neon synthwave chrome. All logos use the exclusive
-                  preset and hidden seeds.
-                </div>
-              ) : (
-                <div className="preset-list">
-                  {PRESETS.map((preset) => (
-                    <button
-                      key={preset.key}
-                      className={`preset-button${selectedPreset === preset.key ? " active" : ""}`}
-                      onClick={() => {
-                        setSelectedPreset(preset.key);
-                        if (inputText.trim()) {
-                          setTimeout(() => handleGenerate(), 0);
-                        }
-                      }}
-                      type="button"
-                      aria-pressed={selectedPreset === preset.key}
-                    >
-                      {preset.label}
-                      <span className="preset-swatches">
-                        <span
-                          className={`preset-thumb ${styles.presetThumb}`}
-                          style={{
-                            background: `linear-gradient(90deg, ${(PRESET_SWATCHES[preset.key] || []).join(", ")})`,
-                          }}
-                        />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "home" && logoResult && (
-        <div className="output-section">
-          <div className="logo-card">
-            <div
-              className={`rarity-badge ${styles.rarityBadge}`}
-              style={{ borderColor: getRarityColor(logoResult.rarity) }}
-            >
-              <div
-                className={`rarity-glow ${styles.rarityGlow}`}
-                style={{ background: getRarityColor(logoResult.rarity) }}
-                aria-hidden="true"
-              />
-              <span className="rarity-label">RARITY:</span>
-              <span
-                className={`rarity-value ${styles.rarityValue}`}
-                style={{ color: getRarityColor(logoResult.rarity) }}
-              >
-                {logoResult.rarity}
-              </span>
-              <button
-                type="button"
-                className="rarity-tooltip"
-                aria-label="Rarity breakdown: Common 50, Rare 30, Epic 15, Legendary 5"
-              >
-                i
-                <span className="rarity-tooltip-text">
-                  Common 50% • Rare 30% • Epic 15% • Legendary 5%
-                </span>
-              </button>
-            </div>
-            <div
-              className={`logo-image-wrapper rarity-${logoResult.rarity.toLowerCase()}`}
-            >
-              <div className="logo-card-frame" aria-hidden="true" />
-              {IS_DEMO_MODE ? (
-                <DemoLogoDisplay
-                  logoResult={logoResult}
-                  className="logo-image logo-image-reveal"
-                  alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
-                  width={512}
-                  height={512}
-                  unoptimized
-                />
-              ) : (
-                <NextImage
-                  key={`${logoResult.seed}-${logoResult.config.text}`}
-                  src={logoResult.dataUrl}
-                  alt={`Pixel logo: ${logoResult.config.text} with ${logoResult.rarity} rarity`}
-                  className="logo-image logo-image-reveal"
-                  role="img"
-                  aria-label={`Generated pixel logo for "${logoResult.config.text}" with ${logoResult.rarity} rarity.${isMobile ? " Long-press to save to camera roll." : ""}`}
-                  width={512}
-                  height={512}
-                  unoptimized
-                />
-              )}
-              <div className="logo-shine" aria-hidden="true" />
-              <div className="rarity-sparkle" aria-hidden="true" />
-              <button
-                type="button"
-                className="logo-download-button"
-                onClick={() => setShowDownloadOptions(true)}
-                aria-label="Download options"
-              >
-                ⬇
-              </button>
-            </div>
-            {showDownloadOptions && (
-              <div className="download-modal">
-                <div
-                  className="download-modal-card"
-                  role="dialog"
-                  aria-label="Download options"
-                >
-                  <div className="download-modal-title">Save image</div>
-                  <div className="download-modal-actions">
-                    <button
-                      type="button"
-                      onClick={() => openImageForSave("photos")}
-                    >
-                      Save to Photos
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openImageForSave("files")}
-                    >
-                      Save to Files
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openImageForSave("download")}
-                    >
-                      Download image
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    className="download-modal-cancel"
-                    onClick={() => setShowDownloadOptions(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-            <div className="logo-info">
-              <button
-                className="how-it-works"
-                type="button"
-                onClick={() => setShowHowItWorks(true)}
-                aria-label="How it works"
-              >
-                How it works
-              </button>
-              <div className="seed-display">
-                <span>Seed: </span>
-                <span className="seed-value">{logoResult.seed}</span>
-                <span className="seed-help">(Permanent)</span>
-              </div>
-              <div className="seed-permanence">
-                This seed is permanent. Anyone can recreate it.
-              </div>
-              <div className="logo-footer">
-                <span>Generated by Pixel Logo Forge</span>
-              </div>
-            </div>
-            <div className="actions-divider">Actions</div>
-            <div className="auto-reply-toggle">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={autoReplyEnabled}
-                  onChange={(event) => {
-                    const nextValue = event.target.checked;
-                    setAutoReplyEnabled(nextValue);
-                    saveAutoReplySetting(nextValue);
-                  }}
-                />
-                Auto-reply with app link
-              </label>
-            </div>
-            <div className="logo-actions">
-              <div className="logo-actions-primary action-row action-row-two">
-                <button
-                  onClick={() =>
-                    remixMode ? handleRemixCast() : handleCastClick()
-                  }
-                  className="action-button cast-button"
-                  disabled={isCasting || isGenerating}
-                  aria-label="Cast logo to Farcaster"
-                  aria-busy={isCasting}
-                >
-                  {isCasting ? "CASTING..." : "CAST"}
-                </button>
-                <button
-                  onClick={handleDownload}
-                  className="action-button"
-                  disabled={isGenerating}
-                  aria-label={
-                    isMobile
-                      ? "Save image to Photos or Files"
-                      : "Download image as PNG"
-                  }
-                >
-                  DOWNLOAD
-                </button>
-              </div>
-              <div className="logo-actions-secondary">
-                <div className="action-icons">
-                  <button
-                    type="button"
-                    className="action-icon-button"
-                    onClick={copySeed}
-                    aria-label={`Copy seed ${logoResult.seed} to clipboard`}
-                    disabled={isGenerating}
-                  >
-                    🔑
-                    <span>Copy</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="action-icon-button"
-                    onClick={() => toggleFavorite(logoResult)}
-                    aria-label="Save logo to favorites"
-                    disabled={isGenerating}
-                  >
-                    ⭐<span>{isFavorite(logoResult) ? "Saved" : "Save"}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="action-icon-button"
-                    onClick={() => setRemixMode((prev) => !prev)}
-                    aria-label="Toggle remix mode"
-                    disabled={isGenerating}
-                  >
-                    ♻️
-                    <span>{remixMode ? "Remix on" : "Remix"}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="action-icon-button"
-                    onClick={handleShare}
-                    aria-label="Share logo link"
-                    disabled={isSharing || isGenerating}
-                  >
-                    🔗
-                    <span>{isSharing ? "Sharing" : "Share"}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-            {sdkReady && !miniappAdded && (
-              <div className="miniapp-cta">
-                <span>Add to collection for quick access.</span>
-                <button
-                  type="button"
-                  className="miniapp-cta-button"
-                  onClick={handleAddMiniapp}
-                >
-                  Add to Collection
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === "home" && (
-        <div className="output-section">
-          <div className="home-top-casts">
-            <button
-              type="button"
-              className={`feedback-button ${styles.feedbackButton}`}
-              onClick={() => setShowFeedbackModal(true)}
-            >
-              💬 Feedback
-            </button>
-            <div className="leaderboard-title">Top 3 casts today</div>
-            {sortedLeaderboard.length === 0 ? (
-              <div className="leaderboard-status">
-                No casts yet today. Be the first!
-              </div>
-            ) : (
-              <div className="home-top-casts-grid">
-                {topThreeSortedByLikes.map((entry, index) => {
-                  const medalEmoji =
-                    index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉";
-                  const medalClass =
-                    index === 0 ? "gold" : index === 1 ? "silver" : "bronze";
-                  return (
-                    <div
-                      key={`home-top-${entry.id}`}
-                      className={`home-top-cast home-top-cast-${medalClass} ${
-                        shakingCardIds.has(entry.id) ? "shake" : ""
-                      } ${reorderingCastIds.has(entry.id) ? "reordering" : ""}`}
-                    >
-                      <div className="home-top-cast-left">
-                        <div className="home-top-cast-image-wrapper">
-                          {(() => {
-                            const previewImageUrl = getImageForContext(
-                              {
-                                logoImageUrl: entry.logoImageUrl,
-                                cardImageUrl: entry.cardImageUrl,
-                                thumbImageUrl: entry.thumbImageUrl,
-                                mediumImageUrl: entry.mediumImageUrl,
-                                imageUrl: entry.imageUrl,
-                              },
-                              "preview",
-                            );
-                            return previewImageUrl ? (
-                              <button
-                                type="button"
-                                className="home-top-cast-image-btn"
-                                onClick={() => {
-                                  setExpandedCastImage(previewImageUrl);
-                                  // Increment view count in database
-                                  fetch(`/api/leaderboard/${entry.id}/view`, {
-                                    method: "POST",
-                                  }).catch((error) =>
-                                    console.error(
-                                      "Failed to record view:",
-                                      error,
-                                    ),
-                                  );
-                                }}
-                                aria-label={`Expand logo by ${entry.username}`}
-                              >
-                                <NextImage
-                                  src={previewImageUrl}
-                                  alt={`Logo by ${entry.username}`}
-                                  className="home-top-cast-image"
-                                  width={140}
-                                  height={140}
-                                  loading="lazy"
-                                  unoptimized
-                                />
-                              </button>
-                            ) : (
-                              <div className="home-top-cast-text">
-                                {entry.text || "View cast"}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                      <div className="home-top-cast-right">
-                        <div className="home-top-cast-rank">
-                          {medalEmoji} #{index + 1}
-                        </div>
-                        <Link
-                          href={`/profile/${encodeURIComponent(entry.username)}`}
-                          className="home-top-cast-username"
-                          aria-label={`View profile for ${entry.username}`}
-                        >
-                          @{entry.username}
-                        </Link>
-                        <div className="home-top-cast-likes-section">
-                          <span className="home-top-cast-likes-count">
-                            {entry.likes}
-                          </span>
-                          <button
-                            type="button"
-                            className={`home-top-cast-like-btn ${
-                              animatingLikeIds.has(entry.id) ? "animate" : ""
-                            } ${likedEntryIds.has(entry.id) ? "liked" : ""}`}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              // Only allow like if not already liked
-                              if (likedEntryIds.has(entry.id)) {
-                                return;
-                              }
-
-                              // Track previous positions in top 3
-                              const prevTop3Ids = new Set(
-                                topThreeSortedByLikes.map((e) => e.id),
-                              );
-                              const likedCastIndex =
-                                topThreeSortedByLikes.findIndex(
-                                  (e) => e.id === entry.id,
-                                );
-
-                              // Heart pop animation
-                              setAnimatingLikeIds(
-                                (prev) => new Set([...prev, entry.id]),
-                              );
-                              // Screen shake animation
-                              setShakingCardIds(
-                                (prev) => new Set([...prev, entry.id]),
-                              );
-                              // Combo counter animation
-                              setFloatingComboIds(
-                                (prev) => new Set([...prev, entry.id]),
-                              );
-
-                              // Toggle like and trigger reorder if position changes
-                              toggleLeaderboardLike(entry.id);
-
-                              // Schedule reorder animation after brief delay
-                              setTimeout(() => {
-                                // Check if cast moved position in top 3
-                                const newTop3Ids = new Set(
-                                  topThreeSortedByLikes.map((e) => e.id),
-                                );
-                                const newLikedCastIndex =
-                                  topThreeSortedByLikes.findIndex(
-                                    (e) => e.id === entry.id,
-                                  );
-
-                                // If position changed or new entry entered top 3, trigger reorder
-                                if (
-                                  likedCastIndex !== newLikedCastIndex ||
-                                  !prevTop3Ids.has(entry.id)
-                                ) {
-                                  // Trigger reorder animation for affected cards
-                                  setReorderingCastIds(
-                                    (prev) =>
-                                      new Set([...prevTop3Ids, ...newTop3Ids]),
-                                  );
-
-                                  // Clear reorder animation after transition
-                                  setTimeout(() => {
-                                    setReorderingCastIds(new Set());
-                                  }, 500);
-                                }
-
-                                // Clear other animations
-                                setAnimatingLikeIds((prev) => {
-                                  const next = new Set(prev);
-                                  next.delete(entry.id);
-                                  return next;
-                                });
-                                setShakingCardIds((prev) => {
-                                  const next = new Set(prev);
-                                  next.delete(entry.id);
-                                  return next;
-                                });
-                                setFloatingComboIds((prev) => {
-                                  const next = new Set(prev);
-                                  next.delete(entry.id);
-                                  return next;
-                                });
-                              }, 800);
-                            }}
-                            disabled={likedEntryIds.has(entry.id)}
-                            aria-label={`Like cast by ${entry.username}`}
-                          >
-                            {likedEntryIds.has(entry.id) ? "❤️" : "🤍"}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="home-top-cast-views">
-                        viewed {entry.views || 0}
-                      </div>
-                      {floatingComboIds.has(entry.id) && (
-                        <div className="floating-combo-text">+1 LIKE!</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+        <LogoGeneratorHome
+          inputText={inputText}
+          onInputChange={setInputText}
+          customSeed={customSeed}
+          onSeedChange={setCustomSeed}
+          seedError={seedError}
+          isGenerating={isGenerating}
+          selectedPreset={selectedPreset}
+          onPresetChange={setSelectedPreset}
+          onGenerate={handleGenerate}
+          onRandomGenerate={handleRandomize}
+          logoResult={logoResult}
+          dailyRemaining={dailyLimit.words.length}
+          dailyLimitSeedUsed={dailyLimit.seedUsed}
+          uiMode={uiMode}
+          onUIModeChange={setUiMode}
+          demoMode={demoMode}
+          soundEnabled={soundEnabled}
+          onToggleSound={toggleSound}
+          remixMode={remixMode}
+          onToggleRemix={() => setRemixMode((prev) => !prev)}
+          seedCrackStage={seedCrackStage}
+          seedCrackValue={seedCrackValue}
+          seedCrackRarity={seedCrackRarity}
+          seedCrackVariance={seedCrackVariance}
+          topCasts={topThreeSortedByLikes}
+          likedEntryIds={likedEntryIds}
+          onLike={toggleLeaderboardLike}
+          onShare={handleShare}
+          onDownload={handleDownload}
+          onCast={handleCastClick}
+          onAddMiniapp={handleAddMiniapp}
+          onCopySeed={copySeed}
+          onToggleFavorite={() => toggleFavorite(logoResult!)}
+          isFavorite={isFavorite(logoResult)}
+          sdkReady={sdkReady}
+          miniappAdded={miniappAdded}
+          isCasting={isCasting}
+          isSharing={isSharing}
+          isMobile={isMobile}
+          showDownloadOptions={showDownloadOptions}
+          onShowDownloadOptions={setShowDownloadOptions}
+          onOpenImageForSave={openImageForSave}
+          onShowHowItWorks={() => setShowHowItWorks(true)}
+          onSetToast={(message, type) => setToast({ message, type })}
+          getRarityColor={getRarityColor}
+          userInfo={userInfo}
+          autoReplyEnabled={autoReplyEnabled}
+          onAutoReplyChange={saveAutoReplySetting}
+          onShowFeedback={() => setShowFeedbackModal(true)}
+          animatingLikeIds={animatingLikeIds}
+          shakingCardIds={shakingCardIds}
+          floatingComboIds={floatingComboIds}
+          reorderingCastIds={reorderingCastIds}
+          onToggleLeaderboardLike={toggleLeaderboardLike}
+        />
       )}
 
       {activeTab === "gallery" && (
-        <div className="output-section">
-          {castGalleryContent}
-          {favoritesContent}
-        </div>
+        <LogoGeneratorGallery
+          entries={filteredGalleryEntries}
+          isLoading={galleryLoading}
+          error={galleryError}
+          page={galleryPage}
+          onPageChange={setGalleryPage}
+          pageSize={galleryPageSize}
+          likedEntryIds={likedEntryIds}
+          onLike={toggleLeaderboardLike}
+          onShare={handleShare}
+          favorites={favorites}
+          onLoadFavorite={(result) => {
+            setLogoResult(result);
+            setInputText(result.config.text);
+            setActiveTab("home");
+          }}
+          onRemoveFavorite={toggleFavorite}
+          recentLogos={recentLogosFromGallery}
+          onLoadRecentLogo={(entry) => {
+            setInputText(entry.text);
+            setActiveTab("home");
+          }}
+        />
       )}
 
       {activeTab === "leaderboard" && (
-        <div className="output-section">{leaderboardContent}</div>
+        <LogoGeneratorLeaderboard
+          entries={sortedLeaderboard}
+          dailyWinners={dailyWinners}
+          sortBy={leaderboardSort}
+          onSortChange={setLeaderboardSort}
+          page={leaderboardPage}
+          onPageChange={setLeaderboardPage}
+          onLike={toggleLeaderboardLike}
+          likedEntryIds={likedEntryIds}
+          onShare={handleShare}
+          leaderboardDate={leaderboardDate}
+          pageSize={leaderboardPageSize}
+        />
       )}
 
       {activeTab === "rewards" && (
-        <div className="output-section">{rewardContent}</div>
+        <LogoGeneratorRewards
+          badges={userBadges}
+          isLoading={false}
+          userStats={userStats}
+          userRewards={userRewards}
+          rewardRegistry={rewardRegistry}
+          trendingData={trendingData}
+          expandedStat={expandedStat}
+          onExpandedStatChange={setExpandedStat}
+        />
       )}
 
-      {activeTab === "profile" && (
-        <div className="output-section">{profileTabContent}</div>
+      {activeTab === "profile" && profileData && (
+        <LogoGeneratorProfile
+          profileData={profileData}
+          isLoading={profileLoading}
+          error={profileError}
+          username={userInfo?.username}
+          challengeStreak={getChallengeStreak(challengeDays)}
+          likedEntryIds={likedEntryIds}
+          onLike={toggleLeaderboardLike}
+          onShare={handleShare}
+        />
       )}
 
       <nav className="bottom-nav" aria-label="Main navigation">
