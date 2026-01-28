@@ -204,6 +204,76 @@ All 5,842 logos
 
 ---
 
+## 🎣 State Management
+
+Filter state is now centralized in `lib/hooks/useFilterState.ts`, eliminating scattered useState calls and prop drilling.
+
+### Hook-Based State Management
+
+```typescript
+// In LogoGenerator.tsx - initialize hook
+const filterStateHook = useFilterState();
+
+// Use state throughout component
+<FilterBar
+  onRarityChange={(rarity) => filterStateHook.handleRarityChange(rarity)}
+  onSearchChange={(query) => filterStateHook.handleSearchChange(query)}
+  onClearFilters={() => filterStateHook.handleClearFilters()}
+  resultCount={filteredGalleryEntries.length}
+  totalFilters={filterStateHook.getActiveFilterCount()}
+/>
+
+// Filter gallery entries
+const filteredGalleryEntries = galleryEntries.filter((entry) => {
+  const rarityValue = entry.rarity ? String(entry.rarity).toUpperCase() : "UNKNOWN";
+  const matchesRarity =
+    filterStateHook.galleryRarityFilter === "all" ||
+    (filterStateHook.galleryRarityFilter === "Unknown"
+      ? rarityValue === "UNKNOWN"
+      : rarityValue === filterStateHook.galleryRarityFilter);
+  return matchesRarity;
+});
+
+// Access filter data
+if (filterStateHook.getActiveFilterCount() > 0) {
+  console.log(`${filterStateHook.getActiveFilterCount()} filters active`);
+}
+```
+
+### Hook API
+
+```typescript
+interface FilterStateHook {
+  // State
+  galleryRarityFilter: string; // Current rarity filter
+  gallerySearchQuery: string; // Current search query
+  filteredResultCount: number; // Count of filtered results
+
+  // Setters
+  setGalleryRarityFilter(rarity: string): void;
+  setGallerySearchQuery(query: string): void;
+  setFilteredResultCount(count: number): void;
+
+  // Callbacks
+  handleRarityChange(rarity: string | null): void;
+  handleSearchChange(query: string): void;
+  handleClearFilters(): void;
+
+  // Utilities
+  getActiveFilterCount(): number; // Returns number of active filters
+}
+```
+
+### Benefits
+
+- **No prop drilling**: Hook-based state eliminates need to pass props through multiple components
+- **Centralized logic**: All filter operations in one place
+- **Clean callbacks**: Components call hook methods directly
+- **Independent state**: Each component using the hook gets its own state instance
+- **Better testing**: Hook logic testable separately from UI components
+
+---
+
 ## Design Updates
 
 ### Original Design Issues

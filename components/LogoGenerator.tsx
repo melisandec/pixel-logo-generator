@@ -140,11 +140,11 @@ export default function LogoGenerator({
     fid?: number;
     username?: string;
   } | null>(null);
-  
+
   // Custom hooks for demo mode and filter state (after userInfo is declared)
   const demoModeHook = useDemoMode(userInfo?.username);
   const filterStateHook = useFilterState();
-  
+
   const [showCastPreview, setShowCastPreview] = useState(false);
   const [showDailyBoot, setShowDailyBoot] = useState(false);
   const [activeMoment, setActiveMoment] = useState<{
@@ -4120,7 +4120,10 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           setGalleryPage(1);
         }}
         activeFilters={{
-          rarity: filterStateHook.galleryRarityFilter === "all" ? null : filterStateHook.galleryRarityFilter,
+          rarity:
+            filterStateHook.galleryRarityFilter === "all"
+              ? null
+              : filterStateHook.galleryRarityFilter,
         }}
         resultCount={filteredGalleryEntries.length}
         totalFilters={filterStateHook.getActiveFilterCount()}

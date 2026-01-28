@@ -22,9 +22,25 @@
 ### Getting a Demo Seed (Client-Side)
 
 ```typescript
+// Hook-based approach (preferred in React components)
+import { useDemoMode } from "@/lib/hooks/useDemoMode";
+
+const demoModeHook = useDemoMode(userInfo?.username);
+const demoSeed = await demoModeHook.consumeDemoSeed();
+
+if (!demoSeed) {
+  console.log("Pool exhausted - forge is locked");
+  return;
+}
+
+const seedNumber = stringToSeed(demoSeed);
+console.log(`Generated with seed: ${seedNumber}`);
+```
+
+```typescript
+// Direct function approach (for non-React contexts)
 import { requestAndConsumeDemoSeed } from "@/lib/demoSeedClient";
 
-// Consume next available seed atomically
 const seed = await requestAndConsumeDemoSeed(userId);
 
 if (!seed) {

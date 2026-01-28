@@ -98,7 +98,26 @@ User inputs text → LogoGenerator component with demoMode=true
 → Share to Farcaster → Frame verification via hub
 ```
 
-8. Typical changes an agent may be asked to make
+8. Custom hooks (demo mode & filters)
+
+**Demo mode management**: [lib/hooks/useDemoMode.ts](lib/hooks/useDemoMode.ts) encapsulates demo seed logic
+
+- `resolveDemoSeed(value?)` — Maps any seed to demo range (100M-104,999) via modulo arithmetic
+- `consumeDemoSeed()` — Atomically consumes from pool; returns seed string or null if exhausted
+- `getEffectivePreset(normalPreset?)` — Returns demo preset config; always uses DEMO_PRESET_KEY in demo mode
+- Used in LogoGenerator.tsx: `const demoModeHook = useDemoMode(userInfo?.username)`
+- Internally calls `requestAndConsumeDemoSeed()` for database operations
+
+**Filter state management**: [lib/hooks/useFilterState.ts](lib/hooks/useFilterState.ts) centralizes gallery filters
+
+- State: `galleryRarityFilter`, `gallerySearchQuery`, `filteredResultCount`
+- Callbacks: `handleRarityChange()`, `handleSearchChange()`, `handleClearFilters()`
+- Utilities: `getActiveFilterCount()` for UX feedback (shows number of active filters)
+- Used in LogoGenerator.tsx: `const filterStateHook = useFilterState()`
+- FilterBar.tsx wired to these callbacks for seamless gallery filtering
+- No prop drilling; no context providers; clean TypeScript types
+
+9. Typical changes an agent may be asked to make
 
 - Add a new preset: update PRESETS in `components/LogoGenerator.tsx` and add a short example config to `lib/logoGenerator.ts` if necessary.
 - Add server-side image caching or longer TTL: modify `STORE_TTL_MS` in `app/api/logo-image/route.ts` and consider using Vercel Blob (set `BLOB_READ_WRITE_TOKEN`).
@@ -107,7 +126,7 @@ User inputs text → LogoGenerator component with demoMode=true
 - Modify styling variants: edit `lib/demoStyleVariants.ts` (palette, gradient, glow, chrome, bloom, texture, lighting arrays) — changes multiply combination count.
 - Add filter component: create new component in `components/`, wire to `FilterBar.tsx`, implement filter logic in `lib/filterLogic.ts`.
 
-9. Farcaster integration context
+10. Farcaster integration context
 
 - Logo generator is a Farcaster mini app; frame endpoints verify user via hub URL.
 - Share flow: generate logo → POST to `/api/logo-image` → get imageUrl → create Farcaster frame card with image + buttons (cast, download).
@@ -115,7 +134,7 @@ User inputs text → LogoGenerator component with demoMode=true
 - Leaderboard: Farcaster usernames imported; badges (legendary, rare collector) displayed on leaderboard and user profile.
 - Example trademarked prompts ('Nike', 'Apple') in UI — confirm with repo owner on brand guidelines before deployment.
 
-10. Testing patterns
+11. Testing patterns
 
 - **Canvas rendering**: Test in jsdom with `document.createElement('canvas')` mock; check pixel data or export as data URL for visual regression.
 - **Deterministic generation**: `test('same seed yields same logo', () => { const seed = stringToSeed('test'); const rng1 = new SeededRandom(seed); const rng2 = new SeededRandom(seed); expect(rng1.next()).toBe(rng2.next()); })`
@@ -124,7 +143,7 @@ User inputs text → LogoGenerator component with demoMode=true
 - **Leaderboard**: Verify upsert idempotency (same userId+seed twice = one record); check badge calculation logic in `badgeTracker.ts`.
 - **Filter state**: Test immutability; verify memoization skips re-render when filter state unchanged; check debounce timing (300ms).
 
-11. Debugging tips
+12. Debugging tips
 
 - To reproduce client behavior locally, run `npm run dev` and open `http://localhost:3000` (the generator relies on browser Canvas APIs).
 - If Prisma errors appear during development, run `npx prisma migrate dev` (local dev) or inspect `prisma/migrations` — but builds call `prisma generate` automatically.
@@ -133,7 +152,7 @@ User inputs text → LogoGenerator component with demoMode=true
 - Styling lock contention: check `DemoForgeLock` table for stale locks (compare `expiresAt` to NOW()); manually delete if expired.
 - Filter performance: use React DevTools Profiler to check memoization; ensure virtual scrolling enabled for 1000+ items.
 
-12. When to ask the repo owner
+13. When to ask the repo owner
 
 - Missing env values (DATABASE_URL, BLOB_READ_WRITE_TOKEN, NEXT_PUBLIC_APP_URL, FARCASTER_HUB_URL)
 - Desired persistence policy for images (keep in Vercel Blob vs in-memory fallback)
