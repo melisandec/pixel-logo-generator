@@ -47,6 +47,8 @@ import SearchBar from "./SearchBar";
 import FilterBar from "./FilterBar";
 import EmptyState from "./EmptyState";
 import ResultCount from "./ResultCount";
+import LogoGeneratorLeaderboard from "./LogoGeneratorLeaderboard";
+import LogoGeneratorProfile from "./LogoGeneratorProfile";
 
 const CastPreviewModal = dynamic(() => import("./CastPreviewModal"), {
   ssr: false,
@@ -3932,313 +3934,19 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
   );
 
   const leaderboardContent = (
-    <div className="leaderboard">
-      <div className="leaderboard-title">🏆 Hall of Fame</div>
-      {dailyWinners.length > 0 && (
-        <div className="daily-winners-section">
-          <div className="leaderboard-title">🏆 Today&apos;s Winners</div>
-          <div className="daily-winners-grid">
-            {dailyWinners.map((winner) => {
-              // Use logo image for leaderboard display context
-              const leaderboardImageUrl = getImageForContext(
-                {
-                  logoImageUrl: winner.entry.logoImageUrl,
-                  cardImageUrl: winner.entry.cardImageUrl,
-                  thumbImageUrl: winner.entry.thumbImageUrl,
-                  mediumImageUrl: winner.entry.mediumImageUrl,
-                  imageUrl: winner.entry.imageUrl,
-                },
-                "leaderboard",
-              );
-              return (
-                <div
-                  key={`winner-${winner.rank}`}
-                  className={`daily-winner-card rank-${winner.rank}`}
-                >
-                  <div className="daily-winner-rank">#{winner.rank}</div>
-                  {leaderboardImageUrl ? (
-                    <NextImage
-                      src={leaderboardImageUrl}
-                      alt={`Winner ${winner.rank} by ${winner.username}`}
-                      className="daily-winner-image"
-                      width={200}
-                      height={120}
-                      loading="lazy"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="daily-winner-text">{winner.entry.text}</div>
-                  )}
-                  <div className="daily-winner-info">
-                    <div className="daily-winner-username">
-                      @{winner.username}
-                    </div>
-                    <div className="daily-winner-stats">
-                      ❤️ {winner.entry.likes} 🔁 {winner.entry.recasts ?? 0}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      <div className="leaderboard-meta">
-        <span>{leaderboardDate}</span>
-        <span>{leaderboard.length} entries</span>
-      </div>
-      <div className="leaderboard-narrative">🔥 Hot Today</div>
-      <div className="leaderboard-filters">
-        <button
-          type="button"
-          className={`leaderboard-filter-button${leaderboardSort === "score" ? " active" : ""}`}
-          onClick={() => {
-            setLeaderboardSort("score");
-            setLeaderboardPage(1);
-          }}
-          aria-pressed={leaderboardSort === "score"}
-        >
-          Trending
-        </button>
-        <button
-          type="button"
-          className={`leaderboard-filter-button${leaderboardSort === "recent" ? " active" : ""}`}
-          onClick={() => {
-            setLeaderboardSort("recent");
-            setLeaderboardPage(1);
-          }}
-          aria-pressed={leaderboardSort === "recent"}
-        >
-          Recent
-        </button>
-        <button
-          type="button"
-          className={`leaderboard-filter-button${leaderboardSort === "likes" ? " active" : ""}`}
-          onClick={() => {
-            setLeaderboardSort("likes");
-            setLeaderboardPage(1);
-          }}
-          aria-pressed={leaderboardSort === "likes"}
-        >
-          Most liked
-        </button>
-      </div>
-      {leaderboard.length === 0 && (
-        <div className="leaderboard-status">
-          No casts yet today. Be the first!
-        </div>
-      )}
-      {leaderboard.length > 0 && (
-        <div className="leaderboard-grid">
-          {pagedLeaderboard.map((entry, index) => {
-            const castUrl =
-              entry.castUrl ??
-              (entry.id && /^0x[a-fA-F0-9]{64}$/.test(entry.id)
-                ? `https://warpcast.com/~/cast/${entry.id}`
-                : undefined);
-            const isCastLink = !!castUrl;
-            const rank =
-              (leaderboardPage - 1) * leaderboardPageSize + index + 1;
-            const rarityValue = entry.rarity
-              ? String(entry.rarity).toUpperCase()
-              : "Unknown";
-            const presetValue = entry.presetKey ?? "Unknown";
-            const CardContent = (
-              <>
-                <div className={`leaderboard-rank${rank <= 3 ? " top" : ""}`}>
-                  #{rank}
-                </div>
-                <div className="leaderboard-card-header">
-                  {entry.pfpUrl ? (
-                    <NextImage
-                      src={entry.pfpUrl}
-                      alt={entry.username}
-                      className="leaderboard-avatar"
-                      width={28}
-                      height={28}
-                      loading="lazy"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="leaderboard-avatar placeholder" />
-                  )}
-                  <Link
-                    href={`/profile/${encodeURIComponent(entry.username)}`}
-                    className="leaderboard-user"
-                    aria-label={`View profile for ${entry.username}`}
-                  >
-                    <div className="leaderboard-name">{entry.displayName}</div>
-                    <div className="leaderboard-username">
-                      @{entry.username}
-                    </div>
-                  </Link>
-                </div>
-                {(() => {
-                  // Use logo image for leaderboard display context
-                  const leaderboardImageUrl = getImageForContext(
-                    {
-                      logoImageUrl: entry.logoImageUrl,
-                      cardImageUrl: entry.cardImageUrl,
-                      thumbImageUrl: entry.thumbImageUrl,
-                      mediumImageUrl: entry.mediumImageUrl,
-                      imageUrl: entry.imageUrl,
-                    },
-                    "leaderboard",
-                  );
-                  return leaderboardImageUrl ? (
-                    <NextImage
-                      src={leaderboardImageUrl}
-                      alt="Cast media"
-                      className="leaderboard-image"
-                      width={400}
-                      height={120}
-                      loading="lazy"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="leaderboard-text">
-                      {entry.text || "View cast"}
-                    </div>
-                  );
-                })()}
-                <div className="leaderboard-tags">
-                  <span className="leaderboard-chip">{rarityValue}</span>
-                  <span className="leaderboard-chip">{presetValue}</span>
-                </div>
-                <div className="leaderboard-metrics">
-                  <div className="leaderboard-metrics-values">
-                    <span>❤️ {entry.likes}</span>
-                    <span>🔁 {entry.recasts ?? 0}</span>
-                  </div>
-                  <div className="leaderboard-metrics-actions">
-                    <button
-                      type="button"
-                      className="leaderboard-like"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        toggleLeaderboardLike(entry.id);
-                      }}
-                      aria-label={`Like cast by ${entry.username}`}
-                    >
-                      {likedEntryIds.has(entry.id) ? "💔 Unlike" : "❤️ Like"}
-                    </button>
-                    <button
-                      type="button"
-                      className="leaderboard-share"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        openWarpcastShare(entry);
-                      }}
-                      aria-label={`Share cast by ${entry.username}`}
-                    >
-                      🔗 Share
-                    </button>
-                  </div>
-                </div>
-              </>
-            );
-
-            return isCastLink ? (
-              <a
-                key={entry.id}
-                className="leaderboard-card"
-                href={castUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`Open cast by ${entry.username}`}
-              >
-                {CardContent}
-              </a>
-            ) : (
-              <div
-                key={entry.id}
-                className="leaderboard-card"
-                aria-label={`Local entry by ${entry.username}`}
-              >
-                {CardContent}
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {leaderboard.length > 0 && leaderboardTotalPages > 1 && (
-        <div className="pagination-controls">
-          <button
-            type="button"
-            className="pagination-button"
-            onClick={() => setLeaderboardPage((prev) => Math.max(1, prev - 1))}
-            disabled={leaderboardPage === 1}
-          >
-            Prev
-          </button>
-          <span className="pagination-status">
-            Page {leaderboardPage} of {leaderboardTotalPages}
-          </span>
-          <button
-            type="button"
-            className="pagination-button"
-            onClick={() =>
-              setLeaderboardPage((prev) =>
-                Math.min(leaderboardTotalPages, prev + 1),
-              )
-            }
-            disabled={leaderboardPage === leaderboardTotalPages}
-          >
-            Next
-          </button>
-        </div>
-      )}
-      {leaderboard.length > 0 && (
-        <div className="recent-casts">
-          <div className="leaderboard-title">⚡ Rising</div>
-          <div className="recent-casts-list">
-            {[...leaderboard]
-              .sort((a, b) => {
-                const bCreated =
-                  typeof b.createdAt === "string"
-                    ? new Date(b.createdAt).getTime()
-                    : b.createdAt;
-                const aCreated =
-                  typeof a.createdAt === "string"
-                    ? new Date(a.createdAt).getTime()
-                    : a.createdAt;
-                return bCreated - aCreated;
-              })
-              .slice(0, 5)
-              .map((entry) => (
-                <div key={`recent-${entry.id}`} className="recent-cast">
-                  {(() => {
-                    const castUrl =
-                      entry.castUrl ??
-                      (entry.id && /^0x[a-fA-F0-9]{64}$/.test(entry.id)
-                        ? `https://warpcast.com/~/cast/${entry.id}`
-                        : undefined);
-                    return (
-                      <>
-                        <span>
-                          {formatHistoryTime(
-                            typeof entry.createdAt === "string"
-                              ? new Date(entry.createdAt).getTime()
-                              : entry.createdAt,
-                          )}
-                        </span>
-                        <span>@{entry.username}</span>
-                        {castUrl ? (
-                          <a href={castUrl} target="_blank" rel="noreferrer">
-                            Open
-                          </a>
-                        ) : (
-                          <span>Local</span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <LogoGeneratorLeaderboard
+      entries={leaderboard as any}
+      dailyWinners={dailyWinners as any}
+      sortBy={leaderboardSort}
+      onSortChange={setLeaderboardSort}
+      page={leaderboardPage}
+      onPageChange={setLeaderboardPage}
+      onLike={toggleLeaderboardLike}
+      likedEntryIds={likedEntryIds}
+      onShare={openWarpcastShare as any}
+      leaderboardDate={leaderboardDate}
+      pageSize={leaderboardPageSize}
+    />
   );
 
   const supportPower = userStats?.support ?? likedEntryIds.size;
@@ -4616,51 +4324,13 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
   );
 
   const profileTabContent = (
-    <div className="profile-tab">
-      <div className="leaderboard-title">Your Profile</div>
-      {userInfo?.username ? (
-        <div className="profile-tab-card">
-          <div className="profile-tab-name">@{userInfo.username}</div>
-          {profileLoading && (
-            <div className="profile-tab-meta">Loading profile...</div>
-          )}
-          {profileError && (
-            <div className="profile-tab-meta">{profileError}</div>
-          )}
-          {profileData && (
-            <>
-              <div className="profile-title-badge">
-                {getProfileTitle(
-                  profileData.entries.length,
-                  profileData.entries.filter(
-                    (entry) =>
-                      String(entry.rarity).toUpperCase() === "LEGENDARY",
-                  ).length,
-                  getChallengeStreak(challengeDays),
-                )}
-              </div>
-              <div className="profile-tab-meta">
-                {profileData.entries.length} casts · ❤️{" "}
-                {profileData.entries.reduce(
-                  (sum, entry) => sum + entry.likes,
-                  0,
-                )}
-              </div>
-            </>
-          )}
-          <Link
-            className="profile-tab-link"
-            href={`/profile/${encodeURIComponent(userInfo.username)}`}
-          >
-            Open your profile
-          </Link>
-        </div>
-      ) : (
-        <div className="leaderboard-status">
-          Sign in with Farcaster to view your profile.
-        </div>
-      )}
-    </div>
+    <LogoGeneratorProfile
+      profileData={profileData}
+      isLoading={profileLoading}
+      error={profileError}
+      username={userInfo?.username}
+      challengeStreak={getChallengeStreak(challengeDays)}
+    />
   );
 
   return (
