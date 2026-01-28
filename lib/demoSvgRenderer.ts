@@ -551,8 +551,14 @@ export function generateDemoSvg(config: DemoSvgConfig): string {
     // Build transform string combining skew and rotate if both exist
     const transformParts: string[] = [];
     if (fontStyle.textSkew) transformParts.push(`skewX(${fontStyle.textSkew})`);
-    if (fontStyle.textRotate) transformParts.push(`rotate(${fontStyle.textRotate} ${centerX} ${centerY})`);
-    const transformAttr = transformParts.length > 0 ? ` transform="${transformParts.join(" ")}"` : "";
+    if (fontStyle.textRotate)
+      transformParts.push(
+        `rotate(${fontStyle.textRotate} ${centerX} ${centerY})`,
+      );
+    const transformAttr =
+      transformParts.length > 0
+        ? ` transform="${transformParts.join(" ")}"`
+        : "";
 
     const svg = `
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${width} ${height}">
@@ -725,14 +731,11 @@ export function svgToDataUrl(svgString: string): string {
       "[svgToDataUrl] Converting SVG to data URL, SVG length:",
       svgString.length,
     );
-    
+
     // Trim leading/trailing whitespace
     const trimmedSvg = svgString.trim();
-    console.log(
-      "[svgToDataUrl] After trim, SVG length:",
-      trimmedSvg.length,
-    );
-    
+    console.log("[svgToDataUrl] After trim, SVG length:", trimmedSvg.length);
+
     if (!trimmedSvg || trimmedSvg.length === 0) {
       throw new Error("SVG string is empty");
     }
@@ -781,7 +784,7 @@ export function svgToDataUrl(svgString: string): string {
       "first 100 chars:",
       dataUrl.substring(0, 100),
     );
-    
+
     // Validate that we can decode the base64 back to SVG
     if (typeof window !== "undefined") {
       try {
@@ -791,9 +794,13 @@ export function svgToDataUrl(svgString: string): string {
           decodedString.length,
         );
         if (decodedString.includes("<svg")) {
-          console.log("[svgToDataUrl] Validation: Decoded content contains <svg>");
+          console.log(
+            "[svgToDataUrl] Validation: Decoded content contains <svg>",
+          );
         } else {
-          console.warn("[svgToDataUrl] Validation: Decoded content missing <svg>");
+          console.warn(
+            "[svgToDataUrl] Validation: Decoded content missing <svg>",
+          );
         }
       } catch (decodeError) {
         console.error(
@@ -802,7 +809,7 @@ export function svgToDataUrl(svgString: string): string {
         );
       }
     }
-    
+
     return dataUrl;
   } catch (error) {
     console.error("[svgToDataUrl] Error converting SVG:", error);

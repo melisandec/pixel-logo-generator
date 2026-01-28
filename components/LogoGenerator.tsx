@@ -30,16 +30,11 @@ import {
   DEMO_MODE_LABEL,
   DEMO_PRESET_CONFIG,
   DEMO_PRESET_KEY,
-  DEMO_SEED_BASE,
-  DEMO_SEED_TOTAL,
   IS_DEMO_MODE,
 } from "@/lib/demoMode";
-import {
-  requestAndConsumeDemoSeed,
-  requestDemoSeed,
-} from "@/lib/demoSeedClient";
-import { storeDemoLogoStyle } from "@/lib/demoLogoStyleManager";
 import { storeLogoDemoStyle } from "@/lib/demoLogoStyleActions";
+import { useDemoMode } from "@/lib/hooks/useDemoMode";
+import { useFilterState } from "@/lib/hooks/useFilterState";
 import DemoLogoDisplay from "./DemoLogoDisplay";
 import dynamic from "next/dynamic";
 import Toast from "./Toast";
@@ -128,7 +123,9 @@ interface LogoGeneratorProps {
   demoMode?: boolean;
 }
 
-export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGeneratorProps = {}) {
+export default function LogoGenerator({
+  demoMode = IS_DEMO_MODE,
+}: LogoGeneratorProps = {}) {
   const [inputText, setInputText] = useState("");
   const [customSeed, setCustomSeed] = useState<string>("");
   const [seedError, setSeedError] = useState<string>("");
@@ -143,6 +140,11 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
     fid?: number;
     username?: string;
   } | null>(null);
+  
+  // Custom hooks for demo mode and filter state (after userInfo is declared)
+  const demoModeHook = useDemoMode(userInfo?.username);
+  const filterStateHook = useFilterState();
+  
   const [showCastPreview, setShowCastPreview] = useState(false);
   const [showDailyBoot, setShowDailyBoot] = useState(false);
   const [activeMoment, setActiveMoment] = useState<{
@@ -244,7 +246,6 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
   const [galleryViewMode, setGalleryViewMode] = useState<"logos" | "casts">(
     "logos",
   );
-  const [galleryRarityFilter, setGalleryRarityFilter] = useState<string>("all");
   const [galleryPage, setGalleryPage] = useState(1);
   const [likedEntryIds, setLikedEntryIds] = useState<Set<string>>(new Set());
   const [profileData, setProfileData] = useState<UserProfile | null>(null);
@@ -1383,14 +1384,21 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
     ],
   );
 
-  const getPresetConfig = useCallback((presetKey?: string | null) => {
-    if (demoMode) return DEMO_PRESET_CONFIG;
-    if (!presetKey) return undefined;
-    return PRESETS.find((preset) => preset.key === presetKey)?.config;
-  }, [demoMode]);
+  const getPresetConfig = useCallback(
+    (presetKey?: string | null) => {
+      if (demoMode) return DEMO_PRESET_CONFIG;
+      if (!presetKey) return undefined;
+      return PRESETS.find((preset) => preset.key === presetKey)?.config;
+    },
+    [demoMode],
+  );
 
   // Demo mode: 1 try every 5 minutes (300 seconds)
-  const checkDemoRateLimit = useCallback((): { ok: boolean; message?: string; timeUntilNext?: number } => {
+  const checkDemoRateLimit = useCallback((): {
+    ok: boolean;
+    message?: string;
+    timeUntilNext?: number;
+  } => {
     const storageKey = "plf:demoRateLimit";
     const stored = localStorage.getItem(storageKey);
     const now = Date.now();
@@ -1406,7 +1414,9 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
       const timeSinceLastAttempt = now - lastAttempt;
 
       if (timeSinceLastAttempt < FIVE_MINUTES_MS) {
-        const timeUntilNext = Math.ceil((FIVE_MINUTES_MS - timeSinceLastAttempt) / 1000);
+        const timeUntilNext = Math.ceil(
+          (FIVE_MINUTES_MS - timeSinceLastAttempt) / 1000,
+        );
         return {
           ok: false,
           message: `Demo forge available in ${timeUntilNext}s (1 try every 5 minutes)`,
@@ -1431,9 +1441,16 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
       if (demoMode) {
         const rateLimit = checkDemoRateLimit();
         if (!rateLimit.ok) {
-          return { ok: false, message: rateLimit.message || "Rate limit reached" } as any;
+          return {
+            ok: false,
+            message: rateLimit.message || "Rate limit reached",
+          } as any;
         }
-        return { ok: true, normalizedText, todayState: { date: "", words: [], seedUsed: false } } as any;
+        return {
+          ok: true,
+          normalizedText,
+          todayState: { date: "", words: [], seedUsed: false },
+        } as any;
       }
 
       // Normal mode: daily limits
@@ -1468,7 +1485,14 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
       }
       return { ok: true, normalizedText, todayState };
     },
-    [ensureDailyLimit, normalizeWord, userInfo?.username, hasBadge, demoMode, checkDemoRateLimit],
+    [
+      ensureDailyLimit,
+      normalizeWord,
+      userInfo?.username,
+      hasBadge,
+      demoMode,
+      checkDemoRateLimit,
+    ],
   );
 
   const finalizeDailyLimit = useCallback(
@@ -1490,23 +1514,6 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
     [saveDailyLimit, userInfo?.username],
   );
 
-  const resolveDemoSeed = useCallback((value?: number) => {
-    if (typeof value === "number") {
-      // Check if seed is already in demo range
-      if (
-        value >= DEMO_SEED_BASE &&
-        value <= DEMO_SEED_BASE + DEMO_SEED_TOTAL - 1
-      ) {
-        return value;
-      }
-      // Map external seed to demo range using modulo
-      const index = Math.abs(value) % DEMO_SEED_TOTAL;
-      return DEMO_SEED_BASE + index;
-    }
-    // Return a random seed within demo range
-    const randomIndex = Math.floor(Math.random() * DEMO_SEED_TOTAL);
-    return DEMO_SEED_BASE + randomIndex;
-  }, []);
   const createLogoResult = useCallback(
     async (text: string, seed?: number, presetKey?: string | null) => {
       const effectivePresetKey = demoMode ? DEMO_PRESET_KEY : presetKey;
@@ -1527,18 +1534,31 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
           }
         : undefined;
 
-      let seedToUse = demoMode ? resolveDemoSeed(seed) : seed;
+      let seedToUse = demoMode ? demoModeHook.resolveDemoSeed(seed) : seed;
 
       // In demo mode, atomically get and consume seed from database
       if (demoMode) {
         try {
-          console.log("[LogoGenerator] Requesting demo seed for user:", userInfo?.username);
-          const demoSeed = await requestAndConsumeDemoSeed(userInfo?.username);
-          console.log("[LogoGenerator] Demo seed response:", demoSeed, "type:", typeof demoSeed);
+          console.log(
+            "[LogoGenerator] Requesting demo seed for user:",
+            userInfo?.username,
+          );
+          const demoSeed = await demoModeHook.consumeDemoSeed();
+          console.log(
+            "[LogoGenerator] Demo seed response:",
+            demoSeed,
+            "type:",
+            typeof demoSeed,
+          );
           if (demoSeed) {
             // Convert hex seed string to deterministic number using stringToSeed
             seedToUse = stringToSeed(demoSeed);
-            console.log("[LogoGenerator] Converted demo seed:", demoSeed, "to:", seedToUse);
+            console.log(
+              "[LogoGenerator] Converted demo seed:",
+              demoSeed,
+              "to:",
+              seedToUse,
+            );
           } else {
             // Pool exhausted - show error message
             console.error("[LogoGenerator] Demo seed pool exhausted");
@@ -1552,14 +1572,19 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
         }
       }
 
-      console.log("[LogoGenerator] About to generate logo with seed:", seedToUse, "text:", text);
+      console.log(
+        "[LogoGenerator] About to generate logo with seed:",
+        seedToUse,
+        "text:",
+        text,
+      );
       return generateLogo({
         text,
         seed: seedToUse,
         ...(presetConfigCopy ?? {}),
       });
     },
-    [getPresetConfig, resolveDemoSeed, userInfo?.username],
+    [getPresetConfig, demoModeHook, userInfo?.username],
   );
 
   const getProfileTitle = useCallback(
@@ -2462,7 +2487,7 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
     }
 
     const seedToUse = demoMode
-      ? resolveDemoSeed()
+      ? demoModeHook.resolveDemoSeed()
       : (seed ?? Math.floor(Math.random() * 2147483647));
     try {
       const result = await createLogoResult(
@@ -2474,11 +2499,6 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
 
       // Persist to gallery immediately so all attempts are saved
       void persistGeneratedLogo(result);
-
-      // Mark demo seed as consumed if in demo mode
-      if (demoMode && result.seed >= 100_000_000) {
-        void requestAndConsumeDemoSeed(userInfo?.username);
-      }
 
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
@@ -2561,7 +2581,7 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
     }
 
     const seedToUse = demoMode
-      ? resolveDemoSeed()
+      ? demoModeHook.resolveDemoSeed()
       : Math.floor(Math.random() * 2147483647);
     try {
       const result = await createLogoResult(
@@ -2570,11 +2590,6 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
         demoMode ? DEMO_PRESET_KEY : null,
       );
       setIsGenerating(true);
-
-      // Mark demo seed as consumed if in demo mode
-      if (demoMode && result.seed >= 100_000_000) {
-        void requestAndConsumeDemoSeed(userInfo?.username);
-      }
 
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
@@ -2639,11 +2654,6 @@ export default function LogoGenerator({ demoMode = IS_DEMO_MODE }: LogoGenerator
         selectedPreset,
       );
       setIsGenerating(true);
-
-      // Mark demo seed as consumed if in demo mode
-      if (IS_DEMO_MODE && result.seed >= 100_000_000) {
-        void requestAndConsumeDemoSeed(userInfo?.username);
-      }
 
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
@@ -3874,10 +3884,10 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
         ? String(entry.rarity).toUpperCase()
         : "UNKNOWN";
       const matchesRarity =
-        galleryRarityFilter === "all" ||
-        (galleryRarityFilter === "Unknown"
+        filterStateHook.galleryRarityFilter === "all" ||
+        (filterStateHook.galleryRarityFilter === "Unknown"
           ? rarityValue === "UNKNOWN"
-          : rarityValue === galleryRarityFilter);
+          : rarityValue === filterStateHook.galleryRarityFilter);
       return matchesRarity;
     })
     .sort((a, b) => {
@@ -4078,6 +4088,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
       {/* NEW: Redesigned Filter Bar */}
       <FilterBar
         onSearch={async (query) => {
+          filterStateHook.handleSearchChange(query);
           if (!query.trim()) {
             // Reset to full gallery if search is cleared
             setGalleryPage(1);
@@ -4105,16 +4116,16 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           }
         }}
         onRarityChange={(rarity) => {
-          setGalleryRarityFilter(rarity || "all");
+          filterStateHook.handleRarityChange(rarity);
           setGalleryPage(1);
         }}
         activeFilters={{
-          rarity: galleryRarityFilter === "all" ? null : galleryRarityFilter,
+          rarity: filterStateHook.galleryRarityFilter === "all" ? null : filterStateHook.galleryRarityFilter,
         }}
         resultCount={filteredGalleryEntries.length}
-        totalFilters={galleryRarityFilter !== "all" ? 1 : 0}
+        totalFilters={filterStateHook.getActiveFilterCount()}
         onClearFilters={() => {
-          setGalleryRarityFilter("all");
+          filterStateHook.handleClearFilters();
           setGalleryPage(1);
         }}
       />
@@ -4127,7 +4138,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
         filteredGalleryEntries.length === 0 && (
           <EmptyState
             onClearFilters={() => {
-              setGalleryRarityFilter("all");
+              filterStateHook.handleClearFilters();
               setGalleryPage(1);
             }}
             onTryRandom={handleRandomFromGallery}
