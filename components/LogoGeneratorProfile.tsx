@@ -30,16 +30,8 @@ interface LogoGeneratorProfileProps {
   challengeStreak: number;
 }
 
-export default function LogoGeneratorProfile(
-  props: LogoGeneratorProfileProps,
-) {
-  const {
-    profileData,
-    isLoading,
-    error,
-    username,
-    challengeStreak,
-  } = props;
+export default function LogoGeneratorProfile(props: LogoGeneratorProfileProps) {
+  const { profileData, isLoading, error, username, challengeStreak } = props;
 
   const getProfileTitle = (
     casts: number,
@@ -63,9 +55,7 @@ export default function LogoGeneratorProfile(
           {isLoading && (
             <div className="profile-tab-meta">Loading profile...</div>
           )}
-          {error && (
-            <div className="profile-tab-meta">{error}</div>
-          )}
+          {error && <div className="profile-tab-meta">{error}</div>}
           {profileData && (
             <>
               <div className="profile-title-badge">
