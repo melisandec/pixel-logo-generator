@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import NextImage from "next/image";
 import Link from "next/link";
+import styles from "./LogoGenerator.module.css";
 import {
   generateLogo,
   type LogoConfig,
@@ -3681,53 +3682,23 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           : `Recent casts from the community - ${filteredGalleryEntries.length} shown`}
       </div>
 
-      <div
-        className="gallery-view-toggle"
-        style={{
-          display: "flex",
-          gap: "8px",
-          justifyContent: "center",
-          marginBottom: "8px",
-        }}
-      >
+      <div className={`gallery-view-toggle ${styles.galleryViewToggleWrapper}`}>
         <button
           type="button"
-          className={`gallery-toggle-button${galleryViewMode === "logos" ? " active" : ""}`}
+          className={`gallery-toggle-button${galleryViewMode === "logos" ? " active" : ""} ${styles.galleryToggleButtonLogos}`}
           onClick={() => {
             setGalleryViewMode("logos");
             setGalleryPage(1);
-          }}
-          style={{
-            padding: "4px 12px",
-            fontSize: "11px",
-            border: `1px solid ${galleryViewMode === "logos" ? "#0a0" : "#444"}`,
-            background: galleryViewMode === "logos" ? "#0a0" : "transparent",
-            color: galleryViewMode === "logos" ? "#000" : "#0a0",
-            borderRadius: "2px",
-            cursor: "pointer",
-            fontFamily: "monospace",
-            textTransform: "uppercase",
           }}
         >
           🎨 Logos
         </button>
         <button
           type="button"
-          className={`gallery-toggle-button${galleryViewMode === "casts" ? " active" : ""}`}
+          className={`gallery-toggle-button${galleryViewMode === "casts" ? " active" : ""} ${styles.galleryToggleButtonCasts}`}
           onClick={() => {
             setGalleryViewMode("casts");
             setGalleryPage(1);
-          }}
-          style={{
-            padding: "4px 12px",
-            fontSize: "11px",
-            border: `1px solid ${galleryViewMode === "casts" ? "#0a0" : "#444"}`,
-            background: galleryViewMode === "casts" ? "#0a0" : "transparent",
-            color: galleryViewMode === "casts" ? "#000" : "#0a0",
-            borderRadius: "2px",
-            cursor: "pointer",
-            fontFamily: "monospace",
-            textTransform: "uppercase",
           }}
         >
           📢 Casts
@@ -4408,7 +4379,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
 
               {isExpanded && (
                 <div
-                  className="forge-stat-details"
+                  className={`forge-stat-details ${styles.forgeStatDetails}`}
                   style={{ borderColor: stat.color }}
                 >
                   <div className="forge-stat-details-title">
@@ -4599,7 +4570,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                       return (
                         <div
                           key={r.rarity}
-                          className={`forge-trending-rarity-segment ${r.rarity.toLowerCase()}`}
+                          className={`forge-trending-rarity-segment ${r.rarity.toLowerCase()} ${styles.forgeTrendingRaritySegment}`}
                           style={{ flex: percentage }}
                           title={`${r.rarity}: ${r.count} (${Math.round(percentage)}%)`}
                         >
@@ -4616,7 +4587,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                         className="forge-trending-rarity-legend-item"
                       >
                         <div
-                          className="forge-trending-rarity-legend-color"
+                          className={`forge-trending-rarity-legend-color ${styles.forgeTrendingRarityLegendColor}`}
                           style={{
                             background:
                               rarityColors[
@@ -5006,33 +4977,11 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
         <div className="input-panel">
           <div className="input-section">
             {/* NEW: Mode Toggle */}
-            <div
-              className="mode-toggle-wrapper"
-              style={{
-                marginBottom: "0.5rem",
-                display: "flex",
-                gap: "4px",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
+            <div className={`mode-toggle-wrapper ${styles.modeToggleWrapper}`}>
               {demoMode ? (
                 <div
-                  className="demo-mode-pill"
+                  className={`demo-mode-pill ${styles.demoModePill}`}
                   aria-label={DEMO_MODE_LABEL}
-                  style={{
-                    padding: "6px 10px",
-                    fontSize: "10px",
-                    border: "1px solid #8a7bff",
-                    background:
-                      "linear-gradient(90deg, #1b102f, #2b1056, #1b102f)",
-                    color: "#e6d6ff",
-                    borderRadius: "2px",
-                    fontFamily: "'Press Start 2P', monospace",
-                    letterSpacing: "0.4px",
-                    textTransform: "uppercase",
-                    boxShadow: "0 0 12px #8a7bff80",
-                  }}
                 >
                   {DEMO_MODE_LABEL}
                 </div>
@@ -5040,7 +4989,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                 <>
                   <button
                     type="button"
-                    className={`mode-toggle-button ${uiMode === "simple" ? "active" : ""}`}
+                    className={`mode-toggle-button ${uiMode === "simple" ? "active" : ""} ${styles.modeToggleButtonSimple}`}
                     onClick={() => {
                       setUiMode("simple");
                       try {
@@ -5049,27 +4998,12 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                         console.error("Failed to save UI mode:", error);
                       }
                     }}
-                    style={{
-                      padding: "3px 6px",
-                      fontSize: "9px",
-                      border: "1px solid",
-                      borderColor: uiMode === "simple" ? "#00ff00" : "#444",
-                      background:
-                        uiMode === "simple" ? "#00ff0020" : "transparent",
-                      color: uiMode === "simple" ? "#00ff00" : "#888",
-                      borderRadius: "1px",
-                      cursor: "pointer",
-                      fontFamily: "monospace",
-                      transition: "all 0.2s",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    }}
                   >
                     Simple
                   </button>
                   <button
                     type="button"
-                    className={`mode-toggle-button ${uiMode === "advanced" ? "active" : ""}`}
+                    className={`mode-toggle-button ${uiMode === "advanced" ? "active" : ""} ${styles.modeToggleButtonAdvanced}`}
                     onClick={() => {
                       setUiMode("advanced");
                       try {
@@ -5077,21 +5011,6 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                       } catch (error) {
                         console.error("Failed to save UI mode:", error);
                       }
-                    }}
-                    style={{
-                      padding: "3px 6px",
-                      fontSize: "9px",
-                      border: "1px solid",
-                      borderColor: uiMode === "advanced" ? "#00ff00" : "#444",
-                      background:
-                        uiMode === "advanced" ? "#00ff0020" : "transparent",
-                      color: uiMode === "advanced" ? "#00ff00" : "#888",
-                      borderRadius: "1px",
-                      cursor: "pointer",
-                      fontFamily: "monospace",
-                      transition: "all 0.2s",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
                     }}
                   >
                     Advanced
@@ -5246,7 +5165,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                     ? "Forge an 80s logo using unreleased exclusive seeds"
                     : "Generate pixel logo"
                 }
-                aria-busy={isGenerating ? "true" : "false"}
+                aria-busy={isGenerating}
                 title={
                   demoMode
                     ? "This uses unreleased 80s seeds. Each can only be used once."
@@ -5290,7 +5209,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                       <div
                         className={`seed-crack-icon stage-${seedCrackStage}${
                           seedCrackStage === "bloom" ? " is-split" : ""
-                        }`}
+                        } ${styles.seedCrackIcon}`}
                         style={{
                           ["--seed-shake" as any]: seedCrackVariance
                             ? `${seedCrackVariance.shakeAmp.toFixed(2)}px`
@@ -5387,7 +5306,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                       {preset.label}
                       <span className="preset-swatches">
                         <span
-                          className="preset-thumb"
+                          className={`preset-thumb ${styles.presetThumb}`}
                           style={{
                             background: `linear-gradient(90deg, ${(PRESET_SWATCHES[preset.key] || []).join(", ")})`,
                           }}
@@ -5406,17 +5325,17 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
         <div className="output-section">
           <div className="logo-card">
             <div
-              className="rarity-badge"
+              className={`rarity-badge ${styles.rarityBadge}`}
               style={{ borderColor: getRarityColor(logoResult.rarity) }}
             >
               <div
-                className="rarity-glow"
+                className={`rarity-glow ${styles.rarityGlow}`}
                 style={{ background: getRarityColor(logoResult.rarity) }}
                 aria-hidden="true"
               />
               <span className="rarity-label">RARITY:</span>
               <span
-                className="rarity-value"
+                className={`rarity-value ${styles.rarityValue}`}
                 style={{ color: getRarityColor(logoResult.rarity) }}
               >
                 {logoResult.rarity}
@@ -5552,7 +5471,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                   className="action-button cast-button"
                   disabled={isCasting || isGenerating}
                   aria-label="Cast logo to Farcaster"
-                  aria-busy={isCasting ? "true" : "false"}
+                  aria-busy={isCasting}
                 >
                   {isCasting ? "CASTING..." : "CAST"}
                 </button>
@@ -5605,7 +5524,6 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                     className="action-icon-button"
                     onClick={handleShare}
                     aria-label="Share logo link"
-                    aria-busy={isSharing}
                     disabled={isSharing || isGenerating}
                   >
                     🔗
@@ -5635,24 +5553,8 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           <div className="home-top-casts">
             <button
               type="button"
-              className="feedback-button"
+              className={`feedback-button ${styles.feedbackButton}`}
               onClick={() => setShowFeedbackModal(true)}
-              style={{
-                padding: "4px 8px",
-                fontSize: "10px",
-                border: "1px solid #444",
-                background: "transparent",
-                color: "#888",
-                borderRadius: "2px",
-                cursor: "pointer",
-                fontFamily: "monospace",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-                marginBottom: "8px",
-                display: "block",
-                marginLeft: "auto",
-                marginRight: "auto",
-              }}
             >
               💬 Feedback
             </button>
