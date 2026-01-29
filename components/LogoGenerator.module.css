@@ -21,6 +21,17 @@
   }
 }
 
+@keyframes slideInBottom {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Gallery View Toggle Wrapper */
 .galleryViewToggleWrapper {
   display: flex;
@@ -223,6 +234,17 @@
   font-family: "Courier New", monospace;
 }
 
+@media (max-width: 480px) {
+  .gallerySectionTitle {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
+  .gallerySection {
+    padding: 8px;
+  }
+}
+
 .galleryEmpty {
   padding: 40px 20px;
   text-align: center;
@@ -289,9 +311,21 @@
   animation: pulse 1.5s infinite;
 }
 
+@media (max-width: 480px) {
+  .galleryLoading {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+  }
+}
+
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 /* Gallery Filter Styles */
@@ -306,6 +340,91 @@
   .galleryFilters {
     grid-template-columns: 1fr;
     gap: 6px;
+    transition: max-height 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+}
+
+.galleryFiltersCollapsed {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.galleryFiltersExpanded {
+  max-height: 500px;
+  opacity: 1;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.galleryFiltersToggle {
+  display: none;
+  grid-column: 1 / -1;
+  justify-self: start;
+  background: none;
+  border: none;
+  color: #0a0;
+  cursor: pointer;
+  padding: 4px 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.galleryFiltersToggle:hover {
+  opacity: 0.8;
+}
+
+@media (max-width: 480px) {
+  .galleryFiltersToggle {
+    display: block;
+    padding: 2px 0;
+    font-size: 9px;
+    margin: 0;
+  }
+}
+
+.viewModeToggle {
+  display: flex;
+  gap: 4px;
+  justify-self: end;
+}
+
+@media (max-width: 768px) {
+  .viewModeToggle {
+    justify-self: auto;
+  }
+}
+
+.viewModeBtn {
+  border: 1px solid #0a0;
+  background: #000;
+  color: #0a0;
+  padding: 6px 8px;
+  font-size: 10px;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.viewModeBtn:hover {
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+}
+
+.viewModeBtn.active {
+  background: #0a0;
+  color: #000;
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.5);
+}
+
+@media (max-width: 480px) {
+  .viewModeBtn {
+    padding: 4px 6px;
+    font-size: 8px;
+    min-height: 32px;
   }
 }
 
@@ -321,6 +440,17 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@media (max-width: 480px) {
+  .gallerySearch,
+  .galleryFilterSelect,
+  .galleryClearFilters {
+    padding: 4px 6px;
+    font-size: 9px;
+    min-height: 36px;
+  }
 }
 
 .gallerySearch {
@@ -375,6 +505,73 @@
   box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
 }
 
+.galleryStatsSection {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px 0;
+  margin: 12px 0;
+  border-top: 1px solid rgba(0, 255, 0, 0.3);
+  border-bottom: 1px solid rgba(0, 255, 0, 0.3);
+  flex-wrap: wrap;
+}
+
+.galleryStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.galleryStatLabel {
+  font-size: 10px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.galleryStatValue {
+  font-size: 18px;
+  color: #0a0;
+  font-weight: bold;
+  font-family: monospace;
+}
+
+@media (max-width: 768px) {
+  .galleryStatsSection {
+    gap: 16px;
+  }
+
+  .galleryStatValue {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .galleryStatsSection {
+    gap: 8px;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 8px 0;
+    margin: 8px 0;
+  }
+
+  .galleryStat {
+    min-width: unset;
+    flex: 1;
+    min-height: unset;
+  }
+
+  .galleryStatLabel {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .galleryStatValue {
+    font-size: 10px;
+  }
+}
+
 .galleryInfo {
   font-size: 11px;
   color: #0a0;
@@ -387,6 +584,22 @@
 @media (max-width: 768px) {
   .galleryInfo {
     font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  @media (max-width: 480px) {
+    .galleryEmpty {
+      padding: 24px 12px;
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      gap: 12px;
+      min-height: 160px;
+    }
+  }
+  .galleryInfo {
+    font-size: 9px;
+    letter-spacing: 0.5px;
   }
 }
 
@@ -405,11 +618,124 @@
 
 @media (max-width: 480px) {
   .galleryGrid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 }
 
+.galleryListView {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  grid-template-columns: auto;
+}
+
+.galleryListView .galleryItem {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  min-height: unset;
+  border-radius: 2px;
+  overflow: visible;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.galleryListView .galleryItem:active {
+  transform: scale(0.98);
+}
+
+.galleryListView .galleryImage {
+  height: 140px;
+  width: 160px;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.galleryListView .galleryOverlay {
+  position: relative;
+  inset: auto;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  opacity: 1;
+  visibility: visible;
+  transition: all 0.2s ease-in-out;
+}
+
+.galleryListView .galleryCardInfo {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.galleryListView .galleryActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .galleryListView .galleryItem {
+    grid-template-columns: 120px 1fr;
+    gap: 10px;
+  }
+
+  .galleryListView .galleryImage {
+    width: 120px;
+    height: 100px;
+  }
+
+  .galleryListView .galleryOverlay {
+    gap: 8px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .galleryListView .galleryItem {
+    grid-template-columns: 140px 1fr;
+    gap: 8px;
+  }
+
+  .galleryListView .galleryImage {
+    width: 140px;
+    height: 140px;
+  }
+
+  .galleryListView .galleryOverlay {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.8);
+  }
+
+  .galleryListView .galleryCardInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .galleryListView .galleryActions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    width: 100%;
+  }
+
+  .galleryListView .galleryLikeBtn,
+  .galleryListView .galleryShareBtn,
+  .galleryListView .galleryFarcasterBtn,
+  .galleryListView .galleryFavBtn,
+  .galleryListView .galleryViewsBtn {
+    min-height: 32px;
+    font-size: 7px;
+    padding: 4px 4px;
+  }
+}
 .galleryItem {
   border: 2px solid #0a0;
   background: #0a0a0a;
@@ -425,7 +751,9 @@
 
 .galleryItem:hover {
   border-color: #0a0;
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), inset 0 0 10px rgba(0, 255, 0, 0.1);
+  box-shadow:
+    0 0 20px rgba(0, 255, 0, 0.5),
+    inset 0 0 10px rgba(0, 255, 0, 0.1);
   transform: scale(1.05) translateY(-4px);
 }
 
@@ -448,6 +776,53 @@
   }
 }
 
+.trendingBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: linear-gradient(135deg, #ff4500, #ff6347);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  border: 1px solid #ffaa00;
+  box-shadow: 0 0 8px rgba(255, 69, 0, 0.6);
+  z-index: 2;
+}
+
+.recentlyLikedBadge {
+  position: absolute;
+  top: 4px;
+  right: 80px;
+  background: linear-gradient(135deg, #9d4edd, #c77dff);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  border: 1px solid #e0aaff;
+  box-shadow: 0 0 8px rgba(157, 78, 221, 0.6);
+  z-index: 2;
+}
+
+@media (max-width: 480px) {
+  .trendingBadge,
+  .recentlyLikedBadge {
+    padding: 3px 6px;
+    font-size: 8px;
+    top: 2px;
+    right: 2px;
+  }
+
+  .recentlyLikedBadge {
+    right: auto;
+    left: 2px;
+  }
+}
+
 .galleryImagePlaceholder {
   width: 100%;
   height: 140px;
@@ -466,6 +841,7 @@
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.9);
+  -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
   display: flex;
   flex-direction: column;
@@ -481,6 +857,26 @@
   opacity: 1;
 }
 
+.galleryItemSwiped .galleryOverlay {
+  opacity: 1;
+  transition: opacity 0.2s ease-in-out;
+}
+
+@media (max-width: 480px) {
+  .galleryOverlay {
+    gap: 4px;
+    padding: 4px;
+  }
+}
+
+.galleryItemSwiped {
+  transform: translateX(-8px);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
+  box-shadow:
+    0 0 20px rgba(0, 255, 0, 0.5),
+    inset 0 0 10px rgba(0, 255, 0, 0.1);
+}
+
 .galleryCardInfo {
   display: flex;
   flex-direction: column;
@@ -494,6 +890,33 @@
   color: #888;
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+.galleryByBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 9px;
+  color: #0a0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+}
+
+.galleryByBtn:hover {
+  text-decoration-color: #0a0;
+  opacity: 0.8;
+}
+
+.galleryByBtn:active {
+  opacity: 0.6;
+  transform: scale(0.95);
 }
 
 .galleryRarity {
@@ -541,6 +964,18 @@
   border: 1px solid #888;
 }
 
+@media (max-width: 480px) {
+  .galleryBy {
+    font-size: 7px;
+    letter-spacing: 0.5px;
+  }
+
+  .galleryRarity {
+    font-size: 7px;
+    padding: 1px 4px;
+  }
+}
+
 .galleryActions {
   display: flex;
   gap: 6px;
@@ -550,7 +985,9 @@
 
 .galleryLikeBtn,
 .galleryShareBtn,
-.galleryFavBtn {
+.galleryFarcasterBtn,
+.galleryFavBtn,
+.galleryViewsBtn {
   border: 1px solid #0a0;
   background: transparent;
   color: #0a0;
@@ -561,14 +998,67 @@
   cursor: pointer;
   transition: all 0.2s;
   flex: 1;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: rgba(0, 255, 0, 0.2);
+  active: false;
+}
+
+.galleryLikeBtn:active,
+.galleryShareBtn:active,
+.galleryFarcasterBtn:active,
+.galleryFavBtn:active {
+  background: rgba(0, 255, 0, 0.25);
+  transform: scale(0.95);
 }
 
 .galleryLikeBtn:hover,
 .galleryShareBtn:hover,
+.galleryFarcasterBtn:hover,
 .galleryFavBtn:hover {
   background: rgba(0, 255, 0, 0.15);
   box-shadow: 0 0 12px rgba(0, 255, 0, 0.5);
   transform: scale(1.05);
+}
+
+.galleryFarcasterBtn {
+  border-color: #556;
+  color: #778;
+}
+
+.galleryFarcasterBtn:hover {
+  border-color: #778;
+  color: #99a;
+  background: rgba(100, 120, 150, 0.1);
+  box-shadow: 0 0 12px rgba(100, 120, 150, 0.3);
+}
+
+.galleryViewsBtn {
+  border: 1px solid #888;
+  color: #888;
+  cursor: default;
+  opacity: 0.7;
+}
+
+.galleryViewsBtn:hover {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+@media (max-width: 480px) {
+  .galleryLikeBtn,
+  .galleryShareBtn,
+  .galleryFarcasterBtn,
+  .galleryFavBtn,
+  .galleryViewsBtn {
+    min-height: 28px;
+    font-size: 7px;
+    padding: 2px 4px;
+    gap: 2px;
+  }
 }
 
 .galleryActionBtn {
@@ -581,6 +1071,18 @@
   letter-spacing: 1px;
   cursor: pointer;
   transition: all 0.2s;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 480px) {
+  .galleryActionBtn {
+    min-height: 28px;
+    font-size: 7px;
+    padding: 2px 4px;
+  }
 }
 
 .galleryActionBtn:hover {
@@ -600,10 +1102,41 @@
   margin-top: 5px;
 }
 
+@media (max-width: 480px) {
+  .galleryViewAllBtn {
+    font-size: 6px;
+    padding: 2px 4px;
+    margin-top: 3px;
+    min-height: unset;
+  }
+}
+
 .galleryViewAllBtn:hover {
   border-color: #0a0;
   color: #0a0;
   box-shadow: 0 0 6px rgba(0, 255, 0, 0.3);
+}
+
+.galleryViewAllLink {
+  font-size: 11px;
+  margin-top: 5px;
+}
+
+.artistFilterClearBtn {
+  margin-left: 10px;
+  background: none;
+  border: none;
+  color: #0a0;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.3, 1);
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+.artistFilterClearBtn:hover {
+  opacity: 0.8;
 }
 
 .galleryInfoBadge {
@@ -700,7 +1233,17 @@
 
 @media (max-width: 480px) {
   .expandedModalOverlay {
+    align-items: center;
+    justify-content: center;
     padding: 10px;
+  }
+}
+
+@media (max-width: 360px) {
+  .expandedModalOverlay {
+    align-items: center;
+    justify-content: center;
+    padding: 0;
   }
 }
 
@@ -715,7 +1258,9 @@
   flex-direction: column;
   gap: 16px;
   padding: 20px;
-  box-shadow: 0 0 30px rgba(0, 255, 0, 0.3), inset 0 0 15px rgba(0, 255, 0, 0.05);
+  box-shadow:
+    0 0 30px rgba(0, 255, 0, 0.3),
+    inset 0 0 15px rgba(0, 255, 0, 0.05);
   animation: slideIn 0.4s cubic-bezier(0.2, 0.8, 0.3, 1);
   border-radius: 4px;
 }
@@ -732,8 +1277,45 @@
 @media (max-width: 480px) {
   .expandedModalCard {
     max-width: 95vw;
+    max-height: 90vh;
     padding: 12px;
     gap: 10px;
+    border-radius: 4px;
+    animation: slideIn 0.4s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+}
+
+@media (max-width: 360px) {
+  .expandedModalCard {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    padding: 16px;
+    gap: 12px;
+    border-radius: 0;
+    border: none;
+    border-top: 2px solid #0a0;
+  }
+}
+/* Bottom sheet drag handle */
+/* Bottom sheet drag handle - hidden */
+.bottomSheetDragHandle {
+  display: none;
+}
+
+@media (max-width: 360px) {
+  .expandedModalCard {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 90vh;
+    padding: 16px;
+    gap: 12px;
+    border-radius: 12px 12px 0 0;
+    border: 2px solid #0a0;
+    border-bottom: none;
+    animation: slideInBottom 0.4s cubic-bezier(0.2, 0.8, 0.3, 1);
   }
 }
 
@@ -865,4 +1447,300 @@
   background: rgba(0, 255, 0, 0.15);
   box-shadow: 0 0 12px rgba(0, 255, 0, 0.4);
   transform: rotate(90deg) scale(1.1);
+}
+
+/* Skeleton loader animation */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Filter chips section */
+.activeFiltersSection {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  margin: 8px 0;
+  align-items: center;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid #0a0;
+  color: #0a0;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filterChip:hover {
+  background: rgba(0, 255, 0, 0.2);
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+}
+
+.filterChip.clearAll {
+  background: rgba(255, 100, 100, 0.1);
+  border-color: #f64;
+  color: #f64;
+}
+
+.filterChip.clearAll:hover {
+  background: rgba(255, 100, 100, 0.2);
+  box-shadow: 0 0 8px rgba(255, 100, 100, 0.3);
+}
+
+.filterChipClose {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+  font-weight: bold;
+}
+
+.filterChipClose:hover {
+  transform: rotate(90deg);
+  opacity: 0.8;
+}
+
+.filterChipClear {
+  background: none;
+  border: 1px solid #0a0;
+  color: #0a0;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: monospace;
+  margin-left: auto;
+  transition: all 0.2s;
+}
+
+.filterChipClear:hover {
+  background: rgba(0, 170, 0, 0.1);
+  box-shadow: 0 0 8px rgba(0, 170, 0, 0.3);
+}
+
+/* Skeleton loader component */
+.skeletonCard {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.skeletonCard .galleryImage {
+  background: linear-gradient(90deg, #0a0a0a, #1a1a1a, #0a0a0a);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Infinite scroll loader */
+.infiniteScrollLoader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  gap: 8px;
+}
+
+.loaderDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0a0;
+  animation: bounce 1.4s infinite;
+}
+
+.loaderDot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.loaderDot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loaderDot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+/* Micro-interaction animations */
+
+/* Heart pop effect for like button */
+@keyframes heartPop {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.galleryLikeBtn.animatingHeart {
+  animation: heartPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Share button success feedback */
+@keyframes shareSuccess {
+  0% {
+    background: transparent;
+    box-shadow: none;
+  }
+  50% {
+    background: rgba(0, 255, 0, 0.4);
+    box-shadow: 0 0 16px rgba(0, 255, 0, 0.6);
+  }
+  100% {
+    background: rgba(0, 255, 0, 0.15);
+    box-shadow: 0 0 12px rgba(0, 255, 0, 0.5);
+  }
+}
+
+.galleryShareBtn.shareSuccess {
+  animation: shareSuccess 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Card flip animation on hover */
+.galleryItem.hasFlipAnimation {
+  perspective: 1000px;
+}
+
+.galleryItemFlip {
+  animation: cardFlip 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+@keyframes cardFlip {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(8deg);
+  }
+}
+
+/* Smooth page transition for filters */
+@keyframes fadeInCards {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.galleryGrid.filterTransition .galleryItem {
+  animation: fadeInCards 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
+.galleryListView.filterTransition .galleryItem {
+  animation: fadeInCards 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
+/* Stagger animation for gallery items */
+.galleryItem {
+  --item-index: 0;
+  animation-delay: calc(var(--item-index) * 0.05s);
+}
+
+/* Rarity color indicator */
+.rarityColorIndicator {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  padding: 4px;
+}
+
+.rarityColorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #888;
+  background-color: #888;
+  box-shadow: 0 0 8px #888;
+}
+
+.rarityColorIndicator[data-rarity="LEGENDARY"] .rarityColorDot {
+  border-color: #ffd700;
+  background-color: #ffd700;
+  box-shadow: 0 0 8px #ffd700;
+}
+
+.rarityColorIndicator[data-rarity="EPIC"] .rarityColorDot {
+  border-color: #ba55d3;
+  background-color: #ba55d3;
+  box-shadow: 0 0 8px #ba55d3;
+}
+
+.rarityColorIndicator[data-rarity="RARE"] .rarityColorDot {
+  border-color: #ffa500;
+  background-color: #ffa500;
+  box-shadow: 0 0 8px #ffa500;
+}
+
+.rarityColorIndicator[data-rarity="COMMON"] .rarityColorDot {
+  border-color: #00ffff;
+  background-color: #00ffff;
+  box-shadow: 0 0 8px #00ffff;
+}
+
+@media (max-width: 480px) {
+  .activeFiltersSection {
+    gap: 6px;
+    padding: 6px 0;
+    margin: 6px 0;
+  }
+
+  .filterChip {
+    padding: 3px 8px;
+    font-size: 8px;
+  }
+
+  .filterChipClose {
+    font-size: 10px;
+  }
 }

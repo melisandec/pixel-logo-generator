@@ -3463,7 +3463,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
 
   const leaderboardDate = "Last 7 days";
   const leaderboardPageSize = 5;
-  const galleryPageSize = 6;
+  const galleryPageSize = isMobile ? 6 : 12;
 
   const sortedLeaderboard = [...leaderboard].sort((a, b) => {
     const bScore = b.score ?? b.likes + (b.recasts ?? 0) * 2;
@@ -4691,8 +4691,10 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           onShare={handleShare}
           favorites={favorites}
           onLoadFavorite={(result) => {
+            // Handle both LeaderboardEntry (from gallery) and LogoHistoryItem.result (from favorites)
+            const text = (result as any).config?.text || (result as any).text;
             setLogoResult(result);
-            setInputText(result.config.text);
+            setInputText(text);
             setActiveTab("home");
           }}
           onRemoveFavorite={toggleFavorite}
