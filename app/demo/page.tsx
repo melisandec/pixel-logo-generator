@@ -31,7 +31,8 @@ export default function DemoPage() {
               <div className="banner-content">
                 <p className="banner-title">EXCLUSIVE LIMITED EDITION</p>
                 <p className="banner-subtitle">
-                  1 logo attempt every 5 minutes • Premium neon styling • Collectible designs
+                  1 logo attempt every 5 minutes • Premium neon styling •
+                  Collectible designs
                 </p>
               </div>
             </div>
@@ -62,7 +63,10 @@ export default function DemoPage() {
 
             {/* Footer */}
             <footer className="demo-footer">
-              <p>Exclusive demo mode • Limited seed pool • Premium styling applied</p>
+              <p>
+                Exclusive demo mode • Limited seed pool • Premium styling
+                applied
+              </p>
             </footer>
           </div>
         </div>
