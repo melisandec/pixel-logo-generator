@@ -203,3 +203,60 @@ model DemoLogoStyle {
   @@index([glow])
   @@index([createdAt])
 }
+
+// Logo rarity enumeration
+enum LogoRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+// Curated logo styles for consistency and curation
+model LogoStyle {
+  id           Int      @id @default(autoincrement())
+  slug         String   @unique // e.g. 'nasa-orbit-ring'
+  displayName  String   // e.g. 'NASA Orbit Ring'
+  rarity       LogoRarity
+  weight       Int      @default(50) // Relative probability (common: 50, rare: 30, epic: 5, legendary: 15)
+  
+  // Color configuration
+  baseHue      Int      // 0-360 degrees
+  accentHue    Int      // 0-360 degrees
+  bgHue        Int      // 0-360 degrees
+  
+  // Typography
+  fontFamily   String   @default("Inter") // Font stack for rendering
+  
+  // Layout and effects as JSON blobs
+  layout       Json     // Canvas layout knobs: pixelSize, composition, frameStyle, etc.
+  effects      Json     // Text effects: shadows, glows, gradients, transforms, etc.
+  
+  // Metadata
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relationships
+  forgedLogos  ForgedLogo[]
+  
+  @@index([rarity])
+  @@index([isActive])
+  @@index([weight])
+}
+
+// User-forged logos using specific curated styles
+model ForgedLogo {
+  id        String   @id @default(cuid()) // CUID for uniqueness
+  seed      Int      // Numeric seed for deterministic generation
+  text      String   // Logo text
+  styleId   Int      // Foreign key to LogoStyle
+  style     LogoStyle @relation(fields: [styleId], references: [id])
+  rarity    LogoRarity
+  createdAt DateTime @default(now())
+  
+  @@index([styleId])
+  @@index([rarity])
+  @@index([createdAt])
+  @@unique([seed, styleId]) // Prevent duplicate seed+style combinations
+}

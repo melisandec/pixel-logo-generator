@@ -16,6 +16,8 @@ export async function storeLogoDemoStyle(
   generatedLogoId?: string,
   rarity?: string,
 ): Promise<void> {
+  // Extract deterministic fingerprint from seed
+  // This will produce the same style every time for the same seed
   const fingerprint = extractStyleFingerprint(result);
 
   try {
@@ -44,8 +46,10 @@ export async function storeLogoDemoStyle(
         },
       });
     }
+
+    console.log(`[storeLogoDemoStyle] Stored demo style for seed ${seed}:`, fingerprint);
   } catch (error) {
-    // Log but don't throw - style storage is non-critical
-    console.warn("Failed to store demo logo style:", error);
+    console.error("Failed to store demo logo style:", error);
+    throw error; // Don't silently fail - let caller know
   }
 }

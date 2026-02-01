@@ -1744,3 +1744,104 @@
     font-size: 10px;
   }
 }
+
+/* Theme Selector Styles */
+.themeSelectorWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #8a7bff;
+  background: linear-gradient(90deg, #1a1030, #1a1a2e, #1a1030);
+  border-radius: 2px;
+  margin: 8px 0;
+}
+
+.themeSelectorLabel {
+  font-size: 10px;
+  color: #d0a0ff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: bold;
+  font-family: "Press Start 2P", monospace;
+}
+
+.themeSelectorButtons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 6px;
+}
+
+.themeButton {
+  padding: 6px 8px;
+  font-size: 9px;
+  border: 1px solid #6b4fb8;
+  background: transparent;
+  color: #a0a0ff;
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.themeButton:hover {
+  border-color: #8a7bff;
+  color: #d0a0ff;
+  box-shadow: 0 0 8px rgba(138, 123, 255, 0.3);
+  background: rgba(138, 123, 255, 0.1);
+}
+
+.themeButton.active {
+  border-color: #00ff00;
+  background: linear-gradient(90deg, #00ff0020, #8a7bff20);
+  color: #00ff00;
+  box-shadow:
+    0 0 12px rgba(0, 255, 0, 0.5),
+    inset 0 0 6px rgba(0, 255, 0, 0.1);
+  font-weight: bold;
+}
+
+.themeButton:active {
+  transform: scale(0.95);
+}
+
+.themeDescription {
+  font-size: 9px;
+  color: #8a7bff;
+  text-align: center;
+  font-style: italic;
+  padding: 6px;
+  border-top: 1px solid rgba(138, 123, 255, 0.3);
+  margin-top: 4px;
+}
+
+@media (max-width: 480px) {
+  .themeSelectorWrapper {
+    padding: 8px;
+    margin: 6px 0;
+    gap: 6px;
+  }
+
+  .themeSelectorLabel {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .themeSelectorButtons {
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 4px;
+  }
+
+  .themeButton {
+    padding: 4px 6px;
+    font-size: 7px;
+  }
+
+  .themeDescription {
+    font-size: 8px;
+    padding: 4px;
+  }
+}

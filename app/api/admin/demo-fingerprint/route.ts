@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDemoLogoStyle } from "@/lib/demoLogoStyleManager";
 import prisma from "@/lib/prisma";
+import { generateDeterministicFingerprint } from "@/lib/demoStyleVariants";
 import {
-  generateNeonFingerprint,
-  isValidNeonDemoStyle,
   enforceNeonConstraints,
+  isValidNeonDemoStyle,
 } from "@/lib/demoNeonStyleVariants";
 
 // Admin-only endpoint to get or create demo style fingerprint
@@ -43,7 +43,8 @@ export async function POST(request: NextRequest) {
     // If no style exists, create one
     if (!dbStyle) {
       console.log("[demo-fingerprint API] Creating new fingerprint");
-      const fingerprint = generateNeonFingerprint();
+      // Use deterministic fingerprint based on seed (not random)
+      const fingerprint = generateDeterministicFingerprint(seed);
       console.log("[demo-fingerprint API] Generated fingerprint:", fingerprint);
       const validFingerprint = isValidNeonDemoStyle(fingerprint)
         ? fingerprint

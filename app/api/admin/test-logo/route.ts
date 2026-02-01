@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDemoLogoStyle } from "@/lib/demoLogoStyleManager";
 import prisma from "@/lib/prisma";
+import { generateRandomFingerprint } from "@/lib/demoStyleVariants";
 import {
-  generateNeonFingerprint,
   isValidNeonDemoStyle,
   enforceNeonConstraints,
 } from "@/lib/demoNeonStyleVariants";
@@ -86,7 +86,8 @@ export async function POST(request: NextRequest) {
         // If no style exists, create one
         if (!dbStyle) {
           console.log("[test-logo API] Creating new demo fingerprint");
-          const fingerprint = generateNeonFingerprint();
+          let fingerprint = generateRandomFingerprint();
+          fingerprint = enforceNeonConstraints(fingerprint);
           console.log("[test-logo API] Generated fingerprint:", fingerprint);
           const validFingerprint = isValidNeonDemoStyle(fingerprint)
             ? fingerprint
@@ -117,13 +118,13 @@ export async function POST(request: NextRequest) {
         if (dbStyle) {
           console.log("[test-logo API] Using demo style:", dbStyle);
           demoStyle = dbStyle;
-          // Generate SVG filter defs from fingerprint
+          // Generate SVG filter defs from fingerprint using modern system
           try {
             console.log(
               "[test-logo API] Generating filter defs from fingerprint",
             );
-            const { generateFilterDefsFromFingerprint } =
-              await import("@/lib/demoStyleVariants");
+            const { composeLandingFilters } =
+              await import("@/lib/demoSvgRenderer");
             // Cast to StyleFingerprint - use only the styling fields
             const fingerprint = {
               palette: dbStyle.palette as any,
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
               texture: dbStyle.texture as any,
               lighting: dbStyle.lighting as any,
             };
-            filters = generateFilterDefsFromFingerprint(fingerprint);
+            filters = composeLandingFilters(fingerprint, "balanced");
             console.log(
               "[test-logo API] Filters generated, length:",
               filters?.length || 0,

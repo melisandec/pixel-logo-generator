@@ -13,6 +13,11 @@ import {
   PRESET_SWATCHES,
   TRIES_PER_DAY,
 } from "@/lib/logoGeneratorConstants";
+import {
+  STYLE_THEMES,
+  getThemeConfig,
+  type StyleTheme,
+} from "@/lib/demoNeonStyleVariants";
 
 interface LogoGeneratorHomeProps {
   // Generation state
@@ -26,6 +31,10 @@ interface LogoGeneratorHomeProps {
   // Preset state
   selectedPreset: string | null;
   onPresetChange: (preset: string | null) => void;
+
+  // Theme state (for demo exclusive styling)
+  selectedTheme?: StyleTheme;
+  onThemeChange?: (theme: StyleTheme) => void;
 
   // Generation handlers
   onGenerate: () => Promise<void>;
@@ -112,6 +121,8 @@ export default function LogoGeneratorHome(props: LogoGeneratorHomeProps) {
     isGenerating,
     selectedPreset,
     onPresetChange,
+    selectedTheme,
+    onThemeChange,
     onGenerate,
     onRandomGenerate,
     logoResult,
@@ -223,6 +234,35 @@ export default function LogoGeneratorHome(props: LogoGeneratorHomeProps) {
               </>
             )}
           </div>
+
+          {/* Theme Selector (Demo Mode Only) */}
+          {demoMode && selectedTheme && onThemeChange && (
+            <div className="theme-selector-wrapper">
+              <label className="theme-selector-label">Style Theme:</label>
+              <div className="theme-selector-buttons">
+                {Object.keys(STYLE_THEMES).map((themeKey) => {
+                  const theme = STYLE_THEMES[themeKey as StyleTheme];
+                  return (
+                    <button
+                      key={themeKey}
+                      type="button"
+                      className={`theme-button ${selectedTheme === themeKey ? "active" : ""}`}
+                      onClick={() => onThemeChange(themeKey as StyleTheme)}
+                      title={theme.description}
+                      aria-pressed={selectedTheme === themeKey}
+                    >
+                      {theme.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {STYLE_THEMES[selectedTheme] && (
+                <div className="theme-description">
+                  {STYLE_THEMES[selectedTheme].description}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="daily-limit">
             Tries left today:{" "}

@@ -29,7 +29,7 @@ export function LogoPreview({
             </div>
           ) : logoResult ? (
             <>
-              <img
+              <Image
                 src={logoResult.dataUrl}
                 alt="Generated logo"
                 width={256}

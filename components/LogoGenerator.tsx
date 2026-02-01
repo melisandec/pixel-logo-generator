@@ -11,6 +11,7 @@ import {
   type Rarity,
   stringToSeed,
 } from "@/lib/logoGenerator";
+import { generateLogoDemo } from "@/lib/generateLogoDemo";
 import {
   getImageForContext,
   type ImageRenderContext,
@@ -37,6 +38,11 @@ import { storeLogoDemoStyle } from "@/lib/demoLogoStyleActions";
 import { useDemoMode } from "@/lib/hooks/useDemoMode";
 import { useFilterState } from "@/lib/hooks/useFilterState";
 import { useSeedCrackAnimation } from "@/lib/hooks/useSeedCrackAnimation";
+import {
+  STYLE_THEMES,
+  getThemeConfig,
+  type StyleTheme,
+} from "@/lib/demoNeonStyleVariants";
 import DemoLogoDisplay from "./DemoLogoDisplay";
 import dynamic from "next/dynamic";
 import Toast from "./Toast";
@@ -302,6 +308,7 @@ export default function LogoGenerator({
   const [selectedPreset, setSelectedPreset] = useState<string | null>(
     demoMode ? DEMO_PRESET_KEY : null,
   );
+  const [selectedTheme, setSelectedTheme] = useState<StyleTheme>("synthwave");
   const [challengeDone, setChallengeDone] = useState<Record<string, boolean>>(
     {},
   );
@@ -1106,11 +1113,28 @@ export default function LogoGenerator({
         if (data.entry?.id) {
           setCurrentEntryId(data.entry.id);
 
-          // Store demo logo style fingerprint if in demo mode
+          // FIX #4: Store demo logo style fingerprint if in demo mode (wait for it to complete)
           if (demoMode) {
-            const seedString = result.seed.toString();
-            // Use server action to store style (Prisma must run server-side)
-            void storeLogoDemoStyle(seedString, result, data.entry.id);
+            try {
+              const seedString = result.seed.toString();
+              // Wait for style storage to complete (don't fire-and-forget)
+              await storeLogoDemoStyle(
+                seedString,
+                result,
+                data.entry.id,
+                result.rarity,
+              );
+              console.log(
+                "[LogoGenerator] Demo style stored successfully for seed:",
+                seedString,
+              );
+            } catch (styleError) {
+              console.error(
+                "[LogoGenerator] Failed to store demo style, but logo persisted:",
+                styleError,
+              );
+              // Don't fail the entire generation if style storage fails
+            }
           }
         }
         return data.entry;
@@ -1119,7 +1143,13 @@ export default function LogoGenerator({
         return undefined;
       }
     },
-    [currentEntryId, selectedPreset, userInfo?.username, userInfo?.fid],
+    [
+      currentEntryId,
+      selectedPreset,
+      userInfo?.username,
+      userInfo?.fid,
+      demoMode,
+    ],
   );
 
   const toggleFavorite = (result: LogoResult) => {
@@ -1378,7 +1408,7 @@ export default function LogoGenerator({
     [demoMode],
   );
 
-  // Demo mode: 1 try every 5 minutes (300 seconds)
+  // Demo mode: 1 try every 1 minute (60 seconds)
   const checkDemoRateLimit = useCallback((): {
     ok: boolean;
     message?: string;
@@ -1387,7 +1417,7 @@ export default function LogoGenerator({
     const storageKey = "plf:demoRateLimit";
     const stored = localStorage.getItem(storageKey);
     const now = Date.now();
-    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const ONE_MINUTE_MS = 1 * 60 * 1000;
 
     if (!stored) {
       localStorage.setItem(storageKey, JSON.stringify(now));
@@ -1398,13 +1428,13 @@ export default function LogoGenerator({
       const lastAttempt = JSON.parse(stored) as number;
       const timeSinceLastAttempt = now - lastAttempt;
 
-      if (timeSinceLastAttempt < FIVE_MINUTES_MS) {
+      if (timeSinceLastAttempt < ONE_MINUTE_MS) {
         const timeUntilNext = Math.ceil(
-          (FIVE_MINUTES_MS - timeSinceLastAttempt) / 1000,
+          (ONE_MINUTE_MS - timeSinceLastAttempt) / 1000,
         );
         return {
           ok: false,
-          message: `Demo forge available in ${timeUntilNext}s (1 try every 5 minutes)`,
+          message: `Demo forge available in ${timeUntilNext}s (1 try every 1 minute)`,
           timeUntilNext,
         };
       }
@@ -1422,7 +1452,7 @@ export default function LogoGenerator({
     (text: string, seedProvided: boolean): LimitCheck => {
       const normalizedText = normalizeWord(text);
 
-      // Demo mode: 1 try every 5 minutes
+      // Demo mode: 1 try every 3 minutes
       if (demoMode) {
         const rateLimit = checkDemoRateLimit();
         if (!rateLimit.ok) {
@@ -1519,9 +1549,9 @@ export default function LogoGenerator({
           }
         : undefined;
 
-      let seedToUse = demoMode ? demoModeHook.resolveDemoSeed(seed) : seed;
+      let seedToUse: number;
 
-      // In demo mode, atomically get and consume seed from database
+      // FIX #1: In demo mode, CONSUME SEED FIRST before generating
       if (demoMode) {
         try {
           console.log(
@@ -1555,6 +1585,9 @@ export default function LogoGenerator({
           console.error("[LogoGenerator] Error getting demo seed:", error);
           throw error;
         }
+      } else {
+        // Normal mode: use provided seed or generate random
+        seedToUse = seed ?? stringToSeed(text + Date.now());
       }
 
       console.log(
@@ -1563,13 +1596,15 @@ export default function LogoGenerator({
         "text:",
         text,
       );
-      return generateLogo({
-        text,
-        seed: seedToUse,
-        ...(presetConfigCopy ?? {}),
-      });
+      return demoMode
+        ? generateLogoDemo(text, seedToUse)
+        : generateLogo({
+            text,
+            seed: seedToUse,
+            ...(presetConfigCopy ?? {}),
+          });
     },
-    [getPresetConfig, demoModeHook, userInfo?.username],
+    [getPresetConfig, demoModeHook, userInfo?.username, demoMode],
   );
 
   const getProfileTitle = useCallback(
@@ -1906,6 +1941,8 @@ export default function LogoGenerator({
     loadMiniappAdded,
     runWhenIdle,
     selectedPreset,
+    demoMode,
+    setSoundEnabled,
   ]);
 
   useEffect(() => {
@@ -2110,6 +2147,8 @@ export default function LogoGenerator({
     setRemixMode(false);
 
     const seedProvided = demoMode ? false : !!customSeed.trim();
+
+    // FIX #5: Check rate limit first before consuming seed
     const limitCheck = checkDailyLimits(inputText, seedProvided);
     if (!limitCheck.ok) {
       setToast({ message: limitCheck.message, type: "info" });
@@ -2141,16 +2180,18 @@ export default function LogoGenerator({
       setSelectedPreset(DEMO_PRESET_KEY);
     }
 
-    const seedToUse = demoMode
-      ? demoModeHook.resolveDemoSeed()
-      : (seed ?? Math.floor(Math.random() * 2147483647));
+    // Note: In demo mode, seed will be consumed inside createLogoResult()
+    // In normal mode, use provided seed or generate random
+    const seedForNormalMode = seed ?? Math.floor(Math.random() * 2147483647);
+
     try {
+      setIsGenerating(true);
+
       const result = await createLogoResult(
         inputText.trim(),
-        seedToUse,
+        demoMode ? undefined : seedForNormalMode,
         effectivePresetKey,
       );
-      setIsGenerating(true);
 
       // Persist to gallery immediately so all attempts are saved
       void persistGeneratedLogo(result);
@@ -2181,7 +2222,7 @@ export default function LogoGenerator({
               username: userInfo?.username,
               metadata: {
                 text: inputText.trim(),
-                seed: seedToUse,
+                seed: result.seed,
                 rarity: result.rarity,
                 preset: effectivePresetKey,
               },
@@ -2235,16 +2276,17 @@ export default function LogoGenerator({
       return;
     }
 
-    const seedToUse = demoMode
-      ? demoModeHook.resolveDemoSeed()
-      : Math.floor(Math.random() * 2147483647);
+    // Note: In demo mode, seed will be consumed inside createLogoResult()
+    // In normal mode, generate a random seed
+    const seedForNormalMode = Math.floor(Math.random() * 2147483647);
     try {
+      setIsGenerating(true);
+
       const result = await createLogoResult(
         randomText,
-        seedToUse,
+        demoMode ? undefined : seedForNormalMode,
         demoMode ? DEMO_PRESET_KEY : null,
       );
-      setIsGenerating(true);
 
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
@@ -4599,7 +4641,7 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
                   <p>
                     Seeds rotate from our unreleased vault—no custom seeds here.
                   </p>
-                  <p>Demo limit: One forge every 5 minutes.</p>
+                  <p>Demo limit: One forge every 3 minutes.</p>
                 </>
               ) : (
                 <>
@@ -4629,6 +4671,8 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           isGenerating={isGenerating}
           selectedPreset={selectedPreset}
           onPresetChange={setSelectedPreset}
+          selectedTheme={selectedTheme}
+          onThemeChange={setSelectedTheme}
           onGenerate={handleGenerate}
           onRandomGenerate={handleRandomize}
           logoResult={logoResult}

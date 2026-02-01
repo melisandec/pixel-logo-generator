@@ -7,6 +7,7 @@ import type { LogoResult } from "./logoGenerator";
 import prisma from "./prisma";
 import {
   generateRandomFingerprint,
+  generateDeterministicFingerprint,
   type StyleFingerprint,
 } from "./demoStyleVariants";
 import {
@@ -21,13 +22,14 @@ import {
 } from "./demoMetadata";
 
 /**
- * Extracts a style fingerprint from a generated logo result
+ * Extracts a deterministic style fingerprint from a logo result
+ * Uses the seed to ensure: same seed = same visual style always
  * ENFORCED: All demo logos use neon gradients, high contrast palettes,
  * magenta/cyan/purple dominance, and NO muted colors
  */
 export function extractStyleFingerprint(result: LogoResult): StyleFingerprint {
-  // DEMO MODE CONSTRAINT: Generate ONLY neon-friendly styles
-  // Each demo generation gets a unique random combination from the ENFORCED neon pools:
+  // DEMO MODE: Generate DETERMINISTIC styles from seed
+  // Each demo seed produces a unique, reproducible combination from the ENFORCED neon pools:
   // - 9 high-contrast palettes (magenta/cyan/purple dominant)
   // - 5 neon gradients only
   // - 4 neon glows
@@ -36,7 +38,8 @@ export function extractStyleFingerprint(result: LogoResult): StyleFingerprint {
   // - 4 textures
   // - 4 lighting angles
   // Total: 1,800 unique neon combinations (down from 9,216)
-  const fingerprint = generateNeonFingerprint();
+  // Using seed ensures reproducibility: new generation from same seed = same style
+  const fingerprint = generateDeterministicFingerprint(result.seed);
 
   // Double-check constraints are met (safety validation)
   if (!isValidNeonDemoStyle(fingerprint)) {

@@ -8,35 +8,61 @@ import "../globals.css";
 export default function DemoPage() {
   return (
     <ErrorBoundary>
-      <main className="main-container">
-        <div className="crt-screen">
+      <main className="demo-main-container">
+        <div className="demo-crt-screen">
           <div className="scanlines"></div>
           <div className="content">
-            <div style={{ marginBottom: "1rem" }}>
-              <Link
-                href="/"
-                style={{
-                  display: "inline-block",
-                  padding: "0.5rem 1rem",
-                  background: "#333",
-                  color: "#0ff",
-                  textDecoration: "none",
-                  border: "2px solid #0ff",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                  fontFamily: "'Courier New', monospace",
-                }}
-              >
-                ← Back to Normal Mode
+            {/* Navigation & Header */}
+            <div className="demo-header-nav">
+              <Link href="/" className="demo-back-button">
+                <span className="arrow">←</span> BACK TO NORMAL MODE
               </Link>
             </div>
-            <h1 className="pixel-title">80s EXCLUSIVE FORGE</h1>
-            <p className="subtitle" style={{ color: "#f0f" }}>
-              🟣 DEMO MODE – Limited 1 try every 5 minutes
-            </p>
-            <LogoGenerator demoMode={true} />
-            <footer className="main-footer">
-              Exclusive demo mode • 80s synthwave styling • Limited tries
+
+            {/* Main Title Section */}
+            <div className="demo-title-section">
+              <h1 className="demo-pixel-title">80s EXCLUSIVE FORGE</h1>
+              <div className="demo-title-badge">DEMO MODE</div>
+            </div>
+
+            {/* Exclusivity Banner */}
+            <div className="demo-exclusivity-banner">
+              <div className="banner-icon">🟣</div>
+              <div className="banner-content">
+                <p className="banner-title">EXCLUSIVE LIMITED EDITION</p>
+                <p className="banner-subtitle">
+                  1 logo attempt every 5 minutes • Premium neon styling • Collectible designs
+                </p>
+              </div>
+            </div>
+
+            {/* Main Generator */}
+            <div className="demo-generator-wrapper">
+              <LogoGenerator demoMode={true} />
+            </div>
+
+            {/* Features Grid */}
+            <div className="demo-features-grid">
+              <div className="feature-card">
+                <div className="feature-icon">✨</div>
+                <h3>Premium Styling</h3>
+                <p>Advanced neon and 80s aesthetic effects</p>
+              </div>
+              <div className="feature-card">
+                <div className="feature-icon">🎯</div>
+                <h3>Limited Availability</h3>
+                <p>Exclusive to demo mode with rate limiting</p>
+              </div>
+              <div className="feature-card">
+                <div className="feature-icon">🏆</div>
+                <h3>Collectible</h3>
+                <p>Share and track your unique creations</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <footer className="demo-footer">
+              <p>Exclusive demo mode • Limited seed pool • Premium styling applied</p>
             </footer>
           </div>
         </div>

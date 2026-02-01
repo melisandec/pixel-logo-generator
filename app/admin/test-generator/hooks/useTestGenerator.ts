@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   generateLogo as generateLogoLib,
   type LogoConfig,
@@ -11,8 +11,8 @@ import {
 } from "@/lib/demoMode";
 import { applyFingerprintToConfig } from "@/lib/demoFingerprintToConfig";
 import { generateDemoSvg, svgToDataUrl } from "@/lib/demoSvgRenderer";
+import { generateRandomFingerprint } from "@/lib/demoStyleVariants";
 import {
-  generateNeonFingerprint,
   isValidNeonDemoStyle,
   enforceNeonConstraints,
 } from "@/lib/demoNeonStyleVariants";
@@ -50,7 +50,7 @@ export function useTestGenerator() {
   const [state, setState] = useState<TestGeneratorState>({
     mode: "normal",
     text: "",
-    seed: Math.floor(Math.random() * 2147483647),
+    seed: 12345, // Stable default seed to prevent hydration mismatch
     customConfig: null,
     logoResult: null,
     isGenerating: false,
@@ -59,6 +59,16 @@ export function useTestGenerator() {
     demoStyle: null,
     filters: null,
   });
+
+  // Initialize with a random seed on client-side only after hydration
+  const [isHydrated, setIsHydrated] = useState(false);
+  useEffect(() => {
+    setIsHydrated(true);
+    setState((prev) => ({
+      ...prev,
+      seed: Math.floor(Math.random() * 2147483647),
+    }));
+  }, []);
 
   const [history, setHistory] = useState<GenerationRecord[]>([]);
 
@@ -170,14 +180,15 @@ export function useTestGenerator() {
             console.log(
               "[generateLogo] Generating local fingerprint as fallback",
             );
-            demoFingerprint = generateNeonFingerprint();
+            demoFingerprint = generateRandomFingerprint();
+            demoFingerprint = enforceNeonConstraints(demoFingerprint);
             console.log(
               "[generateLogo] Generated fingerprint:",
               demoFingerprint,
             );
             if (!isValidNeonDemoStyle(demoFingerprint)) {
               console.log(
-                "[generateLogo] Fingerprint not valid, enforcing constraints",
+                "[generateLogo] Fingerprint not valid, enforcing constraints again",
               );
               demoFingerprint = enforceNeonConstraints(demoFingerprint);
               console.log(

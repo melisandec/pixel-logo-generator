@@ -46,9 +46,11 @@ export function ComparisonView({
             {isLoading ? (
               <div className="text-slate-500 text-sm">Loading...</div>
             ) : normalLogo ? (
-              <img
+              <Image
                 src={normalLogo.logoUrl}
                 alt="Normal logo"
+                width={256}
+                height={256}
                 className="w-full h-full object-contain"
               />
             ) : (
@@ -84,9 +86,11 @@ export function ComparisonView({
             {isLoading ? (
               <div className="text-slate-500 text-sm">Loading...</div>
             ) : demoLogo ? (
-              <img
+              <Image
                 src={demoLogo.logoUrl}
                 alt="Demo logo"
+                width={256}
+                height={256}
                 className="w-full h-full object-contain"
               />
             ) : (

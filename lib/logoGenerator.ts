@@ -351,6 +351,7 @@ export interface LogoConfig {
   badges?: BadgeType[];
   // Enhancement control (for backward compatibility)
   skipEnhancements?: boolean; // Set to true for legacy seeds
+  isDemo?: boolean; // Enable smooth antialiasing for demo mode
 }
 
 export interface LogoResult {
@@ -974,7 +975,8 @@ export function generateLogo(config: LogoConfig): LogoResult {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not get canvas context");
 
-  ctx.imageSmoothingEnabled = false;
+  // Enable antialiasing for demo mode (smoother text), disable for normal (pixel art)
+  ctx.imageSmoothingEnabled = config.isDemo ?? false;
 
   // Measure text
   const fontSize = pixelSize * 12;

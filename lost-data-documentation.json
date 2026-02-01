@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-01-31T11:00:27.610Z",
+  "count_estimated": 45,
+  "entries": [
+    {
+      "username": "example_user",
+      "text": "example logo text",
+      "seed": 123456,
+      "rarity": "COMMON",
+      "createdAt": "2026-01-29T10:00:00Z",
+      "notes": "add any details you remember"
+    }
+  ],
+  "instructions": "Fill in the entries array with data you remember from the 45 lost logos"
+}

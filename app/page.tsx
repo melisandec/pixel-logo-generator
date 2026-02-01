@@ -35,13 +35,13 @@ export default function Home() {
               <Link
                 href="/demo"
                 style={{
-                  padding: isMobile ? "0.5rem 1rem" : "1rem 2rem",
+                  padding: "0.4rem 0.8rem",
                   background: "#f0f",
                   color: "#000",
                   textDecoration: "none",
-                  border: "3px solid #0ff",
-                  borderRadius: "8px",
-                  fontSize: isMobile ? "0.75rem" : "1.1rem",
+                  border: "2px solid #0ff",
+                  borderRadius: "6px",
+                  fontSize: "0.7rem",
                   fontWeight: "bold",
                   fontFamily: "'Courier New', monospace",
                   textAlign: "center",

@@ -15,10 +15,11 @@
 import React, { useEffect, useState } from "react";
 import NextImage from "next/image";
 import type { LogoResult } from "@/lib/logoGenerator";
+import type { StyleFingerprint } from "@/lib/demoStyleVariants";
 import {
-  generateFilterDefsFromFingerprint,
-  type StyleFingerprint,
-} from "@/lib/demoStyleVariants";
+  composeLandingFilters,
+  type DesignIntensity,
+} from "@/lib/demoSvgRenderer";
 import { IS_DEMO_MODE, DEMO_SEED_BASE } from "@/lib/demoMode";
 
 /**
@@ -162,9 +163,12 @@ export function DemoLogoDisplay({
     );
   }
 
-  // Generate SVG filter definitions from fingerprint
-  const filterDefs = generateFilterDefsFromFingerprint(
+  // Generate intelligent SVG filter definitions from fingerprint
+  // Now uses modern parametric system with intensity levels and filter selection
+  const intensity: DesignIntensity = "balanced"; // Can be made user-selectable
+  const filterDefs = composeLandingFilters(
     convertToFingerprint(demoStyle),
+    intensity,
   );
 
   // Render with SVG filter wrapper

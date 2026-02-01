@@ -1,13 +1,13 @@
 import type { LogoConfig } from "./logoGenerator";
 import {
-  DEMO_NEON_PALETTES,
-  DEMO_NEON_GRADIENTS,
-  DEMO_NEON_GLOWS,
-  DEMO_NEON_CHROMES,
-  DEMO_NEON_BLOOMS,
-  DEMO_NEON_TEXTURES,
-  DEMO_NEON_LIGHTINGS,
-} from "./demoNeonStyleVariants";
+  PALETTE_VARIANTS,
+  GRADIENT_VARIANTS,
+  GLOW_VARIANTS,
+  CHROME_VARIANTS,
+  BLOOM_VARIANTS,
+  TEXTURE_VARIANTS,
+  LIGHTING_VARIANTS,
+} from "./demoStyleVariants";
 import {
   SCARCITY_MESSAGES,
   PRESTIGE_COPY,
@@ -34,13 +34,13 @@ export const DEMO_SEED_MAX = DEMO_SEED_BASE + DEMO_SEED_TOTAL - 1;
  * Connected to enforced neon constraints for visual exclusivity
  */
 export const DEMO_STYLE_POOLS = {
-  palettes: DEMO_NEON_PALETTES,
-  gradients: DEMO_NEON_GRADIENTS,
-  glows: DEMO_NEON_GLOWS,
-  chromes: DEMO_NEON_CHROMES,
-  blooms: DEMO_NEON_BLOOMS,
-  textures: DEMO_NEON_TEXTURES,
-  lightings: DEMO_NEON_LIGHTINGS,
+  palettes: PALETTE_VARIANTS,
+  gradients: GRADIENT_VARIANTS,
+  glows: GLOW_VARIANTS,
+  chromes: CHROME_VARIANTS,
+  blooms: BLOOM_VARIANTS,
+  textures: TEXTURE_VARIANTS,
+  lightings: LIGHTING_VARIANTS,
 } as const;
 
 /**
