@@ -58,6 +58,7 @@ import LogoGeneratorProfile from "./LogoGeneratorProfile";
 import LogoGeneratorRewards from "./LogoGeneratorRewards";
 import LogoGeneratorGallery from "./LogoGeneratorGallery";
 import LogoGeneratorHome from "./LogoGeneratorHome";
+import SaveLogoModal from "./SaveLogoModal";
 
 const CastPreviewModal = dynamic(() => import("./CastPreviewModal"), {
   ssr: false,
@@ -338,6 +339,10 @@ export default function LogoGenerator({
       entry: LeaderboardEntry;
     }>
   >([]);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [pendingLogoForSave, setPendingLogoForSave] =
+    useState<LogoResult | null>(null);
+  const [isSavingLogo, setIsSavingLogo] = useState(false);
   const [pastWinners, setPastWinners] = useState<
     Array<{ date: string; winners: Array<{ rank: number } & LeaderboardEntry> }>
   >([]);
@@ -2193,9 +2198,7 @@ export default function LogoGenerator({
         effectivePresetKey,
       );
 
-      // Persist to gallery immediately so all attempts are saved
-      void persistGeneratedLogo(result);
-
+      // For non-connected users, show save modal; connected users auto-save
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
         if (limitCheck.ok) {
@@ -2204,6 +2207,20 @@ export default function LogoGenerator({
             limitCheck.todayState,
             !!seed,
           );
+        }
+
+        // Check if user is connected to Farcaster
+        if (userInfo?.fid && userInfo?.username) {
+          // Auto-save for connected users
+          void persistGeneratedLogo(result);
+          setToast({
+            message: "Logo generated and saved successfully!",
+            type: "success",
+          });
+        } else {
+          // Show save modal for non-connected users
+          setPendingLogoForSave(result);
+          setShowSaveModal(true);
         }
 
         // NEW: Track analytics
@@ -2243,7 +2260,6 @@ export default function LogoGenerator({
           console.error("Failed to track generation:", error);
         }
 
-        setToast({ message: "Logo generated successfully!", type: "success" });
         setIsGenerating(false);
       });
     } catch (error) {
@@ -2290,7 +2306,6 @@ export default function LogoGenerator({
 
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
-        void persistGeneratedLogo(result);
         if (limitCheck.ok) {
           finalizeDailyLimit(
             limitCheck.normalizedText,
@@ -2298,7 +2313,20 @@ export default function LogoGenerator({
             false,
           );
         }
-        setToast({ message: "Logo generated successfully!", type: "success" });
+
+        // Check if user is connected to Farcaster
+        if (userInfo?.fid && userInfo?.username) {
+          // Auto-save for connected users
+          void persistGeneratedLogo(result);
+          setToast({
+            message: "Logo generated and saved successfully!",
+            type: "success",
+          });
+        } else {
+          // Show save modal for non-connected users
+          setPendingLogoForSave(result);
+          setShowSaveModal(true);
+        }
         setIsGenerating(false);
       });
     } catch (error) {
@@ -2311,6 +2339,82 @@ export default function LogoGenerator({
         type: "error",
       });
       setIsGenerating(false);
+    }
+  };
+
+  const handleSaveLogo = async (username: string) => {
+    if (!pendingLogoForSave) {
+      setToast({
+        message: "Logo not found. Please generate again.",
+        type: "error",
+      });
+      setShowSaveModal(false);
+      return;
+    }
+
+    try {
+      setIsSavingLogo(true);
+
+      // Persist the logo to the gallery with the provided username
+      const entry = await persistGeneratedLogo(pendingLogoForSave, {
+        username,
+        displayName: username,
+      });
+
+      if (entry) {
+        setCurrentEntryId(entry.id);
+        setToast({
+          message: `🎉 Logo saved as "${username}"! Appearing on gallery and leaderboard.`,
+          type: "success",
+        });
+        setShowSaveModal(false);
+        setPendingLogoForSave(null);
+        setHasNewGallery(true);
+      } else {
+        throw new Error("Failed to save logo");
+      }
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : "Failed to save logo",
+        type: "error",
+      });
+    } finally {
+      setIsSavingLogo(false);
+    }
+  };
+
+  const handleSkipSaveLogo = async () => {
+    try {
+      setIsSavingLogo(true);
+
+      // If a logo was persisted (shouldn't happen for non-connected users, but just in case)
+      if (currentEntryId) {
+        const response = await fetch("/api/generated-logos", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: currentEntryId }),
+        });
+
+        if (!response.ok) {
+          console.warn("Failed to remove logo, but continuing with skip");
+        }
+      }
+
+      setToast({
+        message: "Logo not saved. Generate another one!",
+        type: "info",
+      });
+      setShowSaveModal(false);
+      setPendingLogoForSave(null);
+      setCurrentEntryId(null);
+    } catch (error) {
+      console.error("Skip error:", error);
+      // Still close the modal even if delete fails
+      setShowSaveModal(false);
+      setPendingLogoForSave(null);
+      setCurrentEntryId(null);
+    } finally {
+      setIsSavingLogo(false);
     }
   };
 
@@ -2354,12 +2458,22 @@ export default function LogoGenerator({
 
       startSeedCrackSequence(result, () => {
         commitLogoResult(result);
-        void persistGeneratedLogo(result);
         finalizeDailyLimit(
           limitCheck.normalizedText,
           limitCheck.todayState,
           true,
         );
+
+        // Check if user is connected to Farcaster
+        if (userInfo?.fid && userInfo?.username) {
+          // Auto-save for connected users
+          void persistGeneratedLogo(result);
+        } else {
+          // Show save modal for non-connected users
+          setPendingLogoForSave(result);
+          setShowSaveModal(true);
+        }
+
         setToast({ message: "Remix ready! Opening cast...", type: "success" });
         handleCastClick(result, parsedSeed);
         setIsGenerating(false);
@@ -4622,6 +4736,13 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           isCasting={isCasting}
         />
       )}
+      <SaveLogoModal
+        isOpen={showSaveModal}
+        isLoading={isSavingLogo}
+        logoText={pendingLogoForSave?.config.text || ""}
+        onSave={handleSaveLogo}
+        onSkip={handleSkipSaveLogo}
+      />
       {showHowItWorks && (
         <div
           className="how-modal-overlay"

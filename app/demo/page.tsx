@@ -3,9 +3,11 @@
 import LogoGenerator from "@/components/LogoGenerator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Link from "next/link";
+import { useState } from "react";
 import "../globals.css";
 
 export default function DemoPage() {
+  const [showBanner, setShowBanner] = useState(true);
   return (
     <ErrorBoundary>
       <main className="demo-main-container">
@@ -26,39 +28,30 @@ export default function DemoPage() {
             </div>
 
             {/* Exclusivity Banner */}
-            <div className="demo-exclusivity-banner">
-              <div className="banner-icon">🟣</div>
-              <div className="banner-content">
-                <p className="banner-title">EXCLUSIVE LIMITED EDITION</p>
-                <p className="banner-subtitle">
-                  1 logo attempt every 5 minutes • Premium neon styling •
-                  Collectible designs
-                </p>
+            {showBanner && (
+              <div className="demo-exclusivity-banner">
+                <div className="banner-icon">🟣</div>
+                <div className="banner-content">
+                  <p className="banner-title">EXCLUSIVE LIMITED EDITION</p>
+                  <p className="banner-subtitle">
+                    1 logo attempt every 5 minutes • Premium neon styling •
+                    Collectible designs
+                  </p>
+                </div>
+                <button
+                  className="banner-close-button"
+                  onClick={() => setShowBanner(false)}
+                  aria-label="Close banner"
+                  type="button"
+                >
+                  ✕
+                </button>
               </div>
-            </div>
+            )}
 
             {/* Main Generator */}
             <div className="demo-generator-wrapper">
               <LogoGenerator demoMode={true} />
-            </div>
-
-            {/* Features Grid */}
-            <div className="demo-features-grid">
-              <div className="feature-card">
-                <div className="feature-icon">✨</div>
-                <h3>Premium Styling</h3>
-                <p>Advanced neon and 80s aesthetic effects</p>
-              </div>
-              <div className="feature-card">
-                <div className="feature-icon">🎯</div>
-                <h3>Limited Availability</h3>
-                <p>Exclusive to demo mode with rate limiting</p>
-              </div>
-              <div className="feature-card">
-                <div className="feature-icon">🏆</div>
-                <h3>Collectible</h3>
-                <p>Share and track your unique creations</p>
-              </div>
             </div>
 
             {/* Footer */}
