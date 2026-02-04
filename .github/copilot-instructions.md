@@ -8,7 +8,7 @@ Purpose: short, actionable pointers so AI coding agents can be immediately produ
 - Logo generation is implemented in the browser (canvas) in `lib/logoGenerator.ts` and wired to the UI in `components/LogoGenerator.tsx`. Server routes help with image upload/serving and leaderboard persistence.
 - **Two modes of operation:**
   - `/` (normal mode) - Public logo generator with daily usage limits, regular style variants
-  - `/demo` (exclusive mode) - Demo-exclusive logos from a managed seed pool (5,000 seeds in range 100_000_000–100_004_999) with premium styling, transaction-locked for concurrency safety
+  - `/demo` (exclusive mode) - Demo-exclusive logos from a managed seed pool (9,000 seeds in range 100_000_000–100_008_999) with premium styling, transaction-locked for concurrency safety
 - **Styling system**: 80s neon arcade aesthetic with SVG filters (neon glow, chrome, bloom, holographic), deterministic color palettes, and variant pools (12 palettes, 6 gradients, 4 glows, 4 chromes, 3 blooms, 4 textures, 4 lightings) = 9,216 total style combinations
 - **Search & filters**: 7 filter components (SearchField, RarityControl, PresetControl, QuickActions, ActiveFilterPills, ResultCount, FilterBar) supporting advanced filtering (Liquid Neon, Comic Book, Wave Ripple, Holographic Shine, etc.) with rarity-based stacks
 
@@ -33,8 +33,8 @@ Purpose: short, actionable pointers so AI coding agents can be immediately produ
 - Presets and limits: presets are defined in `components/LogoGenerator.tsx` (PRESETS). Daily limits and localStorage keys are used (e.g., `TRIES_PER_DAY`, `plf:challengeHistory`) — search the component for constants if changing behavior.
 - DB patterns: server routes use Prisma but include defensive upsert and runtime SQL table-creation fallbacks (see `app/api/leaderboard/route.ts`). Tests or migrations may not be applied — code defensively handles missing tables.
 - Image endpoints: `POST /api/logo-image` returns an `imageUrl` that may point to Vercel Blob or a short-lived in-memory URL served by the same route via `id` (10 minute TTL). Use `download=1` for attachments.
-- Demo seed pool: Uses row-level locking (`SELECT FOR UPDATE SKIP LOCKED`) for concurrent access safety. Seeds marked `used=true` and `usedAt=NOW()` when consumed. Indices on `used` and `usedAt` for performance.
-- Styling locks: `DemoForgeLock` table prevents concurrent styling changes via row-level locks; `demoForgeLock.ts` manages acquisition/release.
+- Demo seed pool: Uses row-level locking (`SELECT FOR UPDATE SKIP LOCKED`) for concurrent access safety. Seeds marked `used=true`, `usedAt=NOW()`, and `usedByUserId` when consumed. Indices on `used` and `usedAt` for performance.
+- Forge lock state: `demoForgeLock.ts` manages forge lock status based on seed consumption; forge is locked when all 9,000 seeds are exhausted. Provides caching (60s TTL) for lock status queries.
 - Filter state: Immutable filter state pattern; changes trigger recalculation across 1000+ logos with debounced search (300ms) and memoized components.
 
 5. Key files to inspect (examples)
@@ -65,12 +65,12 @@ Purpose: short, actionable pointers so AI coding agents can be immediately produ
 **Key tables:**
 
 - `GeneratedLogo` — User-created logos (id, text, userId, seed, style, palette, gradient, glow, chrome, bloom, texture, lighting, rarity, createdAt, sharedCount)
-- `DemoLogoStyle` — Demo-exclusive styling (demoSeedId, svgFilters array, variant selections, intensity, fingerprint)
-- `DemoSeedPool` — Exclusive seed availability (seed PK, used, usedAt, createdAt) with indices on `used` and `usedAt`
-- `DemoForgeLock` — Row-level locks for styling updates (seedId PK, lockedBy, lockedAt, expiresAt)
+- `DemoLogoStyle` — Demo-exclusive styling (id, seed, palette, gradient, glow, chrome, bloom, texture, lighting, generatedLogoId, createdAt)
+- `DemoSeedPool` — Exclusive seed availability (seed PK, used, usedAt, usedByUserId) with indices on `used` and `usedAt`
 - `Leaderboard` — User rankings (userId PK, username, totalLogos, legendaryCount, badges, score, updatedAt)
+- Supporting tables: `Badge`, `ChallengeCompletion`, `DailyWinner`, `Feedback`, `Analytics`, `UserStats`, `UserReward`, `UserPreferences`, `LogoStyle`, `ForgedLogo`, `LeaderboardEntry`
 
-**Key relationships:** GeneratedLogo → DemoLogoStyle (one-to-many by demoSeedId), DemoLogoStyle → DemoSeedPool (one-to-one)
+**Key relationships:** GeneratedLogo → DemoLogoStyle (one-to-many by seed), DemoLogoStyle → DemoSeedPool (implicit via seed field)
 
 7. Data flow: Normal vs Demo mode
 
@@ -90,11 +90,10 @@ User inputs text → LogoGenerator component (client)
 User inputs text → LogoGenerator component with demoMode=true
 → GET /api/demo/seed (acquires exclusive seed from DemoSeedPool via row-level lock)
 → stringToSeed() on acquired seed → SeededRandom → generateLogo() on canvas
-→ DemoForgeLock acquired for styling (demoForgeLock.ts)
 → Style variant pool applied (demoStyleVariants.ts, 9,216 combinations)
 → SVG filters applied (svgFilterLibrary.ts, 7 advanced filters)
 → POST /api/logo-image → Vercel Blob (persistent, exclusive)
-→ POST /api/leaderboard with demoSeedId → Creates DemoLogoStyle record
+→ POST /api/leaderboard with demoSeed → Creates DemoLogoStyle record
 → Share to Farcaster → Frame verification via hub
 ```
 
@@ -102,7 +101,7 @@ User inputs text → LogoGenerator component with demoMode=true
 
 **Demo mode management**: [lib/hooks/useDemoMode.ts](lib/hooks/useDemoMode.ts) encapsulates demo seed logic
 
-- `resolveDemoSeed(value?)` — Maps any seed to demo range (100M-104,999) via modulo arithmetic
+- `resolveDemoSeed(value?)` — Maps any seed to demo range (100M-108,999) via modulo arithmetic
 - `consumeDemoSeed()` — Atomically consumes from pool; returns seed string or null if exhausted
 - `getEffectivePreset(normalPreset?)` — Returns demo preset config; always uses DEMO_PRESET_KEY in demo mode
 - Used in LogoGenerator.tsx: `const demoModeHook = useDemoMode(userInfo?.username)`
@@ -148,8 +147,8 @@ User inputs text → LogoGenerator component with demoMode=true
 - To reproduce client behavior locally, run `npm run dev` and open `http://localhost:3000` (the generator relies on browser Canvas APIs).
 - If Prisma errors appear during development, run `npx prisma migrate dev` (local dev) or inspect `prisma/migrations` — but builds call `prisma generate` automatically.
 - Image upload problems: confirm `BLOB_READ_WRITE_TOKEN` (optional) and `NEXT_PUBLIC_APP_URL` when testing the POST /api/logo-image flow.
-- Demo seed pool depleted: check `GET /api/demo/seed/stats` for available seed count; reseed pool via admin endpoint if needed.
-- Styling lock contention: check `DemoForgeLock` table for stale locks (compare `expiresAt` to NOW()); manually delete if expired.
+- Demo seed pool depleted: check `GET /api/demo/seed/stats` for available seed count; forge is locked when all 9,000 seeds are consumed.
+- Forge lock status: use `demoForgeLock.ts` functions `getDemoForgeLockStatus()` or `isForgeLockedAsync()` to check if new generations are allowed.
 - Filter performance: use React DevTools Profiler to check memoization; ensure virtual scrolling enabled for 1000+ items.
 
 13. When to ask the repo owner
@@ -164,5 +163,5 @@ User inputs text → LogoGenerator component with demoMode=true
 
 ---
 
-**Last updated:** January 28, 2026  
+**Last updated:** February 4, 2026  
 **Scope:** Logo generation (normal + demo exclusive), styling (SVG filters + variants), filters (7 components, advanced techniques), Farcaster integration, leaderboard + badges

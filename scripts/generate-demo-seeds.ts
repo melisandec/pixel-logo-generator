@@ -3,7 +3,7 @@
 /**
  * Admin script to generate cryptographically random demo seeds
  * Usage: npx tsx scripts/generate-demo-seeds.ts [count]
- * Default: 5000 seeds
+ * Default: 9000 seeds
  */
 
 import { randomBytes } from "crypto";

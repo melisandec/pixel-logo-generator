@@ -47,7 +47,10 @@ export async function storeLogoDemoStyle(
       });
     }
 
-    console.log(`[storeLogoDemoStyle] Stored demo style for seed ${seed}:`, fingerprint);
+    console.log(
+      `[storeLogoDemoStyle] Stored demo style for seed ${seed}:`,
+      fingerprint,
+    );
   } catch (error) {
     console.error("Failed to store demo logo style:", error);
     throw error; // Don't silently fail - let caller know

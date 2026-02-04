@@ -6,7 +6,7 @@ Comprehensive guide to the 80s exclusive demo mode system with variant pools.
 
 A limited-time 80s Synthwave-exclusive logo forge with:
 
-- **5,000 unreleased seeds** (one-time consumption each)
+- **9,000 unreleased seeds** (one-time consumption each)
 - **9,216 possible style combinations** (deterministically derived)
 - **Exclusive UI** ("⚡ Forge 80s Logo" button, locked preset)
 - **Full style tracking** (palette, gradient, glow, chrome, bloom, texture, lighting)
@@ -15,7 +15,7 @@ A limited-time 80s Synthwave-exclusive logo forge with:
 ## Architecture Overview
 
 ```
-Demo Seed Pool (5000 seeds)
+Demo Seed Pool (9000 seeds)
   ↓
 User clicks "⚡ Forge 80s Logo"
   ↓

@@ -308,7 +308,7 @@ export function generateFilterDefsFromFingerprint(
    INSERT INTO GeneratedLogo {
      seed: 3847392892,
      text: "NEON",
-     metadata: {demo: true, demoSeedId: "60a1b2c3d4e5f6g7...", ...},
+     metadata: {demo: true, demoSeed: "60a1b2c3d4e5f6g7...", ...},
    }
 
    INSERT INTO DemoLogoStyle {

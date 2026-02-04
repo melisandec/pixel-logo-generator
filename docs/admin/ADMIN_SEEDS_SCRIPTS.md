@@ -14,7 +14,7 @@ Two complementary scripts for managing the demo seed pool:
 ### Generate Seeds
 
 ```bash
-# Generate 5000 seeds (default)
+# Generate 9000 seeds (default)
 npx tsx scripts/generate-demo-seeds.ts
 
 # Generate custom count

@@ -483,7 +483,7 @@ CREATE TABLE GeneratedLogo (
   text TEXT,
   seed INT,                       -- Numeric seed (from stringToSeed)
   userId TEXT,
-  metadata JSON,                  -- {demo: true, demoSeedId: "...", ...}
+  metadata JSON,                  -- {demo: true, demoSeed: "...", ...}
   rarity TEXT,                    -- COMMON, RARE, EPIC, LEGENDARY
   createdAt TIMESTAMP,
   -- ... other fields

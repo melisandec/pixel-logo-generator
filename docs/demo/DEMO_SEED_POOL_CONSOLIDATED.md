@@ -8,8 +8,8 @@
 
 | Item                 | Value                                      |
 | -------------------- | ------------------------------------------ |
-| **Pool Size**        | 5,000 exclusive seeds                      |
-| **Seed Range**       | 100_000_000 to 100_004_999                 |
+| **Pool Size**        | 9,000 exclusive seeds                      |
+| **Seed Range**       | 100_000_000 to 100_008_999                 |
 | **Database Model**   | DemoSeedPool                               |
 | **Consumption Type** | Once-only, atomic transactions             |
 | **Tracking**         | Timestamp + User ID                        |
@@ -85,7 +85,7 @@ The `DemoSeedPool` model manages a finite set of **5,000 exclusive, unreleased s
 
 ```prisma
 model DemoSeedPool {
-  seed         String   @id           // Seed value (100_000_000 to 100_004_999)
+  seed         String   @id           // Seed value (100_000_000 to 100_008_999)
   used         Boolean  @default(false) // Consumption flag
   usedAt       DateTime?              // When consumed
   usedByUserId String?                // Who consumed it

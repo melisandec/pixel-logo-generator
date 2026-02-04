@@ -99,7 +99,9 @@ export function useSeedCrackAnimation(): UseSeedCrackAnimation {
   const getAudioContext = useCallback(() => {
     if (audioContextRef.current) return audioContextRef.current;
     const AudioContextClass =
-      window.AudioContext || (window as any).webkitAudioContext;
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
     if (!AudioContextClass) return null;
     audioContextRef.current = new AudioContextClass();
     return audioContextRef.current;
