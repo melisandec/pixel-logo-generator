@@ -4793,7 +4793,10 @@ ${remixLine ? `${remixLine}\n` : ""}${overlaysLine ? `${overlaysLine}\n` : ""}`;
           selectedPreset={selectedPreset}
           onPresetChange={setSelectedPreset}
           selectedTheme={selectedTheme}
-          onThemeChange={setSelectedTheme}
+          onThemeChange={(theme: string) => {
+            const validTheme = theme as StyleTheme;
+            setSelectedTheme(validTheme);
+          }}
           onGenerate={handleGenerate}
           onRandomGenerate={handleRandomize}
           logoResult={logoResult}

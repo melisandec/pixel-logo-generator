@@ -27,6 +27,10 @@ interface LogoGeneratorHomeProps {
   selectedPreset: string | null;
   onPresetChange: (preset: string | null) => void;
 
+  // Theme state
+  selectedTheme?: string;
+  onThemeChange?: (theme: string) => void;
+
   // Generation handlers
   onGenerate: () => Promise<void>;
   onRandomGenerate: () => Promise<void>;
@@ -158,6 +162,8 @@ export default function LogoGeneratorHome(props: LogoGeneratorHomeProps) {
     floatingComboIds,
     reorderingCastIds,
     onToggleLeaderboardLike,
+    selectedTheme,
+    onThemeChange,
   } = props;
 
   const [expandedCastImage, setExpandedCastImage] = useState<string | null>(
