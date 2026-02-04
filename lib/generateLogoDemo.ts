@@ -601,7 +601,7 @@ export function generateLogoDemo(text: string, seed: number): LogoResult {
   const demoConfig: LogoConfig = {
     text,
     seed,
-    pixelSize: 2, // Smooth rendering with readable text
+    pixelSize: 4, // Smooth rendering with readable text
     isDemo: true, // Enable antialiasing for demo logos
     backgroundColor: primaryColor,
     backgroundStyle: backgroundStyle,

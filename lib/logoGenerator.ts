@@ -972,11 +972,21 @@ export function generateLogo(config: LogoConfig): LogoResult {
 
   // Canvas setup
   const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", {
+    willReadFrequently: true,
+    alpha: true,
+  });
   if (!ctx) throw new Error("Could not get canvas context");
 
-  // Enable antialiasing for demo mode (smoother text), disable for normal (pixel art)
-  ctx.imageSmoothingEnabled = config.isDemo ?? false;
+  // Configure image smoothing based on mode
+  if (config.isDemo) {
+    // Demo mode: smooth rendering with high quality for better appearance
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+  } else {
+    // Normal mode: disable smoothing for crisp pixel art
+    ctx.imageSmoothingEnabled = false;
+  }
 
   // Measure text
   const fontSize = pixelSize * 12;
